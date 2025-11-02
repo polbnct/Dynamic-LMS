@@ -2,7 +2,7 @@
 
 A modern, full-featured Learning Management System (LMS) built with Next.js and Supabase. This platform provides separate interfaces for students and professors, enabling seamless course management, content delivery, and student tracking.
 
-## 🚀 Features
+## Features
 
 ### For Students
 - **Dashboard**: Overview of enrolled courses with progress tracking
@@ -31,7 +31,7 @@ A modern, full-featured Learning Management System (LMS) built with Next.js and 
 - **Modern UI/UX**: Beautiful, responsive design with gradient themes
 - **Real-time Updates**: Built with Next.js for optimal performance
 
-## 🛠️ Tech Stack
+## Tech Stack
 
 - **Framework**: [Next.js 16.0.1](https://nextjs.org/) (React 19.2.0)
 - **Language**: TypeScript
@@ -42,7 +42,7 @@ A modern, full-featured Learning Management System (LMS) built with Next.js and 
   - Server-side rendering support
 - **Deployment**: Ready for Vercel deployment
 
-## 📋 Prerequisites
+## Prerequisites
 
 Before you begin, ensure you have the following installed:
 
@@ -50,7 +50,7 @@ Before you begin, ensure you have the following installed:
 - npm or yarn package manager
 - A Supabase account (for backend services)
 
-## 🔧 Installation
+## Installation
 
 1. **Clone the repository**
    ```bash
