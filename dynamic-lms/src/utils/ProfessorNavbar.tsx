@@ -3,60 +3,58 @@
 import React, { useState } from "react";
 import Link from "next/link";
 
-// Sample enrolled courses data
-const ENROLLED_COURSES = [
-  {
-    id: 1,
-    name: "Discrete Structures",
-    code: "CS101",
-    instructor: "Dr. Jane Smith",
-    progress: 60,
-  },
-  {
-    id: 2,
-    name: "Data Structures and Algorithms",
-    code: "CS201",
-    instructor: "Prof. John Doe",
-    progress: 45,
-  },
-  {
-    id: 3,
-    name: "Web Development",
-    code: "CS301",
-    instructor: "Dr. Sarah Johnson",
-    progress: 80,
-  },
-];
+interface HandledCourse {
+  id: number;
+  name: string;
+  code: string;
+  studentsCount?: number;
+}
 
-export default function StudentDashboard() {
+interface ProfessorNavbarProps {
+  currentPage?: "profile" | "courses" | "dashboard";
+  onCreateCourse?: (courseName: string) => void;
+  handledCourses?: HandledCourse[];
+}
+
+export default function ProfessorNavbar({
+  currentPage,
+  onCreateCourse,
+  handledCourses = [],
+}: ProfessorNavbarProps) {
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
-  const [joinCourseModalOpen, setJoinCourseModalOpen] = useState(false);
-  const [classroomCode, setClassroomCode] = useState("");
+  const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false);
+  const [courseName, setCourseName] = useState("");
   const [error, setError] = useState("");
 
-  const handleJoinCourse = (e: React.FormEvent) => {
+  const handleCreateCourse = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
-    if (!classroomCode.trim()) {
-      setError("Please enter a classroom code.");
+    if (!courseName.trim()) {
+      setError("Please enter a course name.");
       return;
     }
 
-    // TODO: Add real join course logic here
-    alert(`Joining course with code: ${classroomCode}`);
-    setClassroomCode("");
-    setJoinCourseModalOpen(false);
+    // Call the parent's onCreateCourse handler
+    if (onCreateCourse) {
+      onCreateCourse(courseName.trim());
+    } else {
+      // Fallback if no handler provided
+      alert(`Creating course: ${courseName.trim()}`);
+    }
+
+    setCourseName("");
+    setCreateCourseModalOpen(false);
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <>
       {/* Modern Navbar */}
       <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16">
             {/* Logo */}
-            <div className="flex items-center gap-2">
+            <Link href="/prof" className="flex items-center gap-2">
               <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg
                   className="w-6 h-6 text-white"
@@ -75,14 +73,18 @@ export default function StudentDashboard() {
               <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
                 Dynamic LMS
               </span>
-            </div>
+            </Link>
 
             {/* Nav Items */}
             <div className="flex items-center gap-4">
               {/* Profile */}
               <Link
-                href="/student/profile"
-                className="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                href="/prof/profile"
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                  currentPage === "profile"
+                    ? "text-indigo-600 bg-indigo-50"
+                    : "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+                }`}
               >
                 Profile
               </Link>
@@ -91,7 +93,11 @@ export default function StudentDashboard() {
               <div className="relative">
                 <button
                   onClick={() => setCoursesDropdownOpen(!coursesDropdownOpen)}
-                  className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                  className={`flex items-center gap-2 px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                    currentPage === "courses"
+                      ? "text-indigo-600 bg-indigo-50"
+                      : "text-gray-700 hover:text-indigo-600 hover:bg-indigo-50"
+                  }`}
                 >
                   <span>Courses</span>
                   <svg
@@ -118,22 +124,22 @@ export default function StudentDashboard() {
                     ></div>
                     <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 overflow-hidden">
                       <div className="p-4 border-b border-gray-200 bg-gradient-to-r from-indigo-50 to-purple-50">
-                        <h3 className="font-bold text-lg text-gray-800">My Courses</h3>
+                        <h3 className="font-bold text-lg text-gray-800">Handled Courses</h3>
                         <p className="text-sm text-gray-600 mt-1">
-                          {ENROLLED_COURSES.length} enrolled course{ENROLLED_COURSES.length !== 1 ? "s" : ""}
+                          {handledCourses.length} course{handledCourses.length !== 1 ? "s" : ""} you manage
                         </p>
                       </div>
                       <div className="max-h-96 overflow-y-auto">
-                        {ENROLLED_COURSES.length === 0 ? (
+                        {handledCourses.length === 0 ? (
                           <div className="p-8 text-center text-gray-500">
-                            <p>No enrolled courses yet.</p>
+                            <p>No courses yet. Create your first course!</p>
                           </div>
                         ) : (
                           <div className="divide-y divide-gray-100">
-                            {ENROLLED_COURSES.map((course) => (
+                            {handledCourses.map((course) => (
                               <Link
                                 key={course.id}
-                                href={`/student/courses/${course.id}`}
+                                href={`/prof/courses/${course.id}`}
                                 onClick={() => setCoursesDropdownOpen(false)}
                                 className="block p-4 hover:bg-indigo-50 transition-colors"
                               >
@@ -141,24 +147,28 @@ export default function StudentDashboard() {
                                   <div className="flex-1">
                                     <h4 className="font-semibold text-gray-800">{course.name}</h4>
                                     <p className="text-sm text-gray-600 mt-1">{course.code}</p>
-                                    <p className="text-xs text-gray-500 mt-1">
-                                      {course.instructor}
-                                    </p>
+                                    {course.studentsCount !== undefined && (
+                                      <p className="text-xs text-gray-500 mt-1">
+                                        {course.studentsCount} student{course.studentsCount !== 1 ? "s" : ""}
+                                      </p>
+                                    )}
                                   </div>
                                   <div className="ml-4">
-                                    <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center">
-                                      <span className="text-2xl font-bold text-indigo-600">
-                                        {course.progress}%
-                                      </span>
+                                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center">
+                                      <svg
+                                        className="w-6 h-6 text-indigo-600"
+                                        fill="none"
+                                        stroke="currentColor"
+                                        viewBox="0 0 24 24"
+                                      >
+                                        <path
+                                          strokeLinecap="round"
+                                          strokeLinejoin="round"
+                                          strokeWidth={2}
+                                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                                        />
+                                      </svg>
                                     </div>
-                                  </div>
-                                </div>
-                                <div className="mt-3">
-                                  <div className="w-full bg-gray-200 rounded-full h-2">
-                                    <div
-                                      className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all"
-                                      style={{ width: `${course.progress}%` }}
-                                    ></div>
                                   </div>
                                 </div>
                               </Link>
@@ -170,7 +180,7 @@ export default function StudentDashboard() {
                         <button
                           onClick={() => {
                             setCoursesDropdownOpen(false);
-                            setJoinCourseModalOpen(true);
+                            setCreateCourseModalOpen(true);
                           }}
                           className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2"
                         >
@@ -187,7 +197,7 @@ export default function StudentDashboard() {
                               d="M12 4v16m8-8H4"
                             />
                           </svg>
-                          Join Course
+                          Create Course
                         </button>
                       </div>
                     </div>
@@ -217,99 +227,14 @@ export default function StudentDashboard() {
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
-            Welcome Back!
-          </h1>
-          <p className="text-gray-600">Continue your learning journey</p>
-        </div>
-
-        {/* Course Cards Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {ENROLLED_COURSES.map((course) => (
-            <Link
-              key={course.id}
-              href={`/student/courses/${course.id}`}
-              className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
-            >
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">
-                    {course.name}
-                  </h3>
-                  <p className="text-sm text-gray-500 mt-1">{course.code}</p>
-                  <p className="text-xs text-gray-400 mt-1">{course.instructor}</p>
-                </div>
-                <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                  <span className="text-lg font-bold text-indigo-600">{course.progress}%</span>
-                </div>
-              </div>
-              <div className="mt-4">
-                <div className="w-full bg-gray-200 rounded-full h-2">
-                  <div
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all"
-                    style={{ width: `${course.progress}%` }}
-                  ></div>
-                </div>
-                <p className="text-xs text-gray-500 mt-2">Progress</p>
-              </div>
-            </Link>
-          ))}
-        </div>
-
-        {/* Empty State */}
-        {ENROLLED_COURSES.length === 0 && (
-          <div className="text-center py-16">
-            <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-              <svg
-                className="w-12 h-12 text-indigo-600"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                />
-              </svg>
-            </div>
-            <h3 className="text-xl font-semibold text-gray-800 mb-2">No courses yet</h3>
-            <p className="text-gray-600 mb-6">Join a course to get started</p>
-            <button
-              onClick={() => setJoinCourseModalOpen(true)}
-              className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-            >
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M12 4v16m8-8H4"
-                />
-              </svg>
-              Join Course
-            </button>
-          </div>
-        )}
-      </main>
-
-      {/* Join Course Modal */}
-      {joinCourseModalOpen && (
+      {/* Create Course Modal */}
+      {createCourseModalOpen && (
         <>
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
             onClick={() => {
-              setJoinCourseModalOpen(false);
-              setClassroomCode("");
+              setCreateCourseModalOpen(false);
+              setCourseName("");
               setError("");
             }}
           >
@@ -319,12 +244,12 @@ export default function StudentDashboard() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Join Course
+                  Create New Course
                 </h2>
                 <button
                   onClick={() => {
-                    setJoinCourseModalOpen(false);
-                    setClassroomCode("");
+                    setCreateCourseModalOpen(false);
+                    setCourseName("");
                     setError("");
                   }}
                   className="text-gray-400 hover:text-gray-600 transition-colors"
@@ -345,13 +270,13 @@ export default function StudentDashboard() {
                 </button>
               </div>
 
-              <form onSubmit={handleJoinCourse} className="space-y-4">
+              <form onSubmit={handleCreateCourse} className="space-y-4">
                 <div>
                   <label
-                    htmlFor="classroomCode"
+                    htmlFor="courseName"
                     className="block text-sm font-semibold text-gray-700 mb-2"
                   >
-                    Classroom Code
+                    Course Name
                   </label>
                   <div className="relative">
                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -365,23 +290,22 @@ export default function StudentDashboard() {
                           strokeLinecap="round"
                           strokeLinejoin="round"
                           strokeWidth={2}
-                          d="M15 10l4.553-2.276A1 1 0 0121 8.618v6.764a1 1 0 01-1.447.894L15 14M5 18h8a2 2 0 002-2V8a2 2 0 00-2-2H5a2 2 0 00-2 2v8a2 2 0 002 2z"
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
                         />
                       </svg>
                     </div>
                     <input
-                      id="classroomCode"
+                      id="courseName"
                       type="text"
-                      value={classroomCode}
-                      onChange={(e) => setClassroomCode(e.target.value.toUpperCase())}
-                      placeholder="Enter classroom code"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white uppercase"
-                      maxLength={10}
+                      value={courseName}
+                      onChange={(e) => setCourseName(e.target.value)}
+                      placeholder="Enter course name"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                       autoFocus
                     />
                   </div>
                   <p className="mt-2 text-xs text-gray-500">
-                    Enter the code provided by your instructor
+                    Enter the name of the course you want to create
                   </p>
                 </div>
 
@@ -408,8 +332,8 @@ export default function StudentDashboard() {
                   <button
                     type="button"
                     onClick={() => {
-                      setJoinCourseModalOpen(false);
-                      setClassroomCode("");
+                      setCreateCourseModalOpen(false);
+                      setCourseName("");
                       setError("");
                     }}
                     className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
@@ -420,7 +344,7 @@ export default function StudentDashboard() {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                   >
-                    Join Course
+                    Create Course
                   </button>
                 </div>
               </form>
@@ -428,6 +352,7 @@ export default function StudentDashboard() {
           </div>
         </>
       )}
-    </div>
+    </>
   );
 }
+
