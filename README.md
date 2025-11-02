@@ -83,5 +83,3 @@ Before you begin, ensure you have the following installed:
 5. **Open your browser**
    
    Navigate to [http://localhost:3000](http://localhost:3000)
-
-## 📁 Project Structure
