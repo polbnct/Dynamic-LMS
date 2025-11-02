@@ -1,70 +1,113 @@
 "use client";
 
-import React from "react";
-
-const COURSES = [
-  {
-    name: "Discrete Structures",
-    code: "CS101",
-    progress: 60,
-    hasNewQuiz: true,
-  },
-];
+import React, { useEffect, useState } from "react";
+import Link from "next/link";
+import StudentNavbar from "@/utils/StudentNavbar";
+import { getStudentCourses, getCurrentStudentId, CourseWithStudents } from "@/lib/mockData/courses";
 
 export default function StudentCourses() {
+  const [courses, setCourses] = useState<CourseWithStudents[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    async function fetchCourses() {
+      try {
+        const studentId = getCurrentStudentId();
+        const enrolledCourses = await getStudentCourses(studentId);
+        setCourses(enrolledCourses);
+      } catch (err) {
+        console.error("Error fetching courses:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchCourses();
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+        <StudentNavbar currentPage="courses" />
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+          <div className="flex items-center justify-center py-16">
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   return (
-    <div className="flex min-h-screen bg-red-50">
-      {/* Sidebar */}
-      <aside className="w-64 flex flex-col bg-white border-r border-red-200 p-6 shadow-md min-h-screen">
-        <div className="flex flex-col gap-6 flex-1">
-          <SidebarNavItem label="Dashboard" />
-          <SidebarNavItem label="My Courses" active />
-          <SidebarNavItem label="Profile" />
-        </div>
-        <button className="mt-10 text-red-600 font-semibold hover:text-red-800">Logout</button>
-      </aside>
-      {/* Main */}
-      <main className="flex-1 px-12 py-10">
-        <h1 className="text-3xl font-bold text-red-600 mb-8">My Courses</h1>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-7 mt-10">
-          {COURSES.map((course, idx) => (
-            <div key={idx} className="relative h-44 bg-white border border-red-200 rounded-2xl shadow flex flex-col justify-between p-6 hover:shadow-lg transition">
-              <div className="flex items-center gap-3 mb-3">
-                <div>
-                  <span className="block font-bold text-xl text-red-700">{course.name}</span>
-                  <span className="block text-red-400 text-sm">{course.code}</span>
-                </div>
-                {course.hasNewQuiz && (
-                  <span className="ml-3 text-xs bg-red-600 text-white rounded-full px-3 py-1">New Quiz!</span>
-                )}
-              </div>
-              <div>
-                <div className="w-full bg-red-100 rounded-full h-2 mb-1">
-                  <div style={{ width: course.progress + '%' }} className="bg-red-400 h-2 rounded-full" />
-                </div>
-                <div className="text-xs text-red-500">Progress: {course.progress}%</div>
-              </div>
+    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <StudentNavbar currentPage="courses" />
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-8">
+          My Courses
+        </h1>
+        
+        {courses.length === 0 ? (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-12 text-center">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
+              <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                />
+              </svg>
             </div>
-          ))}
-        </div>
+            <h3 className="text-xl font-semibold text-gray-800 mb-2">No courses enrolled</h3>
+            <p className="text-gray-600">Join a course to get started</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+            {courses.map((course) => {
+              // Calculate progress (mock - replace with real calculation)
+              const progress = Math.floor(Math.random() * 40) + 50;
+              
+              return (
+                <Link
+                  key={course.id}
+                  href={`/student/courses/${course.id}/content`}
+                  className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200 transform hover:-translate-y-1"
+                >
+                  <div className="flex items-start justify-between mb-4">
+                    <div className="flex-1">
+                      <h3 className="text-xl font-bold text-gray-800 mb-1">{course.name}</h3>
+                      <p className="text-gray-600 text-sm">{course.code}</p>
+                      <p className="text-gray-500 text-xs mt-1">{course.professorName}</p>
+                    </div>
+                    <div className="w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-lg flex items-center justify-center">
+                      <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+                        />
+                      </svg>
+                    </div>
+                  </div>
+                  
+                  <div className="mt-4">
+                    <div className="flex items-center justify-between mb-2">
+                      <span className="text-sm font-medium text-gray-700">Progress</span>
+                      <span className="text-sm font-semibold text-indigo-600">{progress}%</span>
+                    </div>
+                    <div className="w-full bg-gray-200 rounded-full h-2">
+                      <div
+                        className="bg-gradient-to-r from-indigo-600 to-purple-600 h-2 rounded-full transition-all duration-300"
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </main>
     </div>
   );
 }
-
-function SidebarNavItem({ label, active }: { label: string; active?: boolean }) {
-  return (
-    <a
-      href="#"
-      className={
-        "py-2 px-4 rounded-lg font-medium text-lg text-left " +
-        (active ? "bg-red-100 text-red-700" : "text-red-500 hover:bg-red-50 hover:text-red-700")
-      }
-    >
-      {label}
-    </a>
-  );
-}
-
-
-
