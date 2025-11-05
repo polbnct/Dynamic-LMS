@@ -18,7 +18,7 @@ interface Assignment {
   createdAt: string;
   dueDate?: string;
 }
-
+// comment
 export default function AssignmentsPage() {
   const params = useParams();
   const courseId = params.id as string;
