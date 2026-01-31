@@ -9,9 +9,16 @@ import {
   getCourseById,
   getCourseStudents,
   getCurrentProfessorId,
-  CourseWithStudents,
-  Student,
-} from "@/lib/mockData/courses";
+  type CourseWithStudents,
+} from "@/lib/supabase/queries/courses.client";
+
+interface Student {
+  id: string;
+  name: string;
+  email: string;
+  studentId?: string;
+  enrolledAt: string;
+}
 
 export default function ClasslistPage() {
   const params = useParams();

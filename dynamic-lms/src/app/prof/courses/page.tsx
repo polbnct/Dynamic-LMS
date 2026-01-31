@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import { getProfessorCourses, getCurrentProfessorId, CourseWithStudents } from "@/lib/mockData/courses";
+import { getProfessorCourses, getCurrentProfessorId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 
 export default function ProfCoursesPage() {
   const [courses, setCourses] = useState<CourseWithStudents[]>([]);
@@ -14,7 +14,12 @@ export default function ProfCoursesPage() {
     async function fetchCourses() {
       try {
         setLoading(true);
-        const professorId = getCurrentProfessorId();
+        // Try to create professor record if it doesn't exist
+        const professorId = await getCurrentProfessorId(true);
+        if (!professorId) {
+          setError("Unable to access professor account. Please ensure you signed up as a professor or contact support.");
+          return;
+        }
         const data = await getProfessorCourses(professorId);
         setCourses(data);
         setError("");
@@ -115,7 +120,7 @@ export default function ProfCoursesPage() {
                           {course.name}
                         </h3>
                         <p className="text-sm text-gray-500 mt-1">{course.code}</p>
-                        <p className="text-xs text-gray-400 mt-1">Classroom: {course.classroomCode}</p>
+                        <p className="text-xs text-gray-400 mt-1">Classroom: {course.classroom_code}</p>
                       </div>
                       <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                         <svg

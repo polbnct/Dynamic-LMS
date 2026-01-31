@@ -2,7 +2,9 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { getStudentCourses, getCurrentStudentId, CourseWithStudents } from "@/lib/mockData/courses";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
+import { getStudentCourses, getCurrentStudentId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 
 interface StudentNavbarProps {
   currentPage?: "profile" | "courses" | "dashboard";
@@ -10,14 +12,35 @@ interface StudentNavbarProps {
 }
 
 export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse }: StudentNavbarProps) {
+  const router = useRouter();
+  const supabase = createClient();
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
   const [enrolledCourses, setEnrolledCourses] = useState<CourseWithStudents[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Logout error:", error);
+        alert("Failed to logout. Please try again.");
+      } else {
+        router.push("/login");
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+      alert("Failed to logout. Please try again.");
+    }
+  };
+
   useEffect(() => {
     async function fetchCourses() {
       try {
-        const studentId = getCurrentStudentId();
+        const studentId = await getCurrentStudentId();
+        if (!studentId) {
+          setLoading(false);
+          return;
+        }
         const courses = await getStudentCourses(studentId);
         setEnrolledCourses(courses);
       } catch (err) {
@@ -181,7 +204,10 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
             </div>
 
             {/* Logout */}
-            <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+            <button 
+              onClick={handleLogout}
+              className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+            >
               <svg
                 className="w-5 h-5"
                 fill="none"

@@ -5,39 +5,22 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import { getCourseById, getCurrentProfessorId } from "@/lib/mockData/courses";
+import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
+import { getQuizzes, getQuestions, createQuestion, createQuiz } from "@/lib/supabase/queries/quizzes";
+import { getLessons } from "@/lib/supabase/queries/lessons";
+import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
+import type { Lesson } from "@/lib/supabase/queries/lessons";
 
-// Quiz question interfaces
-type QuestionType = "multiple_choice" | "true_false" | "fill_blank" | "mixed";
-
-interface BaseQuestion {
+// Quiz question interfaces for UI
+interface Question {
   id: string;
-  type: QuestionType;
+  type: "multiple_choice" | "true_false" | "fill_blank";
   question: string;
-  source?: string; // lesson ID or PDF name
-  sourceType?: "lesson" | "pdf";
-  createdAt: string;
-}
-
-interface MultipleChoiceQuestion extends BaseQuestion {
-  type: "multiple_choice";
-  options: string[];
-  correctAnswer: number; // index of correct option
-}
-
-interface TrueFalseQuestion extends BaseQuestion {
-  type: "true_false";
-  correctAnswer: boolean;
-}
-
-interface FillBlankQuestion extends BaseQuestion {
-  type: "fill_blank";
-  correctAnswer: string;
-}
-
-interface Question extends BaseQuestion {
   options?: string[];
   correctAnswer: number | boolean | string;
+  source?: string;
+  sourceType?: "lesson" | "pdf";
+  createdAt: string;
 }
 
 // Mock lessons for reference
@@ -47,73 +30,7 @@ interface Lesson {
   pdfFileName?: string;
 }
 
-// Mock quiz bank questions
-const MOCK_QUIZ_BANK: Question[] = [
-  {
-    id: "q1",
-    type: "multiple_choice",
-    question: "What is a set in discrete mathematics?",
-    options: ["A collection of distinct objects", "A mathematical function", "A type of relation", "A graph structure"],
-    correctAnswer: 0,
-    source: "1",
-    sourceType: "lesson",
-    createdAt: "2024-01-15T10:00:00Z",
-  },
-  {
-    id: "q2",
-    type: "multiple_choice",
-    question: "Which operator is used for logical AND?",
-    options: ["&&", "||", "!", "^"],
-    correctAnswer: 0,
-    source: "2",
-    sourceType: "lesson",
-    createdAt: "2024-01-20T10:00:00Z",
-  },
-  {
-    id: "q3",
-    type: "true_false",
-    question: "A set can contain duplicate elements.",
-    correctAnswer: false,
-    source: "1",
-    sourceType: "lesson",
-    createdAt: "2024-01-15T10:00:00Z",
-  },
-  {
-    id: "q4",
-    type: "true_false",
-    question: "Propositional logic deals with statements that can be true or false.",
-    correctAnswer: true,
-    source: "2",
-    sourceType: "lesson",
-    createdAt: "2024-01-20T10:00:00Z",
-  },
-  {
-    id: "q5",
-    type: "fill_blank",
-    question: "The union of sets A and B is denoted as ______.",
-    correctAnswer: "A ∪ B",
-    source: "3",
-    sourceType: "lesson",
-    createdAt: "2024-01-25T10:00:00Z",
-  },
-  {
-    id: "q6",
-    type: "fill_blank",
-    question: "A function that maps every element to itself is called an ______ function.",
-    correctAnswer: "identity",
-    source: "4",
-    sourceType: "lesson",
-    createdAt: "2024-02-01T10:00:00Z",
-  },
-];
-
-// Mock lessons
-const MOCK_LESSONS: Lesson[] = [
-  { id: "1", title: "Introduction to Discrete Structures", pdfFileName: "Introduction.pdf" },
-  { id: "2", title: "Propositional Logic", pdfFileName: "Propositional_Logic.pdf" },
-  { id: "3", title: "Set Theory Basics", pdfFileName: "Set_Theory.pdf" },
-  { id: "4", title: "Relations and Functions", pdfFileName: "Relations_Functions.pdf" },
-];
+// Quiz question interfaces for UI
 
 export default function QuizzesPage() {
   const params = useParams();
@@ -121,6 +38,7 @@ export default function QuizzesPage() {
 
   const [course, setCourse] = useState<any>(null);
   const [quizzes, setQuizzes] = useState<any[]>([]);
+  const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [createQuizModalOpen, setCreateQuizModalOpen] = useState(false);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
@@ -128,10 +46,10 @@ export default function QuizzesPage() {
 
   // Form state
   const [quizName, setQuizName] = useState("");
-  const [quizType, setQuizType] = useState<QuestionType>("mixed");
+  const [quizType, setQuizType] = useState<"mixed" | "multiple_choice" | "true_false" | "fill_blank">("mixed");
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
-  const [quizBank, setQuizBank] = useState<Question[]>(MOCK_QUIZ_BANK);
-  const [filteredBank, setFilteredBank] = useState<Question[]>(MOCK_QUIZ_BANK);
+  const [quizBank, setQuizBank] = useState<Question[]>([]);
+  const [filteredBank, setFilteredBank] = useState<Question[]>([]);
 
   // Create question form
   const [newQuestion, setNewQuestion] = useState({
@@ -153,7 +71,31 @@ export default function QuizzesPage() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        setQuizzes([]);
+        
+        // Fetch quizzes, questions, and lessons
+        const [quizzesData, questionsData, lessonsData] = await Promise.all([
+          getQuizzes(courseId),
+          getQuestions(courseId),
+          getLessons(courseId),
+        ]);
+        
+        setQuizzes(quizzesData);
+        setLessons(lessonsData);
+        
+        // Transform questions to match UI format
+        const transformedQuestions = questionsData.map((q) => ({
+          id: q.id,
+          type: q.type,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correct_answer,
+          source: q.source_lesson_id,
+          sourceType: q.source_type,
+          createdAt: q.created_at,
+        }));
+        
+        setQuizBank(transformedQuestions);
+        setFilteredBank(transformedQuestions);
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -186,37 +128,70 @@ export default function QuizzesPage() {
     setGenerateModalOpen(true);
   };
 
-  const handleGenerateFromSource = (sourceId: string, sourceType: "lesson" | "pdf") => {
-    // Simulate generating questions from lesson/PDF
-    const generatedQuestions: Question[] = [
-      {
-        id: `gen-${Date.now()}-1`,
-        type: quizType === "mixed" ? "multiple_choice" : quizType,
-        question: `Generated question from ${sourceType === "lesson" ? "lesson" : "PDF"}`,
-        options: quizType === "multiple_choice" || quizType === "mixed" ? ["Option A", "Option B", "Option C", "Option D"] : undefined,
-        correctAnswer: quizType === "multiple_choice" || quizType === "mixed" ? 0 : quizType === "true_false" ? true : "answer",
-        source: sourceId,
-        sourceType,
-        createdAt: new Date().toISOString(),
-      },
-      {
-        id: `gen-${Date.now()}-2`,
-        type: quizType === "mixed" ? "true_false" : quizType,
-        question: `Another generated question from ${sourceType === "lesson" ? "lesson" : "PDF"}`,
-        correctAnswer: quizType === "true_false" || quizType === "mixed" ? false : quizType === "fill_blank" ? "answer" : 1,
-        source: sourceId,
-        sourceType,
-        createdAt: new Date().toISOString(),
-      },
-    ];
+  const handleGenerateFromSource = async (sourceId: string, sourceType: "lesson" | "pdf") => {
+    try {
+      const response = await fetch("/api/gemini/generate-questions", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonId: sourceId,
+          questionType: quizType,
+          count: 5,
+        }),
+      });
 
-    setQuizBank([...quizBank, ...generatedQuestions]);
-    setGenerateModalOpen(false);
-    setSuccess(`Generated ${generatedQuestions.length} questions!`);
-    setTimeout(() => setSuccess(""), 3000);
+      if (!response.ok) {
+        throw new Error("Failed to generate questions");
+      }
+
+      const { questions: generatedQuestions } = await response.json();
+
+      // Get professor ID
+      const professorId = await getCurrentProfessorId(true);
+      if (!professorId) {
+        throw new Error("Professor not found");
+      }
+
+      // Save generated questions to database
+      const savedQuestions = await Promise.all(
+        generatedQuestions.map((q: any) =>
+          createQuestion({
+            course_id: courseId,
+            professor_id: professorId,
+            type: q.type,
+            question: q.question,
+            options: q.options,
+            correct_answer: q.correct_answer,
+            source_lesson_id: q.source_lesson_id,
+            source_type: q.source_type,
+          })
+        )
+      );
+
+      // Transform and add to quiz bank
+      const transformedQuestions = savedQuestions.map((q) => ({
+        id: q.id,
+        type: q.type,
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correct_answer,
+        source: q.source_lesson_id,
+        sourceType: q.source_type,
+        createdAt: q.created_at,
+      }));
+
+      setQuizBank([...quizBank, ...transformedQuestions]);
+      setFilteredBank([...filteredBank, ...transformedQuestions]);
+      setGenerateModalOpen(false);
+      setSuccess(`Generated ${transformedQuestions.length} questions!`);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      console.error("Error generating questions:", err);
+      setError(err.message || "Failed to generate questions");
+    }
   };
 
-  const handleCreateQuestion = () => {
+  const handleCreateQuestion = async () => {
     setError("");
     setSuccess("");
 
@@ -232,42 +207,65 @@ export default function QuizzesPage() {
       }
     }
 
-    const question: Question = {
-      id: `q-${Date.now()}`,
-      type: newQuestion.type,
-      question: newQuestion.question.trim(),
-      options: newQuestion.type === "multiple_choice" ? newQuestion.options : undefined,
-      correctAnswer:
-        newQuestion.type === "multiple_choice"
-          ? newQuestion.correctAnswer
-          : newQuestion.type === "true_false"
-          ? newQuestion.trueFalseAnswer
-          : newQuestion.fillBlankAnswer,
-      source: newQuestion.source || undefined,
-      sourceType: newQuestion.sourceType,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const professorId = await getCurrentProfessorId(true);
+      if (!professorId) {
+        throw new Error("Professor not found");
+      }
 
-    setQuizBank([...quizBank, question]);
-    setSelectedQuestions([...selectedQuestions, question]);
-    setCreateQuestionModalOpen(false);
-    setSuccess("Question created and added to quiz!");
-    setTimeout(() => setSuccess(""), 3000);
+      const question = await createQuestion({
+        course_id: courseId,
+        professor_id: professorId,
+        type: newQuestion.type === "mixed" ? "multiple_choice" : newQuestion.type,
+        question: newQuestion.question.trim(),
+        options: newQuestion.type === "multiple_choice" ? newQuestion.options : undefined,
+        correct_answer:
+          newQuestion.type === "multiple_choice"
+            ? newQuestion.correctAnswer
+            : newQuestion.type === "true_false"
+            ? newQuestion.trueFalseAnswer
+            : newQuestion.fillBlankAnswer,
+        source_lesson_id: newQuestion.source || undefined,
+        source_type: newQuestion.sourceType,
+      });
 
-    // Reset form
-    setNewQuestion({
-      type: "multiple_choice",
-      question: "",
-      options: ["", "", "", ""],
-      correctAnswer: 0,
-      trueFalseAnswer: true,
-      fillBlankAnswer: "",
-      source: "",
-      sourceType: "lesson",
-    });
+      // Transform and add to quiz bank
+      const transformedQuestion = {
+        id: question.id,
+        type: question.type,
+        question: question.question,
+        options: question.options,
+        correctAnswer: question.correct_answer,
+        source: question.source_lesson_id,
+        sourceType: question.source_type,
+        createdAt: question.created_at,
+      };
+
+      setQuizBank([...quizBank, transformedQuestion]);
+      setFilteredBank([...filteredBank, transformedQuestion]);
+      setSelectedQuestions([...selectedQuestions, transformedQuestion]);
+      setCreateQuestionModalOpen(false);
+      setSuccess("Question created and added to quiz!");
+      setTimeout(() => setSuccess(""), 3000);
+
+      // Reset form
+      setNewQuestion({
+        type: "multiple_choice",
+        question: "",
+        options: ["", "", "", ""],
+        correctAnswer: 0,
+        trueFalseAnswer: true,
+        fillBlankAnswer: "",
+        source: "",
+        sourceType: "lesson",
+      });
+    } catch (err: any) {
+      console.error("Error creating question:", err);
+      setError(err.message || "Failed to create question");
+    }
   };
 
-  const handleCreateQuiz = () => {
+  const handleCreateQuiz = async () => {
     setError("");
     setSuccess("");
 
@@ -281,26 +279,35 @@ export default function QuizzesPage() {
       return;
     }
 
-    const quiz = {
-      id: String(quizzes.length + 1),
-      name: quizName.trim(),
-      type: quizType,
-      questions: selectedQuestions,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      const questionIds = selectedQuestions.map((q) => q.id);
+      const quiz = await createQuiz(
+        courseId,
+        {
+          name: quizName.trim(),
+          type: quizType,
+        },
+        questionIds
+      );
 
-    setQuizzes([...quizzes, quiz]);
-    setSuccess("Quiz created successfully!");
+      // Fetch updated quizzes
+      const updatedQuizzes = await getQuizzes(courseId);
+      setQuizzes(updatedQuizzes);
+      setSuccess("Quiz created successfully!");
 
-    // Reset form
-    setQuizName("");
-    setQuizType("mixed");
-    setSelectedQuestions([]);
+      // Reset form
+      setQuizName("");
+      setQuizType("mixed");
+      setSelectedQuestions([]);
 
-    setTimeout(() => {
-      setCreateQuizModalOpen(false);
-      setSuccess("");
-    }, 1000);
+      setTimeout(() => {
+        setCreateQuizModalOpen(false);
+        setSuccess("");
+      }, 1000);
+    } catch (err: any) {
+      console.error("Error creating quiz:", err);
+      setError(err.message || "Failed to create quiz");
+    }
   };
 
   const handleCancel = () => {
@@ -777,18 +784,27 @@ export default function QuizzesPage() {
               </div>
               <p className="text-gray-600 mb-4">Select a lesson or PDF to generate questions from:</p>
               <div className="space-y-2 max-h-96 overflow-y-auto">
-                {MOCK_LESSONS.map((lesson) => (
-                  <button
-                    key={lesson.id}
-                    onClick={() => handleGenerateFromSource(lesson.id, "lesson")}
-                    className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                  >
-                    <div className="font-semibold text-gray-800">{lesson.title}</div>
-                    {lesson.pdfFileName && (
-                      <div className="text-sm text-gray-500 mt-1">PDF: {lesson.pdfFileName}</div>
-                    )}
-                  </button>
-                ))}
+                {lessons.length === 0 ? (
+                  <div className="p-4 text-center text-gray-500">
+                    No lessons available. Create lessons first to generate questions.
+                  </div>
+                ) : (
+                  lessons.map((lesson) => (
+                    <button
+                      key={lesson.id}
+                      onClick={() => handleGenerateFromSource(lesson.id, "lesson")}
+                      className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
+                    >
+                      <div className="font-semibold text-gray-800">{lesson.title}</div>
+                      {lesson.description && (
+                        <div className="text-sm text-gray-500 mt-1">{lesson.description}</div>
+                      )}
+                      {lesson.pdf_file_path && (
+                        <div className="text-sm text-gray-500 mt-1">PDF: {lesson.pdf_file_path.split("/").pop()}</div>
+                      )}
+                    </button>
+                  ))
+                )}
               </div>
             </div>
           </div>
@@ -941,7 +957,7 @@ export default function QuizzesPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   >
                     <option value="">None</option>
-                    {MOCK_LESSONS.map((lesson) => (
+                    {lessons.map((lesson) => (
                       <option key={lesson.id} value={lesson.id}>
                         {lesson.title}
                       </option>

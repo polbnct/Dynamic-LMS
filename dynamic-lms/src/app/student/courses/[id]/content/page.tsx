@@ -5,78 +5,41 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/mockData/courses";
+import { getCourseById } from "@/lib/supabase/queries/courses.client";
+import { getLessons, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
+import type { Lesson } from "@/lib/supabase/queries/lessons";
 
-// Lesson interface with category and PDF
-interface Lesson {
-  id: string;
-  title: string;
-  description?: string;
-  category: "prelim" | "midterm" | "finals";
+interface LessonWithUI extends Lesson {
   pdfUrl?: string;
   pdfFileName?: string;
-  order: number;
   createdAt: string;
 }
-
-// Mock lessons data with categories
-const MOCK_LESSONS: Lesson[] = [
-  {
-    id: "1",
-    title: "Introduction to Discrete Structures",
-    description: "Overview of discrete mathematics, sets, and basic operations",
-    category: "prelim",
-    pdfFileName: "Introduction.pdf",
-    order: 1,
-    createdAt: "2024-01-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "Propositional Logic",
-    description: "Understanding logical statements, truth tables, and logical operators",
-    category: "prelim",
-    pdfFileName: "Propositional_Logic.pdf",
-    order: 2,
-    createdAt: "2024-01-20T10:00:00Z",
-  },
-  {
-    id: "3",
-    title: "Set Theory Basics",
-    description: "Introduction to sets, subsets, unions, intersections, and complements",
-    category: "midterm",
-    pdfFileName: "Set_Theory.pdf",
-    order: 1,
-    createdAt: "2024-01-25T10:00:00Z",
-  },
-  {
-    id: "4",
-    title: "Relations and Functions",
-    description: "Understanding binary relations, equivalence relations, and functions",
-    category: "finals",
-    pdfFileName: "Relations_Functions.pdf",
-    order: 1,
-    createdAt: "2024-02-01T10:00:00Z",
-  },
-];
 
 export default function StudentContentPage() {
   const params = useParams();
   const courseId = params.id as string;
 
   const [course, setCourse] = useState<any>(null);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<LessonWithUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [studyAidModalOpen, setStudyAidModalOpen] = useState(false);
-  const [selectedLesson, setSelectedLesson] = useState<Lesson | null>(null);
+  const [selectedLesson, setSelectedLesson] = useState<LessonWithUI | null>(null);
   const [studyAidType, setStudyAidType] = useState<"flashcards" | "fill_blank" | "multiple_choice">("flashcards");
+  const [studyAidData, setStudyAidData] = useState<any>(null);
+  const [generatingAid, setGeneratingAid] = useState(false);
 
   useEffect(() => {
     async function fetchCourse() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        // In real implementation, fetch lessons from API
-        setLessons(MOCK_LESSONS);
+        const lessonsData = await getLessons(courseId);
+        setLessons(lessonsData.map((lesson) => ({
+          ...lesson,
+          pdfUrl: lesson.pdf_file_path ? getLessonPDFUrl(lesson.pdf_file_path) : undefined,
+          pdfFileName: lesson.pdf_file_path ? lesson.pdf_file_path.split("/").pop() : undefined,
+          createdAt: lesson.created_at,
+        })));
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -86,10 +49,32 @@ export default function StudentContentPage() {
     fetchCourse();
   }, [courseId]);
 
-  const handleStudyAid = (lesson: Lesson) => {
+  const handleStudyAid = async (lesson: LessonWithUI) => {
     setSelectedLesson(lesson);
     setStudyAidModalOpen(true);
     setStudyAidType("flashcards");
+    setGeneratingAid(true);
+    setStudyAidData(null);
+
+    try {
+      const response = await fetch("/api/gemini/generate-study-aid", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lessonId: lesson.id,
+          studyAidType: "flashcards",
+        }),
+      });
+
+      if (response.ok) {
+        const { studyAid } = await response.json();
+        setStudyAidData(studyAid);
+      }
+    } catch (err) {
+      console.error("Error generating study aid:", err);
+    } finally {
+      setGeneratingAid(false);
+    }
   };
 
   // Group lessons by category

@@ -1,7 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useImperativeHandle, forwardRef } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 interface HandledCourse {
   id: number;
@@ -16,17 +18,45 @@ interface ProfessorNavbarProps {
   handledCourses?: HandledCourse[];
 }
 
-export default function ProfessorNavbar({
+export interface ProfessorNavbarRef {
+  openCreateModal: () => void;
+}
+
+const ProfessorNavbar = forwardRef<ProfessorNavbarRef, ProfessorNavbarProps>(({
   currentPage,
   onCreateCourse,
   handledCourses = [],
-}: ProfessorNavbarProps) {
+}, ref) => {
+  const router = useRouter();
+  const supabase = createClient();
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
   const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false);
   const [courseName, setCourseName] = useState("");
   const [error, setError] = useState("");
 
-  const handleCreateCourse = (e: React.FormEvent) => {
+  const handleLogout = async () => {
+    try {
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Logout error:", error);
+        alert("Failed to logout. Please try again.");
+      } else {
+        router.push("/login");
+      }
+    } catch (err) {
+      console.error("Logout error:", err);
+      alert("Failed to logout. Please try again.");
+    }
+  };
+
+  // Expose function to open modal from parent via ref
+  useImperativeHandle(ref, () => ({
+    openCreateModal: () => {
+      setCreateCourseModalOpen(true);
+    },
+  }));
+
+  const handleCreateCourse = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -37,14 +67,20 @@ export default function ProfessorNavbar({
 
     // Call the parent's onCreateCourse handler
     if (onCreateCourse) {
-      onCreateCourse(courseName.trim());
+      try {
+        await onCreateCourse(courseName.trim());
+        setCourseName("");
+        setCreateCourseModalOpen(false);
+      } catch (err) {
+        setError("Failed to create course. Please try again.");
+        console.error("Error creating course:", err);
+      }
     } else {
       // Fallback if no handler provided
       alert(`Creating course: ${courseName.trim()}`);
+      setCourseName("");
+      setCreateCourseModalOpen(false);
     }
-
-    setCourseName("");
-    setCreateCourseModalOpen(false);
   };
 
   return (
@@ -206,7 +242,10 @@ export default function ProfessorNavbar({
               </div>
 
               {/* Logout */}
-              <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+              <button 
+                onClick={handleLogout}
+                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
                 <svg
                   className="w-5 h-5"
                   fill="none"
@@ -354,5 +393,9 @@ export default function ProfessorNavbar({
       )}
     </>
   );
-}
+});
+
+ProfessorNavbar.displayName = "ProfessorNavbar";
+
+export default ProfessorNavbar;
 
