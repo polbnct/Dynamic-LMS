@@ -3,7 +3,7 @@
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
-import { getStudentCourses, getCurrentStudentId, CourseWithStudents } from "@/lib/mockData/courses";
+import { getStudentCourses, getCurrentStudentId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 
 export default function StudentCourses() {
   const [courses, setCourses] = useState<CourseWithStudents[]>([]);
@@ -12,7 +12,11 @@ export default function StudentCourses() {
   useEffect(() => {
     async function fetchCourses() {
       try {
-        const studentId = getCurrentStudentId();
+        const studentId = await getCurrentStudentId();
+        if (!studentId) {
+          console.error("Student not found");
+          return;
+        }
         const enrolledCourses = await getStudentCourses(studentId);
         setCourses(enrolledCourses);
       } catch (err) {

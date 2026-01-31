@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import { getProfessorCourses, getCurrentProfessorId } from "@/lib/mockData/courses";
+import { getProfessorCourses, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 
 export default function ProfProfile() {
   const [handledCourses, setHandledCourses] = useState([]);
@@ -10,7 +10,13 @@ export default function ProfProfile() {
   useEffect(() => {
     async function fetchCourses() {
       try {
-        const professorId = getCurrentProfessorId();
+        const professorId = await getCurrentProfessorId(true);
+        if (!professorId) {
+          console.warn("Professor record not found. User may need to sign up again or contact support.");
+          // Set empty array instead of returning early so navbar still works
+          setHandledCourses([]);
+          return;
+        }
         const courses = await getProfessorCourses(professorId);
         setHandledCourses(
           courses.map((course) => ({
@@ -22,6 +28,7 @@ export default function ProfProfile() {
         );
       } catch (err) {
         console.error("Error fetching courses:", err);
+        setHandledCourses([]);
       }
     }
     fetchCourses();

@@ -1,16 +1,18 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import ProfessorNavbar from "@/utils/ProfessorNavbar";
+import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
 import {
   getProfessorCourses,
   createCourse,
   getCurrentProfessorId,
-  CourseWithStudents,
-} from "@/lib/mockData/courses";
+  type CourseWithStudents,
+} from "@/lib/supabase/queries/courses.client";
+import { createClient } from "@/lib/supabase/client";
 
 export default function ProfessorDashboard() {
+  const navbarRef = useRef<ProfessorNavbarRef>(null);
   const [courses, setCourses] = useState<CourseWithStudents[]>([]);
   const [loading, setLoading] = useState(true);
   const [success, setSuccess] = useState("");
@@ -20,7 +22,12 @@ export default function ProfessorDashboard() {
     async function fetchCourses() {
       try {
         setLoading(true);
-        const professorId = getCurrentProfessorId();
+        // Try to create professor record if it doesn't exist
+        const professorId = await getCurrentProfessorId(true);
+        if (!professorId) {
+          setError("Unable to access professor account. Please ensure you signed up as a professor or contact support.");
+          return;
+        }
         const data = await getProfessorCourses(professorId);
         setCourses(data);
         setError("");
@@ -37,8 +44,26 @@ export default function ProfessorDashboard() {
 
   const handleCreateCourse = async (courseName: string) => {
     try {
-      const professorId = getCurrentProfessorId();
-      const professorName = "Dr. Jane Smith"; // In real app, get from auth
+      const professorId = await getCurrentProfessorId(true);
+      if (!professorId) {
+        setError("Unable to access professor account. Please contact support.");
+        return;
+      }
+      
+      // Get professor name from auth/user data
+      const supabase = createClient();
+      const { data: { user } } = await supabase.auth.getUser();
+      
+      let professorName = "Professor";
+      if (user?.id) {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("name")
+          .eq("id", user.id)
+          .maybeSingle();
+        professorName = userData?.name || "Professor";
+      }
+      
       const newCourse = await createCourse(courseName, professorId, professorName);
       
       setCourses([...courses, newCourse]);
@@ -62,6 +87,7 @@ export default function ProfessorDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
       <ProfessorNavbar
+        ref={navbarRef}
         currentPage="dashboard"
         onCreateCourse={handleCreateCourse}
         handledCourses={handledCourses}
@@ -148,10 +174,8 @@ export default function ProfessorDashboard() {
                 <p className="text-gray-600 mb-6">Create your first course to get started</p>
                 <button
                   onClick={() => {
-                    // This will trigger the create course modal through the navbar
-                    // In a real implementation, you might want to handle this differently
-                    const event = new CustomEvent("openCreateCourse");
-                    window.dispatchEvent(event);
+                    // Trigger the navbar's create course modal
+                    navbarRef.current?.openCreateModal();
                   }}
                   className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                 >

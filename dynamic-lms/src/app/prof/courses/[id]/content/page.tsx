@@ -5,59 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import { getCourseById, getCurrentProfessorId } from "@/lib/mockData/courses";
-
-// Lesson interface with category and PDF
-interface Lesson {
-  id: string;
-  title: string;
-  description?: string;
-  category: "prelim" | "midterm" | "finals";
-  pdfUrl?: string;
-  pdfFileName?: string;
-  order: number;
-  createdAt: string;
-}
-
-// Mock lessons data with categories
-const MOCK_LESSONS: Lesson[] = [
-  {
-    id: "1",
-    title: "Introduction to Discrete Structures",
-    description: "Overview of discrete mathematics, sets, and basic operations",
-    category: "prelim",
-    pdfFileName: "Introduction.pdf",
-    order: 1,
-    createdAt: "2024-01-15T10:00:00Z",
-  },
-  {
-    id: "2",
-    title: "Propositional Logic",
-    description: "Understanding logical statements, truth tables, and logical operators",
-    category: "prelim",
-    pdfFileName: "Propositional_Logic.pdf",
-    order: 2,
-    createdAt: "2024-01-20T10:00:00Z",
-  },
-  {
-    id: "3",
-    title: "Set Theory Basics",
-    description: "Introduction to sets, subsets, unions, intersections, and complements",
-    category: "midterm",
-    pdfFileName: "Set_Theory.pdf",
-    order: 1,
-    createdAt: "2024-01-25T10:00:00Z",
-  },
-  {
-    id: "4",
-    title: "Relations and Functions",
-    description: "Understanding binary relations, equivalence relations, and functions",
-    category: "finals",
-    pdfFileName: "Relations_Functions.pdf",
-    order: 1,
-    createdAt: "2024-02-01T10:00:00Z",
-  },
-];
+import { getCourseById } from "@/lib/supabase/queries/courses.client";
+import { getLessons, createLesson, deleteLesson, uploadLessonPDF, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
+import type { Lesson } from "@/lib/supabase/queries/lessons";
 
 export default function ContentPage() {
   const params = useParams();
@@ -80,8 +30,13 @@ export default function ContentPage() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        // In real implementation, fetch lessons from API
-        setLessons(MOCK_LESSONS);
+        const lessonsData = await getLessons(courseId);
+        setLessons(lessonsData.map((lesson) => ({
+          ...lesson,
+          pdfUrl: lesson.pdf_file_path ? getLessonPDFUrl(lesson.pdf_file_path) : undefined,
+          pdfFileName: lesson.pdf_file_path ? lesson.pdf_file_path.split("/").pop() : undefined,
+          createdAt: lesson.created_at,
+        })));
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -103,7 +58,7 @@ export default function ContentPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -118,31 +73,52 @@ export default function ContentPage() {
       return;
     }
 
-    // Create new lesson
-    const newLesson: Lesson = {
-      id: String(lessons.length + 1),
-      title: formData.title.trim(),
-      category: formData.category,
-      pdfFileName: formData.pdfFile.name,
-      order: lessons.filter((l) => l.category === formData.category).length + 1,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      // Upload PDF first
+      const tempLessonId = `temp-${Date.now()}`;
+      const pdfPath = await uploadLessonPDF(formData.pdfFile, courseId, tempLessonId);
 
-    setLessons([...lessons, newLesson]);
-    setSuccess("Lesson created successfully!");
-    
-    // Reset form
-    setFormData({
-      title: "",
-      category: "prelim",
-      pdfFile: null,
-    });
-    
-    // Close modal after a short delay
-    setTimeout(() => {
-      setAddLessonModalOpen(false);
-      setSuccess("");
-    }, 1000);
+      // Calculate order
+      const categoryLessons = lessons.filter((l) => l.category === formData.category);
+      const order = categoryLessons.length + 1;
+
+      // Create lesson in database
+      const newLesson = await createLesson(courseId, {
+        title: formData.title.trim(),
+        category: formData.category,
+        pdf_file_path: pdfPath,
+        order,
+      });
+
+      // Add to local state
+      setLessons([
+        ...lessons,
+        {
+          ...newLesson,
+          pdfUrl: getLessonPDFUrl(pdfPath),
+          pdfFileName: formData.pdfFile.name,
+          createdAt: newLesson.created_at,
+        },
+      ]);
+
+      setSuccess("Lesson created successfully!");
+
+      // Reset form
+      setFormData({
+        title: "",
+        category: "prelim",
+        pdfFile: null,
+      });
+
+      // Close modal after a short delay
+      setTimeout(() => {
+        setAddLessonModalOpen(false);
+        setSuccess("");
+      }, 1000);
+    } catch (err: any) {
+      console.error("Error creating lesson:", err);
+      setError(err.message || "Failed to create lesson. Please try again.");
+    }
   };
 
   const handleCancel = () => {
