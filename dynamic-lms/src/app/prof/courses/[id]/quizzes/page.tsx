@@ -420,21 +420,7 @@ export default function QuizzesPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">No quizzes yet</h3>
-              <p className="text-gray-600 mb-6">Create your first quiz to get started</p>
-              <button
-                onClick={() => setCreateQuizModalOpen(true)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Create Quiz
-              </button>
+              <p className="text-gray-600">Use the "Create Quiz" button above to get started</p>
             </div>
           </div>
         ) : (

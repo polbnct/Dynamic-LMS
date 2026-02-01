@@ -137,6 +137,18 @@ export async function submitAssignment(
 
   if (uploadError) {
     console.error("Error uploading submission:", uploadError);
+    
+    // Provide helpful error message for bucket not found
+    if (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("not found")) {
+      const helpfulError = new Error(
+        "Storage bucket 'assignment-submissions' not found. Please create it in Supabase Dashboard > Storage. " +
+        "The bucket should be named 'assignment-submissions' and set to public."
+      );
+      (helpfulError as any).code = uploadError.code;
+      (helpfulError as any).originalError = uploadError;
+      throw helpfulError;
+    }
+    
     throw uploadError;
   }
 
@@ -176,6 +188,18 @@ export async function uploadAssignmentPDF(file: File, courseId: string, assignme
 
   if (uploadError) {
     console.error("Error uploading PDF:", uploadError);
+    
+    // Provide helpful error message for bucket not found
+    if (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("not found")) {
+      const helpfulError = new Error(
+        "Storage bucket 'assignment-pdfs' not found. Please create it in Supabase Dashboard > Storage. " +
+        "The bucket should be named 'assignment-pdfs' and set to public."
+      );
+      (helpfulError as any).code = uploadError.code;
+      (helpfulError as any).originalError = uploadError;
+      throw helpfulError;
+    }
+    
     throw uploadError;
   }
 

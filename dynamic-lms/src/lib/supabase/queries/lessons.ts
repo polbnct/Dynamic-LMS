@@ -102,6 +102,18 @@ export async function uploadLessonPDF(file: File, courseId: string, lessonId: st
 
   if (uploadError) {
     console.error("Error uploading PDF:", uploadError);
+    
+    // Provide helpful error message for bucket not found
+    if (uploadError.message?.includes("Bucket not found") || uploadError.message?.includes("not found")) {
+      const helpfulError = new Error(
+        "Storage bucket 'lesson-pdfs' not found. Please create it in Supabase Dashboard > Storage. " +
+        "The bucket should be named 'lesson-pdfs' and set to public."
+      );
+      (helpfulError as any).code = uploadError.code;
+      (helpfulError as any).originalError = uploadError;
+      throw helpfulError;
+    }
+    
     throw uploadError;
   }
 
