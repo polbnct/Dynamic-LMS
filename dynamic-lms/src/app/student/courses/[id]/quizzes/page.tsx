@@ -5,61 +5,22 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/mockData/courses";
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getQuizzes, getQuizResults } from "@/lib/supabase/queries/quizzes";
+import type { Quiz } from "@/lib/supabase/queries/quizzes";
 
-// Quiz interface
-interface Quiz {
-  id: string;
+interface QuizWithUI extends Quiz {
   title: string;
   description?: string;
   category: "prelim" | "midterm" | "finals";
   createdAt: string;
   dueDate?: string;
-  timeLimit?: number; // in minutes
+  timeLimit?: number;
   questionsCount?: number;
   taken?: boolean;
   score?: number;
   maxScore?: number;
 }
-
-// Mock quizzes data
-const MOCK_QUIZZES: Quiz[] = [
-  {
-    id: "1",
-    title: "Prelim Quiz 1: Sets and Logic",
-    description: "Test your knowledge on sets and propositional logic",
-    category: "prelim",
-    createdAt: "2024-01-20T10:00:00Z",
-    dueDate: "2024-02-05T23:59:00Z",
-    timeLimit: 30,
-    questionsCount: 10,
-    taken: true,
-    score: 85,
-    maxScore: 100,
-  },
-  {
-    id: "2",
-    title: "Prelim Quiz 2: Logical Operations",
-    description: "Quiz on logical operators and truth tables",
-    category: "prelim",
-    createdAt: "2024-01-25T10:00:00Z",
-    dueDate: "2024-02-10T23:59:00Z",
-    timeLimit: 25,
-    questionsCount: 8,
-    taken: false,
-  },
-  {
-    id: "3",
-    title: "Midterm Quiz: Functions and Relations",
-    description: "Comprehensive quiz on functions and relations",
-    category: "midterm",
-    createdAt: "2024-02-01T10:00:00Z",
-    dueDate: "2024-02-20T23:59:00Z",
-    timeLimit: 45,
-    questionsCount: 15,
-    taken: false,
-  },
-];
 
 export default function StudentQuizzesPage() {
   const params = useParams();
@@ -74,8 +35,36 @@ export default function StudentQuizzesPage() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        // In real implementation, fetch quizzes from API
-        setQuizzes(MOCK_QUIZZES);
+        
+        const [quizzesData, studentId] = await Promise.all([
+          getQuizzes(courseId),
+          getCurrentStudentId(),
+        ]);
+
+        if (!studentId) {
+          throw new Error("Student not found");
+        }
+
+        // Get quiz results for each quiz
+        const quizzesWithResults = await Promise.all(
+          quizzesData.map(async (quiz) => {
+            const result = await getQuizResults(quiz.id, studentId);
+            return {
+              ...quiz,
+              title: quiz.name,
+              category: "prelim" as const, // Default category
+              createdAt: quiz.created_at,
+              dueDate: quiz.due_date,
+              timeLimit: quiz.time_limit,
+              questionsCount: quiz.questions?.length || 0,
+              taken: !!result,
+              score: result?.score,
+              maxScore: result?.max_score || quiz.questions?.length * 10 || 100,
+            };
+          })
+        );
+
+        setQuizzes(quizzesWithResults);
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -264,9 +253,18 @@ export default function StudentQuizzesPage() {
                               )}
                             </div>
                           </div>
-                          <button className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
+                          <Link
+                            href={quiz.taken ? `#` : `/student/courses/${courseId}/quizzes/${quiz.id}/take`}
+                            onClick={(e) => {
+                              if (quiz.taken) {
+                                e.preventDefault();
+                                alert("View results functionality coming soon");
+                              }
+                            }}
+                            className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
+                          >
                             {quiz.taken ? "View Results" : "Take Quiz"}
-                          </button>
+                          </Link>
                         </div>
                       </div>
                     ))}

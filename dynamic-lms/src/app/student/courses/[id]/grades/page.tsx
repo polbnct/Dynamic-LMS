@@ -5,55 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/mockData/courses";
-
-// Grade interface
-interface Grade {
-  id: string;
-  type: "assignment" | "quiz" | "exam";
-  title: string;
-  category: "prelim" | "midterm" | "finals";
-  score: number;
-  maxScore: number;
-  percentage: number;
-  submittedAt?: string;
-  gradedAt?: string;
-}
-
-// Mock grades data
-const MOCK_GRADES: Grade[] = [
-  {
-    id: "1",
-    type: "assignment",
-    title: "Set Theory Exercise",
-    category: "prelim",
-    score: 18,
-    maxScore: 20,
-    percentage: 90,
-    submittedAt: "2024-02-03T14:30:00Z",
-    gradedAt: "2024-02-04T10:00:00Z",
-  },
-  {
-    id: "2",
-    type: "quiz",
-    title: "Prelim Quiz 1: Sets and Logic",
-    category: "prelim",
-    score: 85,
-    maxScore: 100,
-    percentage: 85,
-    submittedAt: "2024-02-01T15:00:00Z",
-    gradedAt: "2024-02-01T15:30:00Z",
-  },
-  {
-    id: "3",
-    type: "assignment",
-    title: "Logic Problems",
-    category: "prelim",
-    score: 0,
-    maxScore: 25,
-    percentage: 0,
-  },
-];
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getStudentGrades, calculateCategoryAverage } from "@/lib/supabase/queries/grades";
+import type { Grade } from "@/lib/supabase/queries/grades";
 
 export default function StudentGradesPage() {
   const params = useParams();
@@ -68,8 +22,14 @@ export default function StudentGradesPage() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        // In real implementation, fetch grades from API
-        setGrades(MOCK_GRADES);
+        
+        const studentId = await getCurrentStudentId();
+        if (!studentId) {
+          throw new Error("Student not found");
+        }
+
+        const gradesData = await getStudentGrades(courseId, studentId);
+        setGrades(gradesData);
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -78,14 +38,6 @@ export default function StudentGradesPage() {
     }
     fetchCourse();
   }, [courseId]);
-
-  // Calculate category averages
-  const calculateCategoryAverage = (category: "prelim" | "midterm" | "finals") => {
-    const categoryGrades = grades.filter((g) => g.category === category && g.score > 0);
-    if (categoryGrades.length === 0) return null;
-    const totalPercentage = categoryGrades.reduce((sum, g) => sum + g.percentage, 0);
-    return totalPercentage / categoryGrades.length;
-  };
 
   // Group grades by category
   const gradesByCategory = {

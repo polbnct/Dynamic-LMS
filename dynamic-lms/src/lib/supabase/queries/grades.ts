@@ -1,0 +1,105 @@
+import { createClient } from "../client";
+
+export interface Grade {
+  id: string;
+  type: "assignment" | "quiz" | "exam";
+  title: string;
+  category: "prelim" | "midterm" | "finals";
+  score: number;
+  maxScore: number;
+  percentage: number;
+  submittedAt?: string;
+  gradedAt?: string;
+}
+
+// Get grades for a student in a course
+export async function getStudentGrades(courseId: string, studentId: string): Promise<Grade[]> {
+  const supabase = createClient();
+
+  // Get assignment grades - first get assignments for course, then submissions
+  const { data: courseAssignments } = await supabase
+    .from("assignments")
+    .select("id")
+    .eq("course_id", courseId);
+
+  const assignmentIds = courseAssignments?.map((a) => a.id) || [];
+
+  const { data: assignmentSubmissions } = assignmentIds.length > 0
+    ? await supabase
+        .from("assignment_submissions")
+        .select("*, assignments(*)")
+        .eq("student_id", studentId)
+        .in("assignment_id", assignmentIds)
+    : { data: null };
+
+  // Get quiz grades - first get quizzes for course, then attempts
+  const { data: courseQuizzes } = await supabase
+    .from("quizzes")
+    .select("id")
+    .eq("course_id", courseId);
+
+  const quizIds = courseQuizzes?.map((q) => q.id) || [];
+
+  const { data: quizAttempts } = quizIds.length > 0
+    ? await supabase
+        .from("quiz_attempts")
+        .select("*, quizzes(*)")
+        .eq("student_id", studentId)
+        .in("quiz_id", quizIds)
+        .not("submitted_at", "is", null)
+    : { data: null };
+
+  const grades: Grade[] = [];
+
+  // Process assignment grades
+  if (assignmentSubmissions) {
+    for (const submission of assignmentSubmissions) {
+      const assignment = submission.assignments;
+      if (assignment && assignment.course_id === courseId) {
+        grades.push({
+          id: submission.id,
+          type: "assignment",
+          title: assignment.title,
+          category: assignment.category,
+          score: submission.score || 0,
+          maxScore: submission.max_score || 100,
+          percentage: submission.max_score > 0 ? ((submission.score || 0) / submission.max_score) * 100 : 0,
+          submittedAt: submission.submitted_at,
+          gradedAt: submission.graded_at,
+        });
+      }
+    }
+  }
+
+  // Process quiz grades
+  if (quizAttempts) {
+    for (const attempt of quizAttempts) {
+      const quiz = attempt.quizzes;
+      if (quiz && quiz.course_id === courseId && attempt.submitted_at) {
+        grades.push({
+          id: attempt.id,
+          type: "quiz",
+          title: quiz.name,
+          category: "prelim", // Quizzes don't have category in schema, defaulting
+          score: attempt.score || 0,
+          maxScore: attempt.max_score || 100,
+          percentage: attempt.max_score > 0 ? ((attempt.score || 0) / attempt.max_score) * 100 : 0,
+          submittedAt: attempt.submitted_at,
+          gradedAt: attempt.submitted_at,
+        });
+      }
+    }
+  }
+
+  return grades;
+}
+
+// Calculate category average
+export function calculateCategoryAverage(grades: Grade[], category: "prelim" | "midterm" | "finals"): number | null {
+  const categoryGrades = grades.filter((g) => g.category === category && g.score > 0);
+  if (categoryGrades.length === 0) return null;
+
+  const totalPercentage = categoryGrades.reduce((sum, g) => sum + g.percentage, 0);
+  return totalPercentage / categoryGrades.length;
+}
+

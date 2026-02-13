@@ -5,14 +5,11 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/mockData/courses";
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getAssignments, getAssignmentSubmissions, getAssignmentPDFUrl, submitAssignment } from "@/lib/supabase/queries/assignments";
+import type { Assignment } from "@/lib/supabase/queries/assignments";
 
-// Assignment interface
-interface Assignment {
-  id: string;
-  title: string;
-  description?: string;
-  category: "prelim" | "midterm" | "finals";
+interface AssignmentWithUI extends Assignment {
   pdfUrl?: string;
   pdfFileName?: string;
   createdAt: string;
@@ -21,56 +18,110 @@ interface Assignment {
   submittedAt?: string;
 }
 
-// Mock assignments data
-const MOCK_ASSIGNMENTS: Assignment[] = [
-  {
-    id: "1",
-    title: "Set Theory Exercise",
-    description: "Complete exercises on sets, subsets, and operations",
-    category: "prelim",
-    pdfFileName: "Set_Theory_Exercise.pdf",
-    createdAt: "2024-01-20T10:00:00Z",
-    dueDate: "2024-02-05T23:59:00Z",
-    submitted: true,
-    submittedAt: "2024-02-03T14:30:00Z",
-  },
-  {
-    id: "2",
-    title: "Logic Problems",
-    description: "Solve propositional logic problems",
-    category: "prelim",
-    pdfFileName: "Logic_Problems.pdf",
-    createdAt: "2024-01-25T10:00:00Z",
-    dueDate: "2024-02-10T23:59:00Z",
-    submitted: false,
-  },
-  {
-    id: "3",
-    title: "Function Analysis",
-    description: "Analyze different types of functions and relations",
-    category: "midterm",
-    pdfFileName: "Function_Analysis.pdf",
-    createdAt: "2024-02-01T10:00:00Z",
-    dueDate: "2024-02-20T23:59:00Z",
-    submitted: false,
-  },
-];
-
 export default function StudentAssignmentsPage() {
   const params = useParams();
   const courseId = params.id as string;
 
   const [course, setCourse] = useState<any>(null);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentWithUI[]>([]);
   const [loading, setLoading] = useState(true);
+  const [submitModalOpen, setSubmitModalOpen] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState<AssignmentWithUI | null>(null);
+  const [submissionFile, setSubmissionFile] = useState<File | null>(null);
+  const [submitting, setSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState("");
+  const [submitSuccess, setSubmitSuccess] = useState("");
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      setSubmissionFile(e.target.files[0]);
+      setSubmitError("");
+    }
+  };
+
+  const handleSubmitAssignment = async () => {
+    if (!selectedAssignment || !submissionFile) {
+      setSubmitError("Please select a file to submit.");
+      return;
+    }
+
+    setSubmitting(true);
+    setSubmitError("");
+    setSubmitSuccess("");
+
+    try {
+      const studentId = await getCurrentStudentId();
+      if (!studentId) {
+        throw new Error("Student not found");
+      }
+
+      await submitAssignment(selectedAssignment.id, studentId, submissionFile);
+
+      // Refresh assignments
+      const [assignmentsData] = await Promise.all([getAssignments(courseId)]);
+      const assignmentIds = assignmentsData.map((a) => a.id);
+      const submissions = await getAssignmentSubmissions(studentId, assignmentIds);
+      const submissionMap = new Map(submissions.map((s) => [s.assignment_id, s]));
+
+      setAssignments(assignmentsData.map((assignment) => {
+        const submission = submissionMap.get(assignment.id);
+        return {
+          ...assignment,
+          pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
+          pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
+          createdAt: assignment.created_at,
+          dueDate: assignment.due_date,
+          submitted: !!submission,
+          submittedAt: submission?.submitted_at,
+        };
+      }));
+
+      setSubmitSuccess("Assignment submitted successfully!");
+      setTimeout(() => {
+        setSubmitModalOpen(false);
+        setSelectedAssignment(null);
+        setSubmissionFile(null);
+        setSubmitSuccess("");
+      }, 1500);
+    } catch (err: any) {
+      console.error("Error submitting assignment:", err);
+      setSubmitError(err.message || "Failed to submit assignment. Please try again.");
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   useEffect(() => {
     async function fetchCourse() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        // In real implementation, fetch assignments from API
-        setAssignments(MOCK_ASSIGNMENTS);
+        
+        const [assignmentsData, studentId] = await Promise.all([
+          getAssignments(courseId),
+          getCurrentStudentId(),
+        ]);
+
+        if (!studentId) {
+          throw new Error("Student not found");
+        }
+
+        const assignmentIds = assignmentsData.map((a) => a.id);
+        const submissions = await getAssignmentSubmissions(studentId, assignmentIds);
+        const submissionMap = new Map(submissions.map((s) => [s.assignment_id, s]));
+
+        setAssignments(assignmentsData.map((assignment) => {
+          const submission = submissionMap.get(assignment.id);
+          return {
+            ...assignment,
+            pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
+            pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
+            createdAt: assignment.created_at,
+            dueDate: assignment.due_date,
+            submitted: !!submission,
+            submittedAt: submission?.submitted_at,
+          };
+        }));
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -246,7 +297,18 @@ export default function StudentAssignmentsPage() {
                               )}
                             </div>
                           </div>
-                          <button className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200">
+                          <button
+                            onClick={() => {
+                              if (assignment.submitted) {
+                                // View submission - could open modal or navigate
+                                alert("View submission functionality coming soon");
+                              } else {
+                                setSelectedAssignment(assignment);
+                                setSubmitModalOpen(true);
+                              }
+                            }}
+                            className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                          >
                             {assignment.submitted ? "View Submission" : "Submit Assignment"}
                           </button>
                         </div>
@@ -259,6 +321,93 @@ export default function StudentAssignmentsPage() {
           </div>
         )}
       </main>
+
+      {/* Submit Assignment Modal */}
+      {submitModalOpen && selectedAssignment && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Submit Assignment
+              </h2>
+              <button
+                onClick={() => {
+                  setSubmitModalOpen(false);
+                  setSelectedAssignment(null);
+                  setSubmissionFile(null);
+                  setSubmitError("");
+                  setSubmitSuccess("");
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm text-gray-600 mb-2">Assignment: <span className="font-semibold">{selectedAssignment.title}</span></p>
+                {selectedAssignment.dueDate && (
+                  <p className="text-xs text-gray-500">Due: {new Date(selectedAssignment.dueDate).toLocaleDateString()}</p>
+                )}
+              </div>
+
+              <div>
+                <label htmlFor="submissionFile" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Upload File
+                </label>
+                <input
+                  id="submissionFile"
+                  type="file"
+                  accept=".pdf,.doc,.docx"
+                  onChange={handleFileChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                {submissionFile && (
+                  <p className="mt-2 text-sm text-gray-600">{submissionFile.name}</p>
+                )}
+              </div>
+
+              {submitError && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {submitError}
+                </div>
+              )}
+
+              {submitSuccess && (
+                <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm">
+                  {submitSuccess}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSubmitModalOpen(false);
+                    setSelectedAssignment(null);
+                    setSubmissionFile(null);
+                    setSubmitError("");
+                    setSubmitSuccess("");
+                  }}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleSubmitAssignment}
+                  disabled={submitting || !submissionFile}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                >
+                  {submitting ? "Submitting..." : "Submit"}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

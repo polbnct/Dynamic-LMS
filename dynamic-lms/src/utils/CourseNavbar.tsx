@@ -80,14 +80,14 @@ export default function CourseNavbar({
   ];
 
   return (
-    <nav className="bg-white/90 backdrop-blur-sm border-b border-gray-200 shadow-sm">
+    <nav className="bg-white/90 backdrop-blur-sm border-b border-rose-100 shadow-sm">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Course Info */}
         {(courseName || courseCode) && (
-          <div className="pt-4 pb-2 border-b border-gray-200">
+          <div className="pt-4 pb-2 border-b border-rose-100">
             <Link
               href={`/prof/courses/${courseId}/classlist`}
-              className="text-sm text-gray-600 hover:text-indigo-600 transition-colors"
+              className="text-sm text-gray-600 hover:text-red-600 transition-colors"
             >
               {courseCode && <span className="font-medium">{courseCode}</span>}
               {courseName && courseCode && " • "}
@@ -104,8 +104,8 @@ export default function CourseNavbar({
               href={item.href}
               className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
                 currentPage === item.key
-                  ? "bg-indigo-100 text-indigo-600"
-                  : "text-gray-700 hover:bg-gray-100 hover:text-indigo-600"
+                  ? "bg-rose-100 text-red-600"
+                  : "text-gray-700 hover:bg-red-50 hover:text-red-600"
               }`}
             >
               {item.icon}

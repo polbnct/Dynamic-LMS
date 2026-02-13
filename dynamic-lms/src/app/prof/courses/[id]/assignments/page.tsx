@@ -5,19 +5,9 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import { getCourseById, getCurrentProfessorId } from "@/lib/mockData/courses";
-
-// Assignment interface
-interface Assignment {
-  id: string;
-  title: string;
-  description?: string;
-  category: "prelim" | "midterm" | "finals";
-  pdfUrl?: string;
-  pdfFileName?: string;
-  createdAt: string;
-  dueDate?: string;
-}
+import { getCourseById } from "@/lib/supabase/queries/courses.client";
+import { getAssignments, createAssignment, uploadAssignmentPDF, getAssignmentPDFUrl } from "@/lib/supabase/queries/assignments";
+import type { Assignment } from "@/lib/supabase/queries/assignments";
 
 export default function AssignmentsPage() {
   const params = useParams();
@@ -41,8 +31,14 @@ export default function AssignmentsPage() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        // In real implementation, fetch assignments from API
-        setAssignments([]);
+        const assignmentsData = await getAssignments(courseId);
+        setAssignments(assignmentsData.map((assignment) => ({
+          ...assignment,
+          pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
+          pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
+          createdAt: assignment.created_at,
+          dueDate: assignment.due_date,
+        })));
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -64,7 +60,7 @@ export default function AssignmentsPage() {
     }
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -74,32 +70,54 @@ export default function AssignmentsPage() {
       return;
     }
 
-    // Create new assignment
-    const newAssignment: Assignment = {
-      id: String(assignments.length + 1),
-      title: formData.title.trim(),
-      description: formData.description.trim() || undefined,
-      category: formData.category,
-      pdfFileName: formData.pdfFile ? formData.pdfFile.name : undefined,
-      createdAt: new Date().toISOString(),
-    };
+    try {
+      let pdfPath: string | undefined;
 
-    setAssignments([...assignments, newAssignment]);
-    setSuccess("Assignment created successfully!");
+      // Upload PDF if provided
+      if (formData.pdfFile) {
+        const tempAssignmentId = `temp-${Date.now()}`;
+        pdfPath = await uploadAssignmentPDF(formData.pdfFile, courseId, tempAssignmentId);
+      }
 
-    // Reset form
-    setFormData({
-      title: "",
-      description: "",
-      category: "prelim",
-      pdfFile: null,
-    });
+      // Create assignment in database
+      const newAssignment = await createAssignment(courseId, {
+        title: formData.title.trim(),
+        description: formData.description.trim() || undefined,
+        category: formData.category,
+        pdf_file_path: pdfPath,
+      });
 
-    // Close modal after a short delay
-    setTimeout(() => {
-      setCreateAssignmentModalOpen(false);
-      setSuccess("");
-    }, 1000);
+      // Add to local state
+      setAssignments([
+        ...assignments,
+        {
+          ...newAssignment,
+          pdfUrl: pdfPath ? getAssignmentPDFUrl(pdfPath) : undefined,
+          pdfFileName: formData.pdfFile ? formData.pdfFile.name : undefined,
+          createdAt: newAssignment.created_at,
+          dueDate: newAssignment.due_date,
+        },
+      ]);
+
+      setSuccess("Assignment created successfully!");
+
+      // Reset form
+      setFormData({
+        title: "",
+        description: "",
+        category: "prelim",
+        pdfFile: null,
+      });
+
+      // Close modal after a short delay
+      setTimeout(() => {
+        setCreateAssignmentModalOpen(false);
+        setSuccess("");
+      }, 1000);
+    } catch (err: any) {
+      console.error("Error creating assignment:", err);
+      setError(err.message || "Failed to create assignment. Please try again.");
+    }
   };
 
   const handleCancel = () => {
@@ -226,21 +244,7 @@ export default function AssignmentsPage() {
                 </svg>
               </div>
               <h3 className="text-xl font-semibold text-gray-800 mb-2">No assignments yet</h3>
-              <p className="text-gray-600 mb-6">Create your first assignment to get started</p>
-              <button
-                onClick={() => setCreateAssignmentModalOpen(true)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-              >
-                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 4v16m8-8H4"
-                  />
-                </svg>
-                Create Assignment
-              </button>
+              <p className="text-gray-600">Use the "Create Assignment" button above to get started</p>
             </div>
           </div>
         ) : (

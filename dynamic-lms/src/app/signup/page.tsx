@@ -2,6 +2,8 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -12,29 +14,169 @@ export default function SignupPage() {
     role: "student",
   });
   const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const router = useRouter();
+  const supabase = createClient();
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const generateStudentId = () => {
+    const year = new Date().getFullYear();
+    const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
+    return `STU${year}${random}`;
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setLoading(true);
 
     // Validation
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
       setError("Please fill in all fields.");
+      setLoading(false);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
       setError("Passwords do not match.");
+      setLoading(false);
       return;
     }
 
     if (formData.password.length < 8) {
       setError("Password must be at least 8 characters long.");
+      setLoading(false);
       return;
     }
 
-    // TODO: Add real authentication logic here
-    alert("Account created! (stub)");
+    try {
+      // Use API route for signup to handle server-side operations
+      const response = await fetch("/api/auth/signup", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: formData.email,
+          password: formData.password,
+          name: formData.name,
+          role: formData.role,
+        }),
+      });
+
+      // Log response details first
+      console.log("API Response status:", response.status);
+      console.log("API Response statusText:", response.statusText);
+      console.log("API Response headers:", Object.fromEntries(response.headers.entries()));
+      
+      let data: any = {};
+      let responseText = "";
+      
+      try {
+        responseText = await response.text();
+        console.log("Raw API response text:", responseText);
+        console.log("Response text length:", responseText.length);
+        
+        if (!responseText || responseText.trim() === "") {
+          console.error("Empty response from server");
+          setError(`Server returned empty response (${response.status}). Please check your server logs.`);
+          setLoading(false);
+          return;
+        }
+        
+        try {
+          data = JSON.parse(responseText);
+          console.log("Parsed API response:", JSON.stringify(data, null, 2));
+        } catch (jsonError: any) {
+          console.error("Failed to parse JSON:", jsonError);
+          console.error("Response was:", responseText);
+          setError(`Server returned invalid JSON. Status: ${response.status}. Please check server logs.`);
+          setLoading(false);
+          return;
+        }
+      } catch (parseError: any) {
+        console.error("Failed to read response:", parseError);
+        setError(`Server error: ${parseError?.message || "Failed to read response"}. Please try again.`);
+        setLoading(false);
+        return;
+      }
+
+      if (!response.ok) {
+        // Show detailed error message (use string values so they display in console)
+        const errorMessage = 
+          (typeof data?.error === "string" ? data.error : null) ||
+          (typeof data?.message === "string" ? data.message : null) ||
+          (typeof data?.originalError === "string" ? data.originalError : null) ||
+          (typeof data?.details === "string" ? data.details : null) ||
+          `Failed to create account (${response.status} ${response.statusText}). Please try again.`;
+        
+        console.error("Signup API error - status:", response.status, "statusText:", response.statusText);
+        console.error("Signup API error - response body:", responseText);
+        console.error("Signup API error - error message:", data?.error ?? data?.message ?? "(none)");
+        
+        setError(errorMessage);
+        setLoading(false);
+        return;
+      }
+
+      // User should be automatically logged in after signup
+      // If we have a session from the API, use it
+      if (data.session) {
+        // Redirect based on role immediately
+        if (data.role === "professor") {
+          router.push("/prof");
+        } else {
+          router.push("/student/dashboard");
+        }
+        return;
+      }
+
+      // If no session from API, try to sign in immediately
+      // This should work since email confirmation is disabled
+      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+        email: formData.email,
+        password: formData.password,
+      });
+
+      if (signInError) {
+        console.error("Auto-login error:", signInError);
+        // Even if auto-login fails, account is created - redirect to login
+        setError("Account created successfully! Please log in.");
+        setTimeout(() => {
+          router.push("/login");
+        }, 2000);
+        setLoading(false);
+        return;
+      }
+
+      if (signInData.user && signInData.session) {
+        // Successfully logged in - redirect based on role
+        if (data.role === "professor") {
+          router.push("/prof");
+        } else {
+          router.push("/student/dashboard");
+        }
+        return;
+      }
+
+      // Fallback: redirect to login
+      setError("Account created successfully! Please log in.");
+      setTimeout(() => {
+        router.push("/login");
+      }, 2000);
+      setLoading(false);
+    } catch (err: any) {
+      console.error("Signup error:", err);
+      console.error("Error details:", {
+        message: err?.message,
+        stack: err?.stack,
+        name: err?.name,
+        cause: err?.cause,
+      });
+      
+      const errorMessage = err?.message || err?.toString() || "An unexpected error occurred. Please try again.";
+      setError(errorMessage);
+      setLoading(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -291,9 +433,10 @@ export default function SignupPage() {
             {/* Submit button */}
             <button
               type="submit"
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300 mt-2"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300 mt-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
-              Create Account
+              {loading ? "Creating account..." : "Create Account"}
             </button>
           </form>
 
