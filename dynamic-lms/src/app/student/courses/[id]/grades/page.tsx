@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/supabase/queries/courses.client";
-import { getStudentGrades, calculateCategoryAverage, getCurrentStudentId } from "@/lib/supabase/queries/grades";
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getStudentGrades, calculateCategoryAverage } from "@/lib/supabase/queries/grades";
 import type { Grade } from "@/lib/supabase/queries/grades";
 
 export default function StudentGradesPage() {

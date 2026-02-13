@@ -8,6 +8,7 @@ import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { getLessons, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
+import { getLessonStudyQuestions, type StudyAidQuestion } from "@/lib/supabase/queries/study-aid";
 
 interface LessonWithUI extends Lesson {
   pdfUrl?: string;
@@ -24,9 +25,11 @@ export default function StudentContentPage() {
   const [loading, setLoading] = useState(true);
   const [studyAidModalOpen, setStudyAidModalOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithUI | null>(null);
-  const [studyAidType, setStudyAidType] = useState<"flashcards" | "fill_blank" | "multiple_choice">("flashcards");
-  const [studyAidData, setStudyAidData] = useState<any>(null);
-  const [generatingAid, setGeneratingAid] = useState(false);
+  const [studyAidType, setStudyAidType] = useState<"flashcards" | "summary" | "multiple_choice">("flashcards");
+  const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
+  const [studyAidLoading, setStudyAidLoading] = useState(false);
+  const [studyAidIndex, setStudyAidIndex] = useState(0);
+  const [studyAidReveal, setStudyAidReveal] = useState(false);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -53,29 +56,30 @@ export default function StudentContentPage() {
     setSelectedLesson(lesson);
     setStudyAidModalOpen(true);
     setStudyAidType("flashcards");
-    setGeneratingAid(true);
-    setStudyAidData(null);
-
+    setStudyAidQuestions([]);
+    setStudyAidIndex(0);
+    setStudyAidReveal(false);
+    setStudyAidLoading(true);
     try {
-      const response = await fetch("/api/gemini/generate-study-aid", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lessonId: lesson.id,
-          studyAidType: "flashcards",
-        }),
-      });
-
-      if (response.ok) {
-        const { studyAid } = await response.json();
-        setStudyAidData(studyAid);
-      }
+      const questions = await getLessonStudyQuestions(lesson.id);
+      setStudyAidQuestions(questions);
     } catch (err) {
-      console.error("Error generating study aid:", err);
+      console.error("Error loading study aid:", err);
     } finally {
-      setGeneratingAid(false);
+      setStudyAidLoading(false);
     }
   };
+
+  const questionsByType = (type: "flashcards" | "summary" | "multiple_choice") => {
+    if (type === "flashcards") return studyAidQuestions.filter((q) => q.type === "true_false");
+    if (type === "multiple_choice") return studyAidQuestions.filter((q) => q.type === "multiple_choice");
+    return studyAidQuestions.filter((q) => q.type === "fill_blank");
+  };
+
+  const currentList = questionsByType(studyAidType);
+  const currentQuestion = currentList[studyAidIndex];
+  const hasAnyQuestions = studyAidQuestions.length > 0;
+  const hasQuestionsForType = currentList.length > 0;
 
   // Group lessons by category
   const lessonsByCategory = {
@@ -264,7 +268,7 @@ export default function StudentContentPage() {
             <div className="p-6 border-b border-gray-200 bg-gray-50">
               <div className="flex gap-4">
                 <button
-                  onClick={() => setStudyAidType("flashcards")}
+                  onClick={() => { setStudyAidType("flashcards"); setStudyAidIndex(0); setStudyAidReveal(false); }}
                   className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
                     studyAidType === "flashcards"
                       ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
@@ -284,9 +288,9 @@ export default function StudentContentPage() {
                   </div>
                 </button>
                 <button
-                  onClick={() => setStudyAidType("fill_blank")}
+                  onClick={() => { setStudyAidType("summary"); setStudyAidIndex(0); setStudyAidReveal(false); }}
                   className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                    studyAidType === "fill_blank"
+                    studyAidType === "summary"
                       ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
                       : "bg-white text-gray-700 border border-gray-300 hover:border-indigo-300 hover:bg-indigo-50"
                   }`}
@@ -297,14 +301,14 @@ export default function StudentContentPage() {
                         strokeLinecap="round"
                         strokeLinejoin="round"
                         strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                       />
                     </svg>
-                    Fill in the Blank
+                    Summary
                   </div>
                 </button>
                 <button
-                  onClick={() => setStudyAidType("multiple_choice")}
+                  onClick={() => { setStudyAidType("multiple_choice"); setStudyAidIndex(0); setStudyAidReveal(false); }}
                   className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
                     studyAidType === "multiple_choice"
                       ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
@@ -328,31 +332,61 @@ export default function StudentContentPage() {
 
             {/* Study Aid Content */}
             <div className="flex-1 overflow-y-auto p-6">
-              {studyAidType === "flashcards" && (
+              {studyAidLoading ? (
+                <div className="flex items-center justify-center py-16">
+                  <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600" />
+                </div>
+              ) : !hasAnyQuestions ? (
                 <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                    <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                      />
+                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gray-100 rounded-full mb-4">
+                    <svg className="w-10 h-10 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
                   </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Flashcards</h3>
-                  <p className="text-gray-600 mb-8">Flashcard study mode for {selectedLesson.title}</p>
+                  <h3 className="text-xl font-bold text-gray-800 mb-2">No study aid yet</h3>
+                  <p className="text-gray-600">Your professor has not added study aid questions for this lesson yet.</p>
+                </div>
+              ) : !hasQuestionsForType ? (
+                <div className="text-center py-12">
+                  <p className="text-gray-600">No {studyAidType.replace("_", " ")} questions for this lesson.</p>
+                </div>
+              ) : studyAidType === "flashcards" && currentQuestion && (
+                <div className="text-center py-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Flashcards</h3>
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-md mx-auto">
                     <p className="text-gray-500 text-sm mb-4">Click to flip</p>
-                    <div className="bg-white rounded-xl shadow-lg p-8 min-h-[200px] flex items-center justify-center">
-                      <p className="text-lg font-semibold text-gray-700">Flashcard content will appear here</p>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setStudyAidReveal((r) => !r)}
+                      className="w-full bg-white rounded-xl shadow-lg p-8 min-h-[200px] flex items-center justify-center text-left hover:ring-2 hover:ring-indigo-300 transition-all"
+                    >
+                      <p className="text-lg font-semibold text-gray-700">
+                        {studyAidReveal
+                          ? typeof currentQuestion.correct_answer === "boolean"
+                            ? String(currentQuestion.correct_answer)
+                            : currentQuestion.type === "multiple_choice" && currentQuestion.options
+                            ? currentQuestion.options[Number(currentQuestion.correct_answer)] ?? String(currentQuestion.correct_answer)
+                            : String(currentQuestion.correct_answer)
+                          : currentQuestion.question}
+                      </p>
+                    </button>
+                    <p className="text-sm text-gray-600 mt-2">{studyAidReveal ? "Answer" : "Question — click to flip"}</p>
                     <div className="flex items-center justify-center gap-4 mt-6">
-                      <button className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 transition-colors">
+                      <button
+                        type="button"
+                        onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
+                        disabled={studyAidIndex === 0}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50 transition-colors"
+                      >
                         Previous
                       </button>
-                      <span className="text-sm text-gray-600">1 / 10</span>
-                      <button className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
+                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
+                        disabled={studyAidIndex === currentList.length - 1}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                      >
                         Next
                       </button>
                     </div>
@@ -360,66 +394,102 @@ export default function StudentContentPage() {
                 </div>
               )}
 
-              {studyAidType === "fill_blank" && (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                    <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Fill in the Blank</h3>
-                  <p className="text-gray-600 mb-8">Practice with fill-in-the-blank questions</p>
+              {studyAidType === "summary" && currentQuestion && (
+                <div className="text-center py-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Summary</h3>
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
                     <div className="bg-white rounded-xl shadow-lg p-6 text-left">
-                      <p className="text-gray-700 mb-4">
-                        A <span className="inline-block w-32 h-8 border-b-2 border-indigo-600 bg-indigo-50 rounded px-2"></span> is a collection of distinct objects.
-                      </p>
-                      <button className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
-                        Check Answer
+                      <p className="text-gray-700 mb-4">{currentQuestion.question}</p>
+                      {!studyAidReveal ? (
+                        <button
+                          type="button"
+                          onClick={() => setStudyAidReveal(true)}
+                          className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                        >
+                          Show Answer
+                        </button>
+                      ) : (
+                        <p className="px-4 py-2 bg-indigo-50 rounded-lg font-medium text-indigo-800">
+                          Answer: {String(currentQuestion.correct_answer)}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
+                        disabled={studyAidIndex === 0}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
+                        disabled={studyAidIndex === currentList.length - 1}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        Next
                       </button>
                     </div>
-                    <p className="text-sm text-gray-500">Question 1 of 5</p>
                   </div>
                 </div>
               )}
 
-              {studyAidType === "multiple_choice" && (
-                <div className="text-center py-12">
-                  <div className="inline-flex items-center justify-center w-20 h-20 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                    <svg className="w-10 h-10 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                  </div>
-                  <h3 className="text-2xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
-                  <p className="text-gray-600 mb-8">Test your knowledge with multiple choice questions</p>
+              {studyAidType === "multiple_choice" && currentQuestion && currentQuestion.options && (
+                <div className="text-center py-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
                     <div className="bg-white rounded-xl shadow-lg p-6 text-left">
-                      <p className="text-lg font-semibold text-gray-800 mb-4">What is a set in discrete mathematics?</p>
+                      <p className="text-lg font-semibold text-gray-800 mb-4">{currentQuestion.question}</p>
                       <div className="space-y-3">
-                        {["A collection of distinct objects", "A mathematical function", "A type of relation", "A graph structure"].map((option, idx) => (
-                          <button
+                        {currentQuestion.options.map((option, idx) => (
+                          <div
                             key={idx}
-                            className="w-full text-left px-4 py-3 border border-gray-300 rounded-lg hover:border-indigo-500 hover:bg-indigo-50 transition-colors"
+                            className={`px-4 py-3 border rounded-lg ${
+                              studyAidReveal && Number(currentQuestion.correct_answer) === idx
+                                ? "border-green-500 bg-green-50"
+                                : "border-gray-300"
+                            }`}
                           >
                             <span className="font-medium text-gray-700">{String.fromCharCode(65 + idx)}. {option}</span>
-                          </button>
+                          </div>
                         ))}
                       </div>
-                      <button className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
-                        Check Answer
+                      {!studyAidReveal ? (
+                        <button
+                          type="button"
+                          onClick={() => setStudyAidReveal(true)}
+                          className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                        >
+                          Show Answer
+                        </button>
+                      ) : (
+                        <p className="mt-4 text-sm text-green-700 font-medium">
+                          Correct: {currentQuestion.options[Number(currentQuestion.correct_answer)]}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-center gap-4">
+                      <button
+                        type="button"
+                        onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
+                        disabled={studyAidIndex === 0}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
+                      <button
+                        type="button"
+                        onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
+                        disabled={studyAidIndex === currentList.length - 1}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        Next
                       </button>
                     </div>
-                    <p className="text-sm text-gray-500">Question 1 of 5</p>
                   </div>
                 </div>
               )}

@@ -32,7 +32,7 @@ async function checkAvailableModels(): Promise<void> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { lessonId, questionType, count } = await request.json();
+    const { lessonId, questionType, count, forStudyAid } = await request.json();
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
@@ -99,108 +99,64 @@ Category: ${lesson.category}
       ? ["multiple_choice", "true_false", "fill_blank"]
       : [questionType];
 
-    const questionsPerType = Math.ceil((count || 5) / typesToGenerate.length);
+    // For study aid summary, only generate 1 summary
+    const isSummaryForStudyAid = forStudyAid && questionType === "fill_blank";
+    const questionsPerType = isSummaryForStudyAid ? 1 : Math.ceil((count || 5) / typesToGenerate.length);
 
     // Generate questions using Gemini API
     const allQuestions = [];
 
     for (const type of typesToGenerate) {
-      const prompt = generatePrompt(lessonMetadata, type, questionsPerType);
+      const prompt = isSummaryForStudyAid 
+        ? generateStudyAidSummaryPrompt(lessonMetadata)
+        : generatePrompt(lessonMetadata, type, questionsPerType, forStudyAid);
       
       try {
-        // Use available models from the API key - try newer models first
-        // Based on available models: gemini-2.0-flash-lite, gemini-2.0-flash, gemini-flash-latest, gemini-2.5-flash
-        const modelConfigs = [
-          { version: "v1beta", model: "gemini-2.0-flash-lite", endpoint: "generateContent" },
-          { version: "v1beta", model: "gemini-2.0-flash", endpoint: "generateContent" },
-          { version: "v1beta", model: "gemini-flash-latest", endpoint: "generateContent" },
-          { version: "v1beta", model: "gemini-2.5-flash", endpoint: "generateContent" },
-          { version: "v1", model: "gemini-2.0-flash-lite", endpoint: "generateContent" },
-          { version: "v1", model: "gemini-2.0-flash", endpoint: "generateContent" },
-        ];
-
-        let geminiResponse: Response | null = null;
-        let lastError: string = "";
-        let successfulConfig: { version: string; model: string; endpoint: string } | null = null;
-        let allErrors: string[] = [];
-
-        console.log(`\n=== Testing Gemini API for ${type} questions ===`);
+        // Use only v1beta/gemini-flash-latest model
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${process.env.GEMINI_API_KEY}`;
+        
+        console.log(`\n=== Generating ${type} questions using v1beta/gemini-flash-latest ===`);
         console.log(`API Key present: ${!!process.env.GEMINI_API_KEY}`);
-        console.log(`API Key length: ${process.env.GEMINI_API_KEY?.length || 0}`);
 
-        for (const config of modelConfigs) {
-          const url = `https://generativelanguage.googleapis.com/${config.version}/models/${config.model}:${config.endpoint}?key=${process.env.GEMINI_API_KEY}`;
-          console.log(`\nTesting: ${config.version}/${config.model}:${config.endpoint}`);
-          console.log(`URL: ${url.substring(0, 80)}...`);
-          
-          try {
-            // Prepare request body with PDF content
-            const requestBody: any = {
-              contents: [
+        // Prepare request body with PDF content
+        const requestBody: any = {
+          contents: [
+            {
+              parts: [
                 {
-                  parts: [
-                    {
-                      text: prompt,
-                    },
-                    // Add PDF as inline data
-                    {
-                      inline_data: {
-                        mime_type: "application/pdf",
-                        data: pdfBase64,
-                      },
-                    },
-                  ],
+                  text: prompt,
+                },
+                // Add PDF as inline data
+                {
+                  inline_data: {
+                    mime_type: "application/pdf",
+                    data: pdfBase64,
+                  },
                 },
               ],
-            };
+            },
+          ],
+        };
 
-            const testResponse = await fetch(url, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-              },
-              body: JSON.stringify(requestBody),
-            });
+        const geminiResponse = await fetch(url, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(requestBody),
+        });
 
-            const responseStatus = testResponse.status;
-            const responseStatusText = testResponse.statusText;
-            
-            console.log(`Response status: ${responseStatus} ${responseStatusText}`);
-
-            if (testResponse.ok) {
-              geminiResponse = testResponse;
-              successfulConfig = config;
-              console.log(`✓✓✓ SUCCESS! Using ${config.model} with ${config.version}:${config.endpoint}`);
-              break; // Success! Use this response
-            } else {
-              const errorText = await testResponse.text();
-              let errorMessage = errorText;
-              try {
-                const errorJson = JSON.parse(errorText);
-                errorMessage = errorJson.error?.message || errorJson.message || errorText;
-              } catch (e) {
-                // Not JSON, use as-is
-              }
-              lastError = errorMessage;
-              allErrors.push(`${config.version}/${config.model}: ${errorMessage.substring(0, 200)}`);
-              console.log(`✗ FAILED: ${errorMessage.substring(0, 150)}`);
-            }
-          } catch (err) {
-            const errMsg = err instanceof Error ? err.message : String(err);
-            lastError = errMsg;
-            allErrors.push(`${config.version}/${config.model}: ${errMsg}`);
-            console.log(`✗ EXCEPTION: ${errMsg}`);
+        if (!geminiResponse.ok) {
+          const errorText = await geminiResponse.text();
+          let errorMessage = errorText;
+          try {
+            const errorJson = JSON.parse(errorText);
+            errorMessage = errorJson.error?.message || errorJson.message || errorText;
+          } catch (e) {
+            // Not JSON, use as-is
           }
-        }
-
-        if (!geminiResponse || !geminiResponse.ok) {
-          console.error("\n=== ALL CONFIGURATIONS FAILED ===");
-          console.error("All errors:", allErrors);
-          const errorData = lastError || "All model configurations failed";
-          let errorMessage = "Failed to generate questions from Gemini API. ";
-          errorMessage += `Tried: ${modelConfigs.map(c => `${c.version}/${c.model}`).join(", ")}. `;
-          errorMessage += `Errors: ${allErrors.join("; ")}`;
-          throw new Error(errorMessage);
+          console.error(`Gemini API error: ${errorMessage}`);
+          throw new Error(`Failed to generate questions from Gemini API: ${errorMessage}`);
         }
 
         const geminiData = await geminiResponse.json();
@@ -214,7 +170,9 @@ Category: ${lesson.category}
         console.log(`Gemini response for ${type}:`, generatedText.substring(0, 500)); // Log first 500 chars for debugging
 
         // Parse the JSON response from Gemini
-        const parsedQuestions = parseGeminiResponse(generatedText, type, lessonId);
+        const parsedQuestions = isSummaryForStudyAid
+          ? parseStudyAidSummaryResponse(generatedText, lessonId)
+          : parseGeminiResponse(generatedText, type, lessonId, forStudyAid);
         console.log(`Parsed ${parsedQuestions.length} questions for ${type}`);
         allQuestions.push(...parsedQuestions);
       } catch (err: any) {
@@ -228,8 +186,8 @@ Category: ${lesson.category}
       }
     }
 
-    // Limit to requested count
-    const finalQuestions = allQuestions.slice(0, count || 5);
+    // Limit to requested count (except for summary which is always 1)
+    const finalQuestions = isSummaryForStudyAid ? allQuestions : allQuestions.slice(0, count || 5);
 
     return NextResponse.json({ questions: finalQuestions });
   } catch (error: any) {
@@ -238,7 +196,36 @@ Category: ${lesson.category}
   }
 }
 
-function generatePrompt(lessonMetadata: string, questionType: string, count: number): string {
+function generateStudyAidSummaryPrompt(lessonMetadata: string): string {
+  return `You are an educational content generator specializing in creating study aid summaries. Based on the PDF document provided and the following lesson metadata, generate ONE comprehensive summary of the lesson content.
+
+CRITICAL: The summary MUST be based on the actual content of the PDF document, not just the metadata below. You must read and analyze the PDF content thoroughly to create an accurate, comprehensive summary.
+
+Lesson Metadata (for context only):
+${lessonMetadata}
+
+The PDF document is attached to this request. You must analyze its content carefully and create a summary based on the actual material, facts, concepts, and information presented in the PDF.
+
+Summary Requirements:
+- Create a comprehensive summary that covers the main topics, key concepts, and important information from the PDF
+- The summary should be well-structured and easy to understand
+- Focus on the most important points that students should remember
+- Use clear, concise language appropriate for study purposes
+- The summary should help students review and understand the lesson content
+
+IMPORTANT: You MUST return ONLY a valid JSON object. Do not include any markdown formatting, code blocks, explanatory text, or any other content. Return ONLY the JSON object starting with { and ending with }.
+
+Return your response as a valid JSON object in this exact format:
+{
+  "question": "Comprehensive summary text here covering all key points from the PDF...",
+  "correct_answer": "This is a summary study aid",
+  "type": "fill_blank"
+}
+
+CRITICAL: Return ONLY the JSON object. No markdown, no code blocks, no explanations, no additional text. Just the raw JSON object starting with { and ending with }.`;
+}
+
+function generatePrompt(lessonMetadata: string, questionType: string, count: number, forStudyAid?: boolean): string {
   const typeInstructions = {
     multiple_choice: "multiple choice questions with 4 options each",
     true_false: "true/false questions",
@@ -246,12 +233,61 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
   };
 
   let requirements = "";
+  let specificGuidelines = "";
+  
   if (questionType === "multiple_choice") {
     requirements = "- Each question must have exactly 4 options (A, B, C, D)\n- Mark the correct answer with its index (0 for A, 1 for B, 2 for C, 3 for D)\n- Options should be plausible but only one should be correct";
+    if (forStudyAid) {
+      specificGuidelines = `- Create study aid questions that help students learn and review key concepts from the PDF
+- Focus on important information that students should remember and understand
+- Each question should reinforce learning of essential concepts, definitions, or facts
+- The correct answer should be clearly identifiable and help students learn the material
+- Distractors should be educational - they should help students think about related concepts
+- Questions should cover the most important topics from the document
+- Make questions that promote understanding, not just memorization`;
+    } else {
+      specificGuidelines = `- Create questions that test understanding of key concepts, definitions, relationships, or applications from the PDF
+- Each question should focus on a specific piece of information or concept from the document
+- The correct answer should be clearly identifiable from the PDF content
+- Distractors (wrong options) should be related to the topic but clearly incorrect
+- Avoid trivial questions - focus on meaningful learning objectives
+- Questions should vary in difficulty and cover different sections of the document`;
+    }
   } else if (questionType === "true_false") {
     requirements = "- Each question should be a clear statement that can be definitively true or false\n- Mark the correct answer as true or false";
+    if (forStudyAid) {
+      specificGuidelines = `- Create flashcard-style statements that help students review important facts from the PDF
+- Focus on key concepts, definitions, and essential information students should remember
+- Each statement should reinforce learning of important material
+- Mix both true and false statements to help students think critically
+- False statements should be educational - they should highlight common misconceptions or important distinctions
+- Statements should help students understand and remember the core content
+- Make flashcards that promote active recall and learning`;
+    } else {
+      specificGuidelines = `- Create statements that are definitively true or false based on the PDF content
+- Focus on factual claims, definitions, relationships, or principles from the document
+- Avoid ambiguous statements - each should have a clear answer based on the PDF
+- Mix both true and false statements to test comprehension
+- False statements should be plausible but clearly contradicted by the PDF content
+- Questions should test understanding of important concepts from the document`;
+    }
   } else {
     requirements = "- Each question should have a blank (represented as ______) where the answer goes\n- Provide the correct answer as a string";
+    if (forStudyAid) {
+      specificGuidelines = `- Create study aid questions that help students review key terms and concepts
+- Focus on important vocabulary, definitions, and concepts from the PDF
+- The blank should represent a key term or concept students should remember
+- Questions should reinforce learning of essential information
+- Answers should be specific terms or phrases that are important for understanding the material
+- Make questions that help students practice recall of important information`;
+    } else {
+      specificGuidelines = `- Create questions with a single blank (______) where a key term, concept, or phrase should be filled in
+- The blank should represent an important term, definition, name, or concept from the PDF
+- The question context should make it clear what type of answer is expected
+- Answers should be specific terms or phrases found in or directly derived from the PDF content
+- Avoid overly vague blanks - be specific about what should fill the blank
+- Questions should test recall and understanding of key terminology and concepts`;
+    }
   }
 
   let jsonExample = "";
@@ -263,19 +299,30 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
     jsonExample = '"correct_answer": "answer text"';
   }
 
-  return `You are an educational content generator. Based on the PDF document provided and the following lesson metadata, generate exactly ${count} ${typeInstructions[questionType as keyof typeof typeInstructions] || "questions"}.
+  const purposeContext = forStudyAid 
+    ? "These questions are for STUDY AID purposes - they help students learn and review the material. Focus on key concepts, important facts, and essential information that students should remember."
+    : "These questions are for ASSESSMENT purposes - they test student knowledge and understanding.";
 
-IMPORTANT: The questions must be based on the actual content of the PDF document, not just the metadata below. Read and analyze the PDF content thoroughly.
+  return `You are an educational content generator specializing in creating high-quality ${forStudyAid ? "study aid" : "assessment"} questions. Based on the PDF document provided and the following lesson metadata, generate exactly ${count} ${typeInstructions[questionType as keyof typeof typeInstructions] || "questions"}.
+
+CRITICAL: The questions MUST be based on the actual content of the PDF document, not just the metadata below. You must read and analyze the PDF content thoroughly to create accurate, relevant questions.
+
+${purposeContext}
 
 Lesson Metadata (for context only):
 ${lessonMetadata}
 
-The PDF document is attached to this request. Please analyze its content and generate questions based on the actual material in the PDF.
+The PDF document is attached to this request. You must analyze its content carefully and generate questions based on the actual material, facts, concepts, and information presented in the PDF.
 
-Requirements:
+Question Type: ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? "True or False" : "Fill in the Blank"}
+
+Specific Guidelines for ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? "True/False" : "Fill-in-the-Blank"} ${forStudyAid ? "Study Aid" : ""} Questions:
+${specificGuidelines}
+
+Technical Requirements:
 ${requirements}
 
-IMPORTANT: You MUST return ONLY a valid JSON array. Do not include any markdown formatting, code blocks, or explanatory text. Return ONLY the JSON array starting with [ and ending with ].
+IMPORTANT: You MUST return ONLY a valid JSON array. Do not include any markdown formatting, code blocks, explanatory text, or any other content. Return ONLY the JSON array starting with [ and ending with ].
 
 Return your response as a valid JSON array in this exact format:
 [
@@ -286,10 +333,56 @@ Return your response as a valid JSON array in this exact format:
   }
 ]
 
-CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no explanations. Just the raw JSON array.`;
+CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no explanations, no additional text. Just the raw JSON array starting with [ and ending with ].`;
 }
 
-function parseGeminiResponse(responseText: string, questionType: string, lessonId: string): any[] {
+function parseStudyAidSummaryResponse(responseText: string, lessonId: string): any[] {
+  try {
+    let jsonText = responseText.trim();
+    jsonText = jsonText.replace(/^```json\s*/i, "").replace(/^```\s*/i, "").replace(/```\s*$/i, "");
+    jsonText = jsonText.trim();
+    
+    const jsonMatch = jsonText.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      jsonText = jsonMatch[0];
+    }
+
+    const parsed = JSON.parse(jsonText);
+    
+    if (typeof parsed !== "object" || Array.isArray(parsed)) {
+      throw new Error("Response is not a JSON object");
+    }
+
+    if (!parsed.question || parsed.question.trim() === "") {
+      throw new Error("Summary has no content");
+    }
+
+    return [{
+      id: `gen-summary-${Date.now()}`,
+      type: "fill_blank",
+      question: parsed.question.trim(),
+      correct_answer: parsed.correct_answer || "This is a summary study aid",
+      source_lesson_id: lessonId,
+      source_type: "lesson" as const,
+      created_at: new Date().toISOString(),
+    }];
+  } catch (error: any) {
+    console.error("Error parsing summary response:", error);
+    console.error("Response text:", responseText.substring(0, 500));
+    // Fallback: return a basic summary structure
+    return [{
+      id: `gen-summary-${Date.now()}`,
+      type: "fill_blank",
+      question: responseText.substring(0, 1000).trim() || "Summary content could not be parsed.",
+      correct_answer: "This is a summary study aid",
+      source_lesson_id: lessonId,
+      source_type: "lesson" as const,
+      created_at: new Date().toISOString(),
+    }];
+  }
+}
+
+function parseGeminiResponse(responseText: string, questionType: string, lessonId: string, forStudyAid?: boolean): any[] {
   try {
     // Clean and extract JSON from the response
     let jsonText = responseText.trim();

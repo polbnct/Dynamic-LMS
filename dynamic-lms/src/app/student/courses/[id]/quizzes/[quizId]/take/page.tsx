@@ -5,8 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/supabase/queries/courses.client";
-import { getQuizzes, startQuizAttempt, submitQuizAnswers, getCurrentStudentId } from "@/lib/supabase/queries/quizzes";
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getQuizzes, startQuizAttempt, submitQuizAnswers } from "@/lib/supabase/queries/quizzes";
 import type { Question } from "@/lib/supabase/queries/quizzes";
 
 export default function TakeQuizPage() {
@@ -24,6 +24,119 @@ export default function TakeQuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
+
+  // Track student activity for monitoring
+  useEffect(() => {
+    if (!attemptId) return;
+
+    let tabCount = 1;
+    let isFocused = true;
+    let heartbeatInterval: NodeJS.Timeout;
+
+    // Track tab visibility
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        isFocused = false;
+        updateActivity("blurred");
+      } else {
+        isFocused = true;
+        updateActivity("focused");
+      }
+    };
+
+    // Track window focus/blur
+    const handleFocus = () => {
+      isFocused = true;
+      updateActivity("focused");
+    };
+
+    const handleBlur = () => {
+      isFocused = false;
+      updateActivity("blurred");
+    };
+
+    // Track multiple tabs (using BroadcastChannel and localStorage)
+    const tabKey = `quiz-tab-${attemptId}`;
+    const channel = new BroadcastChannel(`quiz-${attemptId}`);
+    
+    // Increment tab count on load
+    const currentTabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
+    const newTabs = currentTabs + 1;
+    localStorage.setItem(tabKey, newTabs.toString());
+    tabCount = newTabs;
+
+    // Broadcast to other tabs
+    channel.postMessage({ type: "tab-count", count: newTabs });
+
+    // Listen for tab count updates from other tabs
+    channel.onmessage = (event) => {
+      if (event.data.type === "tab-count") {
+        tabCount = event.data.count;
+      }
+    };
+
+    // Clean up on page unload
+    const handleBeforeUnload = () => {
+      const tabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
+      if (tabs > 0) {
+        const updatedTabs = tabs - 1;
+        localStorage.setItem(tabKey, updatedTabs.toString());
+        channel.postMessage({ type: "tab-count", count: updatedTabs });
+      }
+    };
+
+    // Update activity status
+    const updateActivity = async (status: "online" | "focused" | "blurred" | "offline") => {
+      try {
+        await fetch("/api/quiz-activity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attemptId,
+            status,
+            tabCount,
+          }),
+        });
+      } catch (err) {
+        console.error("Failed to update activity:", err);
+      }
+    };
+
+    // Heartbeat to keep connection alive
+    const sendHeartbeat = () => {
+      if (isFocused && !document.hidden) {
+        updateActivity("online");
+      }
+    };
+
+    // Initialize
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("blur", handleBlur);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    
+    // Send initial status
+    updateActivity("online");
+    
+    // Send heartbeat every 5 seconds
+    heartbeatInterval = setInterval(sendHeartbeat, 5000);
+
+    // Cleanup
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("blur", handleBlur);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      clearInterval(heartbeatInterval);
+      channel.close();
+      // Decrement tab count
+      const tabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
+      if (tabs > 0) {
+        localStorage.setItem(tabKey, (tabs - 1).toString());
+      }
+      updateActivity("offline");
+    };
+  }, [attemptId]);
 
   useEffect(() => {
     async function fetchQuiz() {

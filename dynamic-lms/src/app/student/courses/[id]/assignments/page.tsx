@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/supabase/queries/courses.client";
-import { getAssignments, getAssignmentSubmissions, getAssignmentPDFUrl, submitAssignment, getCurrentStudentId } from "@/lib/supabase/queries/assignments";
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getAssignments, getAssignmentSubmissions, getAssignmentPDFUrl, submitAssignment } from "@/lib/supabase/queries/assignments";
 import type { Assignment } from "@/lib/supabase/queries/assignments";
 
 interface AssignmentWithUI extends Assignment {

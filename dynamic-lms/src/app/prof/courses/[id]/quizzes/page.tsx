@@ -10,6 +10,7 @@ import { getQuizzes, getQuestions, createQuestion, createQuiz } from "@/lib/supa
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
+import QuizMonitoringModal from "@/components/quiz/QuizMonitoringModal";
 
 // Quiz question interfaces for UI
 interface Question {
@@ -30,6 +31,9 @@ interface Lesson {
   pdfFileName?: string;
 }
 
+// Question type definition
+type QuestionType = "multiple_choice" | "true_false" | "fill_blank";
+
 // Quiz question interfaces for UI
 
 export default function QuizzesPage() {
@@ -43,10 +47,13 @@ export default function QuizzesPage() {
   const [createQuizModalOpen, setCreateQuizModalOpen] = useState(false);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [createQuestionModalOpen, setCreateQuestionModalOpen] = useState(false);
+  const [monitoringQuizId, setMonitoringQuizId] = useState<string | null>(null);
+  const [monitoringQuizName, setMonitoringQuizName] = useState<string>("");
 
   // Form state
   const [quizName, setQuizName] = useState("");
   const [quizType, setQuizType] = useState<"mixed" | "multiple_choice" | "true_false" | "fill_blank">("mixed");
+  const [generateQuestionType, setGenerateQuestionType] = useState<"multiple_choice" | "true_false" | "fill_blank">("multiple_choice");
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [quizBank, setQuizBank] = useState<Question[]>([]);
   const [filteredBank, setFilteredBank] = useState<Question[]>([]);
@@ -135,7 +142,7 @@ export default function QuizzesPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           lessonId: sourceId,
-          questionType: quizType,
+          questionType: generateQuestionType,
           count: 5,
         }),
       });
@@ -279,8 +286,27 @@ export default function QuizzesPage() {
       return;
     }
 
+    if (!quizName.trim()) {
+      setError("Please enter a quiz name.");
+      return;
+    }
+
     try {
-      const questionIds = selectedQuestions.map((q) => q.id);
+      const questionIds = selectedQuestions.map((q) => q.id).filter((id) => id && id.trim() !== "");
+      
+      if (questionIds.length === 0) {
+        setError("No valid question IDs found. Please select questions again.");
+        return;
+      }
+
+      console.log("Creating quiz with:", {
+        courseId,
+        quizName: quizName.trim(),
+        quizType,
+        questionIds,
+        questionCount: questionIds.length,
+      });
+
       const quiz = await createQuiz(
         courseId,
         {
@@ -305,8 +331,15 @@ export default function QuizzesPage() {
         setSuccess("");
       }, 1000);
     } catch (err: any) {
-      console.error("Error creating quiz:", err);
-      setError(err.message || "Failed to create quiz");
+      console.error("Error creating quiz:", {
+        message: err?.message,
+        details: err?.details,
+        hint: err?.hint,
+        code: err?.code,
+        fullError: err,
+      });
+      const errorMessage = err?.message || err?.details || err?.hint || "Failed to create quiz. Please check that all selected questions are valid.";
+      setError(errorMessage);
     }
   };
 
@@ -437,22 +470,46 @@ export default function QuizzesPage() {
                       Type: {quiz.type.replace("_", " ")} • {quiz.questions.length} question{quiz.questions.length !== 1 ? "s" : ""}
                     </p>
                   </div>
-                  <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                      />
-                    </svg>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => {
+                        setMonitoringQuizId(quiz.id);
+                        setMonitoringQuizName(quiz.name);
+                      }}
+                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Monitor active students"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                        />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                        />
+                      </svg>
+                    </button>
+                    <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                        />
+                      </svg>
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
           </div>
         )}
-      </main>
 
       {/* Create Quiz Modal */}
       {createQuizModalOpen && (
@@ -768,6 +825,26 @@ export default function QuizzesPage() {
                   </svg>
                 </button>
               </div>
+              
+              {/* Question Type Selector */}
+              <div className="mb-6">
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Question Type</label>
+                <select
+                  value={generateQuestionType}
+                  onChange={(e) => setGenerateQuestionType(e.target.value as "multiple_choice" | "true_false" | "fill_blank")}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                >
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="true_false">True or False</option>
+                  <option value="fill_blank">Fill in the Blank</option>
+                </select>
+                <p className="text-xs text-gray-500 mt-2">
+                  {generateQuestionType === "multiple_choice" && "Questions with 4 options each"}
+                  {generateQuestionType === "true_false" && "Questions that can be answered as True or False"}
+                  {generateQuestionType === "fill_blank" && "Questions with a blank space to fill"}
+                </p>
+              </div>
+
               <p className="text-gray-600 mb-4">Select a lesson or PDF to generate questions from:</p>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {lessons.length === 0 ? (
@@ -976,6 +1053,20 @@ export default function QuizzesPage() {
             </div>
           </div>
         )}
+      </main>
+
+      {/* Quiz Monitoring Modal - Outside main for proper rendering */}
+      {monitoringQuizId && (
+        <QuizMonitoringModal
+          quizId={monitoringQuizId}
+          quizName={monitoringQuizName}
+          isOpen={!!monitoringQuizId}
+          onClose={() => {
+            setMonitoringQuizId(null);
+            setMonitoringQuizName("");
+          }}
+        />
+      )}
     </div>
   );
 }

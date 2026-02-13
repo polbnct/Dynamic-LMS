@@ -257,6 +257,53 @@ export async function getCourseStudents(courseId: string) {
   }));
 }
 
+// Generate a unique invite code (e.g. ABC1234)
+function generateInviteCode(): string {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ"; // No I, O to avoid confusion
+  let code = "";
+  for (let i = 0; i < 3; i++) {
+    code += letters[Math.floor(Math.random() * letters.length)];
+  }
+  code += String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  return code;
+}
+
+// Get the invite link for a course (client-side; use in browser)
+export function getInviteLink(classroomCode: string): string {
+  if (typeof window === "undefined") return "";
+  return `${window.location.origin}/student/join?code=${encodeURIComponent(classroomCode)}`;
+}
+
+// Update course invite code (regenerate). Returns new code. Professor must own the course.
+export async function updateCourseInviteCode(
+  courseId: string,
+  professorId: string
+): Promise<string> {
+  const supabase = createClient();
+  const { data: course } = await supabase
+    .from("courses")
+    .select("id, professor_id")
+    .eq("id", courseId)
+    .eq("professor_id", professorId)
+    .single();
+
+  if (!course) {
+    throw new Error("Course not found or you do not have permission to update it");
+  }
+
+  const newCode = generateInviteCode();
+  const { error } = await supabase
+    .from("courses")
+    .update({ classroom_code: newCode })
+    .eq("id", courseId);
+
+  if (error) {
+    console.error("Error updating invite code:", error);
+    throw error;
+  }
+  return newCode;
+}
+
 // Join course by classroom code (client-side)
 export async function joinCourseByCode(classroomCode: string, studentId: string) {
   const supabase = createClient();

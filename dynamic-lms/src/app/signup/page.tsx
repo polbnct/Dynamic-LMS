@@ -101,26 +101,17 @@ export default function SignupPage() {
       }
 
       if (!response.ok) {
-        // Show detailed error message
+        // Show detailed error message (use string values so they display in console)
         const errorMessage = 
-          data?.error || 
-          data?.message || 
-          data?.originalError ||
-          data?.details ||
+          (typeof data?.error === "string" ? data.error : null) ||
+          (typeof data?.message === "string" ? data.message : null) ||
+          (typeof data?.originalError === "string" ? data.originalError : null) ||
+          (typeof data?.details === "string" ? data.details : null) ||
           `Failed to create account (${response.status} ${response.statusText}). Please try again.`;
         
-        console.error("Signup API error - Full details:", {
-          status: response.status,
-          statusText: response.statusText,
-          responseText: responseText,
-          parsedData: data,
-          error: data?.error,
-          originalError: data?.originalError,
-          type: data?.type,
-          code: data?.code,
-          hint: data?.hint,
-          details: data?.details,
-        });
+        console.error("Signup API error - status:", response.status, "statusText:", response.statusText);
+        console.error("Signup API error - response body:", responseText);
+        console.error("Signup API error - error message:", data?.error ?? data?.message ?? "(none)");
         
         setError(errorMessage);
         setLoading(false);

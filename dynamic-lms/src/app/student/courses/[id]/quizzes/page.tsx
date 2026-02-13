@@ -5,8 +5,8 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
-import { getCourseById } from "@/lib/supabase/queries/courses.client";
-import { getQuizzes, getQuizResults, getCurrentStudentId } from "@/lib/supabase/queries/quizzes";
+import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { getQuizzes, getQuizResults } from "@/lib/supabase/queries/quizzes";
 import type { Quiz } from "@/lib/supabase/queries/quizzes";
 
 interface QuizWithUI extends Quiz {

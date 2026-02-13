@@ -17,7 +17,7 @@ export interface Quiz {
   id: string;
   course_id: string;
   name: string;
-  type: "mixed" | "multiple_choice" | "true_false" | "fill_blank";
+  type: "mixed" | "multiple_choice" | "true_false" | "fill_blank" | null;
   time_limit?: number;
   due_date?: string;
   created_at: string;
@@ -79,6 +79,8 @@ export async function getQuizzes(courseId: string): Promise<(Quiz & { questions:
 
       return {
         ...quiz,
+        // Convert null type to "mixed" for UI compatibility
+        type: quiz.type === null ? "mixed" : quiz.type,
         questions,
       };
     })
@@ -165,21 +167,96 @@ export async function createQuiz(
   },
   questionIds: string[]
 ): Promise<Quiz> {
+  // Validate inputs
+  if (!courseId || typeof courseId !== "string" || courseId.trim() === "") {
+    throw new Error("Invalid course ID provided");
+  }
+  
+  if (!quizData || !quizData.name || quizData.name.trim() === "") {
+    throw new Error("Quiz name is required");
+  }
+  
+  if (!quizData.type) {
+    throw new Error("Quiz type is required");
+  }
+
   const supabase = createClient();
+
+  // Prepare insert data
+  // Note: "mixed" is not a valid enum value, so we set type to null for mixed quizzes
+  // The database enum only supports: "multiple_choice", "true_false", "fill_blank"
+  const insertData: any = {
+    course_id: courseId.trim(),
+    name: quizData.name.trim(),
+    ...(quizData.time_limit && { time_limit: quizData.time_limit }),
+    ...(quizData.due_date && { due_date: quizData.due_date }),
+  };
+
+  // Only set type if it's not "mixed" (mixed quizzes have null type)
+  if (quizData.type !== "mixed") {
+    insertData.type = quizData.type;
+  } else {
+    insertData.type = null;
+  }
+
+  console.log("Attempting to create quiz with data:", JSON.stringify(insertData, null, 2));
+  console.log("Course ID:", courseId);
+  console.log("Quiz Data:", quizData);
+  console.log("Question IDs to link:", questionIds);
 
   // Create quiz
   const { data: quiz, error: quizError } = await supabase
     .from("quizzes")
-    .insert({
-      course_id: courseId,
-      ...quizData,
-    })
+    .insert(insertData)
     .select()
     .single();
 
   if (quizError) {
-    console.error("Error creating quiz:", quizError);
-    throw quizError;
+    // Try multiple ways to extract error information
+    const errorMessage = 
+      quizError.message || 
+      (quizError as any).message || 
+      String(quizError);
+    
+    const errorDetails = 
+      quizError.details || 
+      (quizError as any).details || 
+      null;
+    
+    const errorHint = 
+      quizError.hint || 
+      (quizError as any).hint || 
+      null;
+    
+    const errorCode = 
+      quizError.code || 
+      (quizError as any).code || 
+      null;
+
+    console.error("=== ERROR CREATING QUIZ ===");
+    console.error("Error message:", errorMessage);
+    console.error("Error details:", errorDetails);
+    console.error("Error hint:", errorHint);
+    console.error("Error code:", errorCode);
+    console.error("Full error object:", quizError);
+    console.error("Error type:", typeof quizError);
+    console.error("Error constructor:", quizError?.constructor?.name);
+    console.error("Quiz data that failed:", insertData);
+    console.error("Question IDs to link:", questionIds);
+    
+    // Create a more informative error
+    const informativeError = new Error(
+      errorMessage || 
+      errorDetails || 
+      errorHint || 
+      "Failed to create quiz. Check console for details."
+    );
+    (informativeError as any).originalError = quizError;
+    (informativeError as any).details = errorDetails;
+    (informativeError as any).hint = errorHint;
+    (informativeError as any).code = errorCode;
+    
+    throw informativeError;
   }
 
   // Link questions
@@ -193,12 +270,30 @@ export async function createQuiz(
     const { error: linkError } = await supabase.from("quiz_questions").insert(quizQuestions);
 
     if (linkError) {
-      console.error("Error linking questions:", linkError);
+      // Extract all error properties (including non-enumerable ones)
+      const errorInfo: any = {};
+      for (const key in linkError) {
+        errorInfo[key] = (linkError as any)[key];
+      }
+      const errorDetails = {
+        message: linkError.message || errorInfo.message,
+        details: linkError.details || errorInfo.details,
+        hint: linkError.hint || errorInfo.hint,
+        code: linkError.code || errorInfo.code,
+        questionIds: questionIds,
+        quizId: quiz.id,
+        error: errorInfo,
+      };
+      console.error("Error linking questions:", errorDetails);
       throw linkError;
     }
   }
 
-  return quiz;
+  // Convert null type to "mixed" for UI compatibility
+  return {
+    ...quiz,
+    type: quiz.type === null ? "mixed" : quiz.type,
+  };
 }
 
 // Start a quiz attempt

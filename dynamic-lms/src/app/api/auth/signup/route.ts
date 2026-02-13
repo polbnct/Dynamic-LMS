@@ -42,6 +42,8 @@ export async function POST(request: NextRequest) {
     );
 
     // Sign up with Supabase Auth
+    // Note: In Supabase Dashboard → Authentication → Providers → Email,
+    // turn OFF "Confirm email" so new users are not required to confirm and no confirmation email is sent.
     console.log("Attempting Supabase auth signup...");
     const userRole = role === "prof" ? "professor" : "student";
     
@@ -358,4 +360,5 @@ export async function POST(request: NextRequest) {
     );
   }
 }
+
 
