@@ -1,77 +1,23 @@
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import Link from "next/link";
 import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
-import {
-  getProfessorCourses,
-  createCourse,
-  getCurrentProfessorId,
-  getInviteLink,
-  updateCourseInviteCode,
-  type CourseWithStudents,
-} from "@/lib/supabase/queries/courses.client";
-import { createClient } from "@/lib/supabase/client";
+import { getInviteLink, updateCourseInviteCode, getCurrentProfessorId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfessorDashboard() {
   const navbarRef = useRef<ProfessorNavbarRef>(null);
-  const [courses, setCourses] = useState<CourseWithStudents[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { courses, handledCourses, loading, error: contextError, createCourse: createCourseFromContext, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const [inviteCourse, setInviteCourse] = useState<CourseWithStudents | null>(null);
   const [inviteCodeRegenerating, setInviteCodeRegenerating] = useState(false);
   const [inviteCopied, setInviteCopied] = useState<"link" | "code" | null>(null);
 
-  useEffect(() => {
-    async function fetchCourses() {
-      try {
-        setLoading(true);
-        // Try to create professor record if it doesn't exist
-        const professorId = await getCurrentProfessorId(true);
-        if (!professorId) {
-          setError("Unable to access professor account. Please ensure you signed up as a professor or contact support.");
-          return;
-        }
-        const data = await getProfessorCourses(professorId);
-        setCourses(data);
-        setError("");
-      } catch (err) {
-        setError("Failed to load courses. Please try again.");
-        console.error("Error fetching courses:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-
-    fetchCourses();
-  }, []);
-
   const handleCreateCourse = async (courseName: string) => {
     try {
-      const professorId = await getCurrentProfessorId(true);
-      if (!professorId) {
-        setError("Unable to access professor account. Please contact support.");
-        return;
-      }
-      
-      // Get professor name from auth/user data
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      
-      let professorName = "Professor";
-      if (user?.id) {
-        const { data: userData } = await supabase
-          .from("users")
-          .select("name")
-          .eq("id", user.id)
-          .maybeSingle();
-        professorName = userData?.name || "Professor";
-      }
-      
-      const newCourse = await createCourse(courseName, professorId, professorName);
-      
-      setCourses([...courses, newCourse]);
+      await createCourseFromContext(courseName);
       setSuccess(`Course "${courseName}" created successfully!`);
       setTimeout(() => setSuccess(""), 3000);
       setError("");
@@ -81,16 +27,9 @@ export default function ProfessorDashboard() {
     }
   };
 
-  const handledCourses = courses.map((course) => ({
-    id: parseInt(course.id),
-    name: course.name,
-    code: course.code,
-    studentsCount: course.studentsCount,
-  }));
-
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Professor Navbar */}
+      {/* Professor Navbar - same courses as dashboard, create works from anywhere */}
       <ProfessorNavbar
         ref={navbarRef}
         currentPage="dashboard"
@@ -129,7 +68,7 @@ export default function ProfessorDashboard() {
         )}
 
         {/* Error Message */}
-        {error && (
+        {(error || contextError) && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
             <svg
               className="w-5 h-5 text-red-600 flex-shrink-0"
@@ -144,7 +83,7 @@ export default function ProfessorDashboard() {
                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            {error}
+            {error || contextError}
           </div>
         )}
 
@@ -369,9 +308,7 @@ export default function ProfessorDashboard() {
                     try {
                       const newCode = await updateCourseInviteCode(inviteCourse.id, professorId);
                       setInviteCourse({ ...inviteCourse, classroom_code: newCode });
-                      setCourses((prev) =>
-                        prev.map((c) => (c.id === inviteCourse.id ? { ...c, classroom_code: newCode } : c))
-                      );
+                      await refetch();
                     } catch (err: any) {
                       setError(err?.message || "Failed to regenerate code");
                     } finally {

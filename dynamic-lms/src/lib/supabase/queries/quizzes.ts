@@ -75,7 +75,35 @@ export async function getQuizzes(courseId: string): Promise<(Quiz & { questions:
         .eq("quiz_id", quiz.id)
         .order("order", { ascending: true });
 
-      const questions = (quizQuestions || []).map((qq: any) => qq.questions).filter(Boolean);
+      const rawQuestions = (quizQuestions || []).map((qq: any) => qq.questions).filter(Boolean);
+      const questions = rawQuestions.map((q: any) => ({
+        ...q,
+        options: (() => {
+          if (q?.options == null) return undefined;
+          if (Array.isArray(q.options)) return q.options;
+          if (typeof q.options === "string") {
+            try {
+              const parsed = JSON.parse(q.options);
+              return Array.isArray(parsed) ? parsed : [];
+            } catch {
+              return [];
+            }
+          }
+          return [];
+        })(),
+        correct_answer:
+          q?.correct_answer != null
+            ? typeof q.correct_answer === "string"
+              ? (() => {
+                  try {
+                    return JSON.parse(q.correct_answer);
+                  } catch {
+                    return q.correct_answer;
+                  }
+                })()
+              : q.correct_answer
+            : undefined,
+      }));
 
       return {
         ...quiz,
@@ -296,6 +324,59 @@ export async function createQuiz(
   };
 }
 
+// Update a quiz (name, type, time_limit, due_date). Pass due_date: null to clear.
+export async function updateQuiz(
+  quizId: string,
+  updates: {
+    name?: string;
+    type?: "mixed" | "multiple_choice" | "true_false" | "fill_blank";
+    time_limit?: number;
+    due_date?: string | null;
+  }
+): Promise<Quiz> {
+  const supabase = createClient();
+  const dbType = updates.type === "mixed" ? null : updates.type;
+  const { data, error } = await supabase
+    .from("quizzes")
+    .update({
+      ...(updates.name != null && { name: updates.name }),
+      ...(updates.type != null && { type: dbType }),
+      ...(updates.time_limit != null && { time_limit: updates.time_limit }),
+      ...(Object.prototype.hasOwnProperty.call(updates, "due_date") && { due_date: updates.due_date ?? null }),
+    })
+    .eq("id", quizId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating quiz:", error);
+    throw error;
+  }
+  return { ...data, type: data.type === null ? "mixed" : data.type };
+}
+
+// Set which questions are in a quiz (replaces existing)
+export async function setQuizQuestions(quizId: string, questionIds: string[]): Promise<void> {
+  const supabase = createClient();
+  const { error: delError } = await supabase.from("quiz_questions").delete().eq("quiz_id", quizId);
+  if (delError) {
+    console.error("Error removing quiz questions:", delError);
+    throw delError;
+  }
+  if (questionIds.length > 0) {
+    const rows = questionIds.map((questionId, index) => ({
+      quiz_id: quizId,
+      question_id: questionId,
+      order: index + 1,
+    }));
+    const { error: insertError } = await supabase.from("quiz_questions").insert(rows);
+    if (insertError) {
+      console.error("Error adding quiz questions:", insertError);
+      throw insertError;
+    }
+  }
+}
+
 // Start a quiz attempt
 export async function startQuizAttempt(quizId: string, studentId: string): Promise<QuizAttempt> {
   const supabase = createClient();
@@ -389,7 +470,7 @@ export async function submitQuizAnswers(
   return { score: Math.round(score), maxScore: attempt.max_score };
 }
 
-// Get quiz results
+// Get quiz results (latest submitted attempt only; in-progress attempts have null submitted_at)
 export async function getQuizResults(quizId: string, studentId: string): Promise<QuizAttempt | null> {
   const supabase = createClient();
 
@@ -398,6 +479,7 @@ export async function getQuizResults(quizId: string, studentId: string): Promise
     .select("*")
     .eq("quiz_id", quizId)
     .eq("student_id", studentId)
+    .not("submitted_at", "is", null)
     .order("submitted_at", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -407,6 +489,125 @@ export async function getQuizResults(quizId: string, studentId: string): Promise
     return null;
   }
 
-  return attempt;
+  if (!attempt) return null;
+
+  // Normalize so score/max_score are always present (Supabase may return snake_case)
+  return {
+    ...attempt,
+    score: attempt.score != null ? Number(attempt.score) : 0,
+    max_score: attempt.max_score != null ? Number(attempt.max_score) : 0,
+  };
+}
+
+export interface QuizResultAnswer {
+  questionId: string;
+  questionText: string;
+  questionType: string;
+  options?: string[];
+  correctAnswer: number | boolean | string;
+  userAnswer: string | number | boolean;
+  isCorrect: boolean;
+}
+
+export interface QuizResultWithAnswers {
+  attempt: QuizAttempt;
+  answers: QuizResultAnswer[];
+}
+
+// Get attempt with answers and question details for showing results
+export async function getQuizAttemptWithAnswers(attemptId: string): Promise<QuizResultWithAnswers | null> {
+  const supabase = createClient();
+
+  const { data: attempt, error: attemptErr } = await supabase
+    .from("quiz_attempts")
+    .select("*")
+    .eq("id", attemptId)
+    .single();
+
+  if (attemptErr || !attempt) return null;
+
+  const { data: answersRows, error: answersErr } = await supabase
+    .from("quiz_answers")
+    .select("*, questions(*)")
+    .eq("attempt_id", attemptId);
+
+  if (answersErr || !answersRows?.length) {
+    return {
+      attempt: {
+        ...attempt,
+        score: attempt.score != null ? Number(attempt.score) : 0,
+        max_score: attempt.max_score != null ? Number(attempt.max_score) : 0,
+      },
+      answers: [],
+    };
+  }
+
+  const { data: quizQuestions } = await supabase
+    .from("quiz_questions")
+    .select("question_id, order")
+    .eq("quiz_id", attempt.quiz_id)
+    .order("order", { ascending: true });
+
+  const orderMap = new Map((quizQuestions || []).map((r: any) => [r.question_id, r.order ?? 999]));
+  const sorted = [...answersRows].sort(
+    (a: any, b: any) => (orderMap.get(a.question_id) ?? 999) - (orderMap.get(b.question_id) ?? 999)
+  );
+
+  const parseAnswer = (val: unknown): string | number | boolean => {
+    if (typeof val === "string") {
+      try {
+        const p = JSON.parse(val);
+        return typeof p === "boolean" ? p : typeof p === "number" ? p : String(p);
+      } catch {
+        return val;
+      }
+    }
+    return val as string | number | boolean;
+  };
+
+  const formatCorrectAnswer = (q: any, correctVal: unknown): string | number | boolean => {
+    if (q.type === "multiple_choice" && q.options) {
+      const opts = typeof q.options === "string" ? JSON.parse(q.options || "[]") : q.options;
+      const idx = typeof correctVal === "number" ? correctVal : parseInt(String(correctVal), 10);
+      return opts[idx] ?? correctVal;
+    }
+    return correctVal as string | number | boolean;
+  };
+
+  const answers: QuizResultAnswer[] = sorted.map((row: any) => {
+    const q = row.questions || {};
+    const correctRaw =
+      typeof q.correct_answer === "string" ? JSON.parse(q.correct_answer || "null") : q.correct_answer;
+    const options =
+      q.options != null
+        ? Array.isArray(q.options)
+          ? q.options
+          : (() => {
+              try {
+                return JSON.parse(q.options);
+              } catch {
+                return [];
+              }
+            })()
+        : undefined;
+    return {
+      questionId: row.question_id,
+      questionText: q.question || "",
+      questionType: q.type || "multiple_choice",
+      options,
+      correctAnswer: correctRaw,
+      userAnswer: parseAnswer(row.answer),
+      isCorrect: Boolean(row.is_correct),
+    };
+  });
+
+  return {
+    attempt: {
+      ...attempt,
+      score: attempt.score != null ? Number(attempt.score) : 0,
+      max_score: attempt.max_score != null ? Number(attempt.max_score) : 0,
+    },
+    answers,
+  };
 }
 

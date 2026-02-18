@@ -6,7 +6,8 @@ import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
-import { getLessons, createLesson, deleteLesson, uploadLessonPDF, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { getLessons, createLesson, updateLesson, deleteLesson, uploadLessonPDF, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import {
   getLessonStudyQuestions,
@@ -227,13 +228,14 @@ export default function ContentPage() {
   const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
   const [generatedForStudy, setGeneratedForStudy] = useState<any[]>([]);
   const [selectedGenerated, setSelectedGenerated] = useState<Set<number>>(new Set());
-  const [studyAidGenerateType, setStudyAidGenerateType] = useState<"summary" | "flashcard" | "multiple_choice">("multiple_choice");
+  const [studyAidGenerateType, setStudyAidGenerateType] = useState<"summary" | "flashcard" | "multiple_choice" | "fill_blank">("multiple_choice");
   const [studyAidGenerateCount, setStudyAidGenerateCount] = useState(5);
   const [studyAidLoading, setStudyAidLoading] = useState(false);
   const [studyAidGenerating, setStudyAidGenerating] = useState(false);
   const [studyAidAdding, setStudyAidAdding] = useState(false);
   const [editingStudyQuestion, setEditingStudyQuestion] = useState<StudyAidQuestion | null>(null);
   const [studyAidSaving, setStudyAidSaving] = useState(false);
+  const { handledCourses, createCourse } = useProfessorCourses();
 
   useEffect(() => {
     async function fetchCourse() {
@@ -284,27 +286,29 @@ export default function ContentPage() {
     }
 
     try {
-      // Upload PDF first
-      const tempLessonId = `temp-${Date.now()}`;
-      const pdfPath = await uploadLessonPDF(formData.pdfFile, courseId, tempLessonId);
-
       // Calculate order
       const categoryLessons = lessons.filter((l) => l.category === formData.category);
       const order = categoryLessons.length + 1;
 
-      // Create lesson in database
+      // Create lesson in database first (so we have a persistent lesson ID)
       const newLesson = await createLesson(courseId, {
         title: formData.title.trim(),
         category: formData.category,
-        pdf_file_path: pdfPath,
         order,
       });
+
+      // Upload PDF with real lesson ID and professor's original file name
+      const pdfPath = await uploadLessonPDF(formData.pdfFile, courseId, newLesson.id);
+
+      // Update lesson with the stored PDF path
+      await updateLesson(newLesson.id, { pdf_file_path: pdfPath });
 
       // Add to local state
       setLessons([
         ...lessons,
         {
           ...newLesson,
+          pdf_file_path: pdfPath,
           pdfUrl: getLessonPDFUrl(pdfPath),
           pdfFileName: formData.pdfFile.name,
           createdAt: newLesson.created_at,
@@ -355,21 +359,11 @@ export default function ContentPage() {
     finals: "Finals",
   };
 
-  const handledCourses = course
-    ? [
-        {
-          id: parseInt(course.id),
-          name: course.name,
-          code: course.code,
-          studentsCount: course.studentsCount,
-        },
-      ]
-    : [];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
         <CourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -385,7 +379,7 @@ export default function ContentPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -789,15 +783,15 @@ export default function ContentPage() {
                         value={studyAidGenerateType}
                         onChange={(e) => {
                           setStudyAidGenerateType(e.target.value as any);
-                          if (e.target.value === "summary") {
-                            setStudyAidGenerateCount(1);
-                          }
+                          if (e.target.value === "summary") setStudyAidGenerateCount(1);
+                          if (e.target.value === "fill_blank") setStudyAidGenerateCount(5);
                         }}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
                       >
                         <option value="summary">Summary (1 per lesson)</option>
                         <option value="flashcard">Flashcard</option>
                         <option value="multiple_choice">Multiple choice</option>
+                        <option value="fill_blank">Fill in the blank</option>
                       </select>
                     </div>
                     {studyAidGenerateType !== "summary" && (
@@ -821,17 +815,28 @@ export default function ContentPage() {
                         </div>
                       </div>
                     )}
+                    {studyAidGenerateType === "summary" && studyAidQuestions.some(
+                      (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                    ) && (
+                      <span className="text-sm text-amber-700 font-medium">Summary already exists for this lesson.</span>
+                    )}
                     <button
                       type="button"
-                      disabled={studyAidGenerating}
+                      disabled={
+                        studyAidGenerating ||
+                        (studyAidGenerateType === "summary" &&
+                          studyAidQuestions.some(
+                            (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                          ))
+                      }
                       onClick={async () => {
-                        // Check if summary already exists
+                        // Summary is one-time only: do not allow generating again if one exists
                         if (studyAidGenerateType === "summary") {
-                          const existingSummary = studyAidQuestions.find((q) => q.type === "fill_blank");
+                          const existingSummary = studyAidQuestions.find(
+                            (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                          );
                           if (existingSummary) {
-                            if (!confirm("A summary already exists for this lesson. Generating a new one will replace it. Continue?")) {
-                              return;
-                            }
+                            return; // Button is disabled when summary exists; no-op
                           }
                         }
                         setStudyAidGenerating(true);
@@ -842,9 +847,15 @@ export default function ContentPage() {
                             headers: { "Content-Type": "application/json" },
                           body: JSON.stringify({
                             lessonId: studyAidLesson.id,
-                            questionType: studyAidGenerateType === "summary" ? "fill_blank" : studyAidGenerateType === "flashcard" ? "true_false" : "multiple_choice",
+                            questionType:
+                              studyAidGenerateType === "summary" || studyAidGenerateType === "fill_blank"
+                                ? "fill_blank"
+                                : studyAidGenerateType === "flashcard"
+                                  ? "true_false"
+                                  : "multiple_choice",
                             count: studyAidGenerateType === "summary" ? 1 : studyAidGenerateCount,
                             forStudyAid: true,
+                            studyAidSummary: studyAidGenerateType === "summary",
                           }),
                           });
                           if (!res.ok) {
@@ -925,8 +936,11 @@ export default function ContentPage() {
                             setError("");
                             try {
                               // If adding a summary, remove existing summary first
+                              // When adding a new summary, remove existing summary first (only if we ever allowed replace; currently summary is one-time so this path is for first add only)
                               if (studyAidGenerateType === "summary") {
-                                const existingSummary = studyAidQuestions.find((q) => q.type === "fill_blank");
+                                const existingSummary = studyAidQuestions.find(
+                                  (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                                );
                                 if (existingSummary) {
                                   try {
                                     await removeLessonStudyQuestion(studyAidLesson.id, existingSummary.id);

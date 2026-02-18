@@ -27,6 +27,8 @@ export default function StudentAssignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [submitModalOpen, setSubmitModalOpen] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState<AssignmentWithUI | null>(null);
+  const [detailsModalOpen, setDetailsModalOpen] = useState(false);
+  const [assignmentForDetails, setAssignmentForDetails] = useState<AssignmentWithUI | null>(null);
   const [submissionFile, setSubmissionFile] = useState<File | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
@@ -256,19 +258,21 @@ export default function StudentAssignmentsPage() {
                               <p className="text-gray-600 mb-4">{assignment.description}</p>
                             )}
                             <div className="flex items-center gap-6 text-sm text-gray-600 mb-4">
-                              {assignment.pdfFileName && (
-                                <div className="flex items-center gap-2">
+                              {assignment.pdfUrl ? (
+                                <a
+                                  href={assignment.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium"
+                                >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                    />
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                   </svg>
-                                  <span>{assignment.pdfFileName}</span>
-                                </div>
-                              )}
+                                  View PDF {assignment.pdfFileName && `(${assignment.pdfFileName})`}
+                                </a>
+                              ) : assignment.pdfFileName ? (
+                                <span className="flex items-center gap-2 text-gray-600">{assignment.pdfFileName}</span>
+                              ) : null}
                               {assignment.dueDate && (
                                 <div className="flex items-center gap-2">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -297,20 +301,30 @@ export default function StudentAssignmentsPage() {
                               )}
                             </div>
                           </div>
-                          <button
-                            onClick={() => {
-                              if (assignment.submitted) {
-                                // View submission - could open modal or navigate
-                                alert("View submission functionality coming soon");
-                              } else {
-                                setSelectedAssignment(assignment);
-                                setSubmitModalOpen(true);
-                              }
-                            }}
-                            className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                          >
-                            {assignment.submitted ? "View Submission" : "Submit Assignment"}
-                          </button>
+                          <div className="ml-4 flex items-center gap-3">
+                            <button
+                              onClick={() => {
+                                setAssignmentForDetails(assignment);
+                                setDetailsModalOpen(true);
+                              }}
+                              className="px-4 py-2 border border-indigo-600 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-50 transition-all duration-200"
+                            >
+                              View details
+                            </button>
+                            <button
+                              onClick={() => {
+                                if (assignment.submitted) {
+                                  alert("View submission functionality coming soon");
+                                } else {
+                                  setSelectedAssignment(assignment);
+                                  setSubmitModalOpen(true);
+                                }
+                              }}
+                              className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                            >
+                              {assignment.submitted ? "View Submission" : "Submit Assignment"}
+                            </button>
+                          </div>
                         </div>
                       </div>
                     ))}
@@ -321,6 +335,67 @@ export default function StudentAssignmentsPage() {
           </div>
         )}
       </main>
+
+      {/* Assignment Details Modal */}
+      {detailsModalOpen && assignmentForDetails && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-bold text-gray-800">Assignment details</h2>
+              <button
+                onClick={() => { setDetailsModalOpen(false); setAssignmentForDetails(null); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="space-y-4">
+              <div>
+                <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Title</p>
+                <p className="text-lg font-semibold text-gray-800 mt-1">{assignmentForDetails.title}</p>
+              </div>
+              {assignmentForDetails.description && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Description</p>
+                  <p className="text-gray-700 mt-1 whitespace-pre-wrap">{assignmentForDetails.description}</p>
+                </div>
+              )}
+              {assignmentForDetails.dueDate && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Due date</p>
+                  <p className="text-gray-700 mt-1">{new Date(assignmentForDetails.dueDate).toLocaleDateString()}</p>
+                </div>
+              )}
+              {assignmentForDetails.pdfUrl && (
+                <div>
+                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Attached PDF</p>
+                  <a
+                    href={assignmentForDetails.pdfUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-indigo-50 text-indigo-700 rounded-lg font-medium hover:bg-indigo-100 transition-colors"
+                  >
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                    </svg>
+                    View PDF {assignmentForDetails.pdfFileName && `(${assignmentForDetails.pdfFileName})`}
+                  </a>
+                </div>
+              )}
+            </div>
+            <div className="mt-6 pt-4 border-t border-gray-200">
+              <button
+                onClick={() => { setDetailsModalOpen(false); setAssignmentForDetails(null); }}
+                className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Submit Assignment Modal */}
       {submitModalOpen && selectedAssignment && (

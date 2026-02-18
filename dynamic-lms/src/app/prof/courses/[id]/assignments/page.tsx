@@ -6,8 +6,9 @@ import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
-import { getAssignments, createAssignment, uploadAssignmentPDF, getAssignmentPDFUrl } from "@/lib/supabase/queries/assignments";
-import type { Assignment } from "@/lib/supabase/queries/assignments";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { getAssignments, createAssignment, updateAssignment, deleteAssignment, uploadAssignmentPDF, getAssignmentPDFUrl, getSubmissionFileUrl, getSubmissionsByAssignmentId, updateAssignmentSubmission } from "@/lib/supabase/queries/assignments";
+import type { Assignment, SubmissionWithStudent } from "@/lib/supabase/queries/assignments";
 
 export default function AssignmentsPage() {
   const params = useParams();
@@ -17,14 +18,27 @@ export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [createAssignmentModalOpen, setCreateAssignmentModalOpen] = useState(false);
+  const [editingAssignment, setEditingAssignment] = useState<(Assignment & { pdfUrl?: string; pdfFileName?: string; createdAt?: string; dueDate?: string }) | null>(null);
+  const [editForm, setEditForm] = useState({ title: "", description: "", category: "prelim" as "prelim" | "midterm" | "finals", dueDate: "" });
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "prelim" as "prelim" | "midterm" | "finals",
+    dueDate: "",
     pdfFile: null as File | null,
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false);
+  const [assignmentForSubmissions, setAssignmentForSubmissions] = useState<(Assignment & { pdfUrl?: string; pdfFileName?: string; createdAt?: string; dueDate?: string }) | null>(null);
+  const [submissionsList, setSubmissionsList] = useState<SubmissionWithStudent[]>([]);
+  const [submissionsLoading, setSubmissionsLoading] = useState(false);
+  const [selectedSubmission, setSelectedSubmission] = useState<SubmissionWithStudent | null>(null);
+  const [gradeForm, setGradeForm] = useState({ score: "", max_score: "", feedback: "" });
+  const [savingGrade, setSavingGrade] = useState(false);
+  const [gradeSuccess, setGradeSuccess] = useState("");
+  const { handledCourses, createCourse } = useProfessorCourses();
 
   useEffect(() => {
     async function fetchCourse() {
@@ -71,33 +85,38 @@ export default function AssignmentsPage() {
     }
 
     try {
-      let pdfPath: string | undefined;
-
-      // Upload PDF if provided
-      if (formData.pdfFile) {
-        const tempAssignmentId = `temp-${Date.now()}`;
-        pdfPath = await uploadAssignmentPDF(formData.pdfFile, courseId, tempAssignmentId);
-      }
-
-      // Create assignment in database
+      // Create assignment in database first so we have a real ID for the PDF path
       const newAssignment = await createAssignment(courseId, {
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
         category: formData.category,
-        pdf_file_path: pdfPath,
+        due_date: formData.dueDate ? formData.dueDate : undefined,
       });
 
-      // Add to local state
-      setAssignments([
-        ...assignments,
-        {
-          ...newAssignment,
-          pdfUrl: pdfPath ? getAssignmentPDFUrl(pdfPath) : undefined,
-          pdfFileName: formData.pdfFile ? formData.pdfFile.name : undefined,
-          createdAt: newAssignment.created_at,
-          dueDate: newAssignment.due_date,
-        },
-      ]);
+      let pdfPath: string | undefined;
+      if (formData.pdfFile) {
+        pdfPath = await uploadAssignmentPDF(formData.pdfFile, courseId, newAssignment.id);
+        await updateAssignment(newAssignment.id, { pdf_file_path: pdfPath });
+      }
+
+      // Add to local state (use updated assignment with pdf path if we uploaded)
+      const assignmentToAdd = pdfPath
+        ? {
+            ...newAssignment,
+            pdf_file_path: pdfPath,
+            pdfUrl: getAssignmentPDFUrl(pdfPath),
+            pdfFileName: formData.pdfFile!.name,
+            createdAt: newAssignment.created_at,
+            dueDate: newAssignment.due_date,
+          }
+        : {
+            ...newAssignment,
+            pdfUrl: undefined,
+            pdfFileName: undefined,
+            createdAt: newAssignment.created_at,
+            dueDate: newAssignment.due_date,
+          };
+      setAssignments([...assignments, assignmentToAdd as any]);
 
       setSuccess("Assignment created successfully!");
 
@@ -106,6 +125,7 @@ export default function AssignmentsPage() {
         title: "",
         description: "",
         category: "prelim",
+        dueDate: "",
         pdfFile: null,
       });
 
@@ -126,10 +146,47 @@ export default function AssignmentsPage() {
       title: "",
       description: "",
       category: "prelim",
+      dueDate: "",
       pdfFile: null,
     });
     setError("");
     setSuccess("");
+  };
+
+  const handleSaveEdit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingAssignment) return;
+    setError("");
+    setSuccess("");
+    setSaving(true);
+    try {
+      const updated = await updateAssignment(editingAssignment.id, {
+        title: editForm.title.trim(),
+        description: editForm.description.trim() || undefined,
+        category: editForm.category,
+        due_date: editForm.dueDate ? editForm.dueDate : undefined,
+      });
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a.id === updated.id
+            ? {
+                ...a,
+                ...updated,
+                pdfUrl: updated.pdf_file_path ? getAssignmentPDFUrl(updated.pdf_file_path) : (a as any).pdfUrl,
+                pdfFileName: updated.pdf_file_path ? updated.pdf_file_path.split("/").pop() : (a as any).pdfFileName,
+                dueDate: updated.due_date,
+              }
+            : a
+        )
+      );
+      setSuccess("Assignment updated.");
+      setTimeout(() => setSuccess(""), 3000);
+      setEditingAssignment(null);
+    } catch (err: any) {
+      setError(err.message || "Failed to update assignment.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Group assignments by category
@@ -145,21 +202,11 @@ export default function AssignmentsPage() {
     finals: "Finals",
   };
 
-  const handledCourses = course
-    ? [
-        {
-          id: parseInt(course.id),
-          name: course.name,
-          code: course.code,
-          studentsCount: course.studentsCount,
-        },
-      ]
-    : [];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
         <CourseNavbar courseId={courseId} currentPage="assignments" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -175,7 +222,7 @@ export default function AssignmentsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -287,19 +334,19 @@ export default function AssignmentsPage() {
                               {assignment.description && (
                                 <p className="text-gray-600 mb-3">{assignment.description}</p>
                               )}
-                              <div className="flex items-center gap-4 text-sm text-gray-500">
-                                {assignment.pdfFileName && (
-                                  <div className="flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path
-                                        strokeLinecap="round"
-                                        strokeLinejoin="round"
-                                        strokeWidth={2}
-                                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                                      />
+                              <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                                {assignment.pdfUrl && (
+                                  <a
+                                    href={assignment.pdfUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 text-indigo-600 hover:text-indigo-800 font-medium"
+                                  >
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                     </svg>
-                                    <span>{assignment.pdfFileName}</span>
-                                  </div>
+                                    View PDF {assignment.pdfFileName && `(${assignment.pdfFileName})`}
+                                  </a>
                                 )}
                                 <span>
                                   Created: {new Date(assignment.createdAt).toLocaleDateString("en-US", {
@@ -312,24 +359,61 @@ export default function AssignmentsPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2">
-                            <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                            <button
+                              onClick={async () => {
+                                setAssignmentForSubmissions(assignment);
+                                setSubmissionsModalOpen(true);
+                                setSubmissionsLoading(true);
+                                try {
+                                  const list = await getSubmissionsByAssignmentId(assignment.id);
+                                  setSubmissionsList(list);
+                                } catch (err: any) {
+                                  setError(err.message || "Failed to load submissions.");
+                                } finally {
+                                  setSubmissionsLoading(false);
+                                }
+                              }}
+                              className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="View student submissions"
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
                             </button>
-                            <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <button
+                              onClick={() => {
+                                setEditingAssignment(assignment);
+                                setEditForm({
+                                  title: assignment.title,
+                                  description: assignment.description ?? "",
+                                  category: assignment.category,
+                                  dueDate: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 10) : "",
+                                });
+                              }}
+                              className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Edit assignment"
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  strokeWidth={2}
-                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                                />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                              </svg>
+                            </button>
+                            <button
+                              onClick={async () => {
+                                if (!confirm(`Delete assignment "${assignment.title}"? This cannot be undone.`)) return;
+                                try {
+                                  await deleteAssignment(assignment.id);
+                                  setAssignments((prev) => prev.filter((a) => a.id !== assignment.id));
+                                  setSuccess("Assignment deleted.");
+                                  setTimeout(() => setSuccess(""), 3000);
+                                } catch (err: any) {
+                                  setError(err.message || "Failed to delete.");
+                                }
+                              }}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete assignment"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                               </svg>
                             </button>
                           </div>
@@ -462,6 +546,20 @@ export default function AssignmentsPage() {
                   </div>
                 </div>
 
+                {/* Due Date (Optional) */}
+                <div>
+                  <label htmlFor="dueDate" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Due Date <span className="text-gray-500 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    id="dueDate"
+                    type="date"
+                    value={formData.dueDate}
+                    onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                  />
+                </div>
+
                 {/* PDF Upload (Optional) */}
                 <div>
                   <label htmlFor="pdfFile" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -552,6 +650,336 @@ export default function AssignmentsPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Edit Assignment Modal */}
+      {editingAssignment && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Edit Assignment
+              </h2>
+              <button
+                onClick={() => { setEditingAssignment(null); setError(""); }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <form onSubmit={handleSaveEdit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Assignment Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="Enter assignment name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Description (Optional)</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Assignment description..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value as "prelim" | "midterm" | "finals" })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50/50 focus:bg-white"
+                >
+                  <option value="prelim">Prelim</option>
+                  <option value="midterm">Midterm</option>
+                  <option value="finals">Finals</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Due Date (Optional)</label>
+                <input
+                  type="date"
+                  value={editForm.dueDate}
+                  onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50/50 focus:bg-white"
+                />
+              </div>
+              {editingAssignment.pdfUrl && (
+                <p className="text-sm text-gray-600">
+                  Attached PDF:{" "}
+                  <a href={editingAssignment.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-indigo-600 hover:underline">
+                    View current PDF
+                  </a>
+                </p>
+              )}
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
+              )}
+              <div className="flex gap-3 pt-4">
+                <button
+                  type="button"
+                  onClick={() => { setEditingAssignment(null); setError(""); }}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                >
+                  {saving ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Student Submissions Modal - large view + grade */}
+      {submissionsModalOpen && assignmentForSubmissions && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[85vh] max-h-[95vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Student submissions</h2>
+                <p className="text-gray-600 text-sm mt-0.5">{assignmentForSubmissions.title}</p>
+              </div>
+              <button
+                onClick={() => {
+                  setSubmissionsModalOpen(false);
+                  setAssignmentForSubmissions(null);
+                  setSubmissionsList([]);
+                  setSelectedSubmission(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <div className="flex-1 flex min-h-0">
+              {submissionsLoading ? (
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-12 w-12 border-2 border-indigo-600 border-t-transparent"></div>
+                </div>
+              ) : submissionsList.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center p-8">
+                  <p className="text-gray-600">No submissions yet for this assignment.</p>
+                </div>
+              ) : (
+                <>
+                  {/* Left: list of submissions */}
+                  <div className="w-72 shrink-0 border-r border-gray-200 overflow-y-auto bg-gray-50/50">
+                    <div className="p-3 space-y-2">
+                      {submissionsList.map((sub) => {
+                        const isSelected = selectedSubmission?.id === sub.id;
+                        const isGraded = sub.graded_at != null;
+                        const maxScore = sub.max_score ?? 100;
+                        const score = sub.score ?? 0;
+                        const passed = isGraded && maxScore > 0 && score / maxScore >= 0.6;
+                        return (
+                          <button
+                            key={sub.id}
+                            type="button"
+                            onClick={() => {
+                              setSelectedSubmission(sub);
+                              setGradeForm({
+                                score: sub.score != null ? String(sub.score) : "",
+                                max_score: sub.max_score != null ? String(sub.max_score) : "100",
+                                feedback: sub.feedback ?? "",
+                              });
+                            }}
+                            className={`w-full text-left rounded-xl p-3 border transition-colors ${
+                              isSelected
+                                ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
+                                : "bg-white border-gray-200 hover:bg-gray-50"
+                            }`}
+                          >
+                            <p className="font-semibold text-gray-800 truncate">{sub.studentName}</p>
+                            <p className="text-xs text-gray-500 mt-0.5">
+                              {new Date(sub.submitted_at).toLocaleDateString()}
+                            </p>
+                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                              {isGraded ? (
+                                <>
+                                  <span
+                                    className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
+                                      passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                    }`}
+                                  >
+                                    {passed ? "Passed" : "Failed"}
+                                  </span>
+                                  <span className="text-xs text-gray-500">
+                                    {score}/{maxScore}
+                                  </span>
+                                </>
+                              ) : (
+                                <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded">
+                                  Not graded
+                                </span>
+                              )}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Right: file viewer + grading */}
+                  <div className="flex-1 flex flex-col min-w-0">
+                    {selectedSubmission ? (
+                      <>
+                        {/* Embedded file viewer */}
+                        <div className="flex-1 min-h-[280px] border-b border-gray-200 bg-gray-100">
+                          {selectedSubmission.fileUrl ? (
+                            <iframe
+                              src={selectedSubmission.fileUrl}
+                              title={`Submission by ${selectedSubmission.studentName}`}
+                              className="w-full h-full min-h-[280px]"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                              No file to display.{" "}
+                              {selectedSubmission.file_path && (
+                                <a
+                                  href={getSubmissionFileUrl(selectedSubmission.file_path)}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="text-indigo-600 hover:underline ml-1"
+                                >
+                                  Open in new tab
+                                </a>
+                              )}
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Grading form */}
+                        <div className="shrink-0 p-4 bg-white border-t border-gray-200">
+                          <p className="text-sm font-semibold text-gray-700 mb-3">
+                            Grade: {selectedSubmission.studentName}
+                          </p>
+                          <div className="flex flex-wrap gap-4 items-end">
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Score</label>
+                              <input
+                                type="number"
+                                min={0}
+                                value={gradeForm.score}
+                                onChange={(e) => setGradeForm((f) => ({ ...f, score: e.target.value }))}
+                                placeholder="0"
+                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Out of</label>
+                              <input
+                                type="number"
+                                min={1}
+                                value={gradeForm.max_score}
+                                onChange={(e) => setGradeForm((f) => ({ ...f, max_score: e.target.value }))}
+                                placeholder="100"
+                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              />
+                            </div>
+                            <div className="flex-1 min-w-[200px]">
+                              <label className="block text-xs font-medium text-gray-500 mb-1">Feedback (optional)</label>
+                              <input
+                                type="text"
+                                value={gradeForm.feedback}
+                                onChange={(e) => setGradeForm((f) => ({ ...f, feedback: e.target.value }))}
+                                placeholder="Optional feedback for student"
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                              />
+                            </div>
+                            <button
+                              type="button"
+                              disabled={savingGrade || gradeForm.score === "" || gradeForm.max_score === ""}
+                              onClick={async () => {
+                                const score = parseInt(gradeForm.score, 10);
+                                const max_score = parseInt(gradeForm.max_score, 10);
+                                if (isNaN(score) || isNaN(max_score) || max_score < 1) return;
+                                setSavingGrade(true);
+                                setGradeSuccess("");
+                                try {
+                                  await updateAssignmentSubmission(selectedSubmission.id, {
+                                    score,
+                                    max_score,
+                                    feedback: gradeForm.feedback.trim() || undefined,
+                                  });
+                                  setSubmissionsList((prev) =>
+                                    prev.map((s) =>
+                                      s.id === selectedSubmission.id
+                                        ? {
+                                            ...s,
+                                            score,
+                                            max_score,
+                                            feedback: gradeForm.feedback.trim() || undefined,
+                                            graded_at: new Date().toISOString(),
+                                          }
+                                        : s
+                                    )
+                                  );
+                                  setSelectedSubmission((prev) =>
+                                    prev
+                                      ? {
+                                          ...prev,
+                                          score,
+                                          max_score,
+                                          feedback: gradeForm.feedback.trim() || undefined,
+                                          graded_at: new Date().toISOString(),
+                                        }
+                                      : null
+                                  );
+                                  setGradeSuccess("Grade saved. It will appear in the Grades tab for this student.");
+                                  setTimeout(() => setGradeSuccess(""), 4000);
+                                } catch (err: any) {
+                                  setError(err.message || "Failed to save grade.");
+                                } finally {
+                                  setSavingGrade(false);
+                                }
+                              }}
+                              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {savingGrade ? "Saving..." : "Save grade"}
+                            </button>
+                          </div>
+                          {gradeSuccess && (
+                            <p className="mt-2 text-sm text-green-600">{gradeSuccess}</p>
+                          )}
+                        </div>
+                      </>
+                    ) : (
+                      <div className="flex-1 flex items-center justify-center text-gray-500 p-8">
+                        Select a submission from the list to view the file and grade it.
+                      </div>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="p-3 border-t border-gray-200 bg-gray-50 text-sm text-gray-600 shrink-0">
+              {!submissionsLoading && submissionsList.length > 0 && (
+                <span>{submissionsList.length} submission{submissionsList.length !== 1 ? "s" : ""}</span>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

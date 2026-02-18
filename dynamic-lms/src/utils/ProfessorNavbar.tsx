@@ -6,7 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 interface HandledCourse {
-  id: number;
+  id: string;
   name: string;
   code: string;
   studentsCount?: number;

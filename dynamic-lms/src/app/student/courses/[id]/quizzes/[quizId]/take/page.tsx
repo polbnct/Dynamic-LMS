@@ -296,7 +296,7 @@ export default function TakeQuizPage() {
               </div>
               <h3 className="text-lg font-semibold text-gray-800 mb-4">{question.question}</h3>
 
-              {question.type === "multiple_choice" && question.options && (
+              {question.type === "multiple_choice" && Array.isArray(question.options) && question.options.length > 0 && (
                 <div className="space-y-2">
                   {question.options.map((option, optIndex) => (
                     <label

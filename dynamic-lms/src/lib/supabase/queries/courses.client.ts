@@ -88,7 +88,7 @@ export async function getCourseById(courseId: string): Promise<CourseWithStudent
     .single();
 
   if (error) {
-    console.error("Error fetching course:", error);
+    console.error("Error fetching course:", error?.message || JSON.stringify(error));
     return null;
   }
 
@@ -236,25 +236,43 @@ export async function getCourseStudents(courseId: string) {
 
   const { data: enrollments, error } = await supabase
     .from("enrollments")
-    .select("*, students(*, users(*))")
+    .select("*, students(*)")
     .eq("course_id", courseId);
 
   if (error) {
-    console.error("Error fetching course students:", error);
+    console.error("Error fetching course students:", error?.message || error);
     throw error;
   }
 
-  if (!enrollments) {
+  if (!enrollments || enrollments.length === 0) {
     return [];
   }
 
-  return enrollments.map((enrollment: any) => ({
-    id: enrollment.students?.user_id || enrollment.student_id,
-    name: enrollment.students?.users?.name || "Unknown Student",
-    email: enrollment.students?.users?.email || "",
-    studentId: enrollment.students?.student_id || "",
-    enrolledAt: enrollment.enrolled_at || enrollment.created_at,
-  }));
+  const studentIds = [...new Set((enrollments as any[]).map((e) => e.students?.user_id).filter(Boolean))] as string[];
+  let userMap: Record<string, { name: string; email: string }> = {};
+  if (studentIds.length > 0) {
+    const { data: users } = await supabase
+      .from("users")
+      .select("id, name, email")
+      .in("id", studentIds);
+    if (users) {
+      userMap = Object.fromEntries(users.map((u: any) => [u.id, { name: u.name || "Unknown", email: u.email || "" }]));
+    }
+  }
+
+  return (enrollments as any[]).map((enrollment) => {
+    const student = enrollment.students;
+    const userInfo = student?.user_id ? userMap[student.user_id] : null;
+    return {
+      id: student?.user_id || enrollment.student_id,
+      name: userInfo?.name || "Unknown Student",
+      email: userInfo?.email || "",
+      studentId: student?.student_id || "",
+      /** students table id - use for getStudentGrades(courseId, studentDbId) */
+      studentDbId: enrollment.student_id,
+      enrolledAt: enrollment.enrolled_at || enrollment.created_at,
+    };
+  });
 }
 
 // Generate a unique invite code (e.g. ABC1234)

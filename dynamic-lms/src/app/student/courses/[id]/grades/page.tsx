@@ -6,7 +6,7 @@ import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
-import { getStudentGrades, calculateCategoryAverage } from "@/lib/supabase/queries/grades";
+import { getStudentGrades } from "@/lib/supabase/queries/grades";
 import type { Grade } from "@/lib/supabase/queries/grades";
 
 export default function StudentGradesPage() {
@@ -29,7 +29,7 @@ export default function StudentGradesPage() {
         }
 
         const gradesData = await getStudentGrades(courseId, studentId);
-        setGrades(gradesData);
+        setGrades(Array.isArray(gradesData) ? gradesData : []);
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -139,24 +139,14 @@ export default function StudentGradesPage() {
               const categoryGrades = gradesByCategory[category];
               if (categoryGrades.length === 0) return null;
 
-              const categoryAverage = calculateCategoryAverage(category);
-
               return (
                 <div key={category}>
                   {/* Category Header */}
-                  <div className="mb-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
-                      <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
-                        {categoryGrades.length} item{categoryGrades.length !== 1 ? "s" : ""}
-                      </span>
-                    </div>
-                    {categoryAverage !== null && (
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm text-gray-600">Category Average:</span>
-                        <span className="text-xl font-bold text-indigo-600">{categoryAverage.toFixed(1)}%</span>
-                      </div>
-                    )}
+                  <div className="mb-4 flex items-center gap-3">
+                    <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
+                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
+                      {categoryGrades.length} item{categoryGrades.length !== 1 ? "s" : ""}
+                    </span>
                   </div>
 
                   {/* Grades List */}

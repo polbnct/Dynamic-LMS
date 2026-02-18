@@ -79,3 +79,39 @@ export async function removeLessonStudyQuestion(
     throw new Error(err.error || "Failed to remove question");
   }
 }
+
+export async function submitStudyAidAttempt(
+  lessonId: string,
+  questionType: "multiple_choice" | "fill_blank",
+  score: number,
+  maxScore: number
+): Promise<{ success: boolean }> {
+  const res = await fetch(`/api/lessons/${lessonId}/study-aid-attempts`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ questionType, score, maxScore }),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}));
+    throw new Error(err.error || "Failed to save score");
+  }
+  return res.json();
+}
+
+export interface StudyAidAttempt {
+  lesson_id: string;
+  question_type: string;
+  score: number;
+  max_score: number;
+  created_at: string;
+}
+
+export async function getStudyAidAttemptsForCourse(courseId: string): Promise<StudyAidAttempt[]> {
+  const res = await fetch(`/api/courses/${courseId}/study-aid-attempts`);
+  if (!res.ok) {
+    if (res.status === 401 || res.status === 403) return [];
+    throw new Error("Failed to load study aid attempts");
+  }
+  const data = await res.json();
+  return data.attempts ?? [];
+}

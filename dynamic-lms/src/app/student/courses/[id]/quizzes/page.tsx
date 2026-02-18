@@ -6,8 +6,9 @@ import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
-import { getQuizzes, getQuizResults } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, getQuizResults, getQuizAttemptWithAnswers } from "@/lib/supabase/queries/quizzes";
 import type { Quiz } from "@/lib/supabase/queries/quizzes";
+import type { QuizResultWithAnswers } from "@/lib/supabase/queries/quizzes";
 
 interface QuizWithUI extends Quiz {
   title: string;
@@ -29,6 +30,10 @@ export default function StudentQuizzesPage() {
   const [course, setCourse] = useState<any>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
   const [loading, setLoading] = useState(true);
+  const [resultModalOpen, setResultModalOpen] = useState(false);
+  const [resultModalLoading, setResultModalLoading] = useState(false);
+  const [resultModalQuizName, setResultModalQuizName] = useState("");
+  const [resultData, setResultData] = useState<QuizResultWithAnswers | null>(null);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -58,8 +63,8 @@ export default function StudentQuizzesPage() {
               timeLimit: quiz.time_limit,
               questionsCount: quiz.questions?.length || 0,
               taken: !!result,
-              score: result?.score,
-              maxScore: result?.max_score || quiz.questions?.length * 10 || 100,
+              score: result?.score != null ? Number(result.score) : undefined,
+              maxScore: result?.max_score != null ? Number(result.max_score) : (quiz.questions?.length ?? 0) * 10 || 100,
             };
           })
         );
@@ -238,7 +243,7 @@ export default function StudentQuizzesPage() {
                                   <span>Due: {new Date(quiz.dueDate).toLocaleDateString()}</span>
                                 </div>
                               )}
-                              {quiz.taken && quiz.score !== undefined && quiz.maxScore !== undefined && (
+                              {quiz.taken && quiz.score !== undefined && quiz.maxScore != null && quiz.maxScore > 0 && (
                                 <div className="flex items-center gap-2 text-indigo-600 font-semibold">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
@@ -248,23 +253,43 @@ export default function StudentQuizzesPage() {
                                       d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
                                     />
                                   </svg>
-                                  <span>Score: {quiz.score}/{quiz.maxScore} ({(quiz.score / quiz.maxScore * 100).toFixed(0)}%)</span>
+                                  <span>Score: {quiz.score}/{quiz.maxScore} ({Math.round((quiz.score / quiz.maxScore) * 100)}%)</span>
                                 </div>
                               )}
                             </div>
                           </div>
-                          <Link
-                            href={quiz.taken ? `#` : `/student/courses/${courseId}/quizzes/${quiz.id}/take`}
-                            onClick={(e) => {
-                              if (quiz.taken) {
-                                e.preventDefault();
-                                alert("View results functionality coming soon");
-                              }
-                            }}
-                            className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
-                          >
-                            {quiz.taken ? "View Results" : "Take Quiz"}
-                          </Link>
+                          {quiz.taken ? (
+                            <button
+                              onClick={async () => {
+                                setResultModalQuizName(quiz.name);
+                                setResultModalOpen(true);
+                                setResultModalLoading(true);
+                                setResultData(null);
+                                try {
+                                  const studentId = await getCurrentStudentId();
+                                  if (!studentId) return;
+                                  const attempt = await getQuizResults(quiz.id, studentId);
+                                  if (!attempt) return;
+                                  const withAnswers = await getQuizAttemptWithAnswers(attempt.id);
+                                  setResultData(withAnswers ?? null);
+                                } catch (err) {
+                                  console.error(err);
+                                } finally {
+                                  setResultModalLoading(false);
+                                }
+                              }}
+                              className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                            >
+                              View Results
+                            </button>
+                          ) : (
+                            <Link
+                              href={`/student/courses/${courseId}/quizzes/${quiz.id}/take`}
+                              className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
+                            >
+                              Take Quiz
+                            </Link>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -274,7 +299,115 @@ export default function StudentQuizzesPage() {
             })}
           </div>
         )}
+
       </main>
+
+      {/* Quiz Result Modal */}
+      {resultModalOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setResultModalOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <h2 className="text-xl font-bold text-gray-800">Quiz Result: {resultModalQuizName}</h2>
+              <button
+                onClick={() => setResultModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 p-1"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {resultModalLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+                </div>
+              ) : resultData ? (
+                <>
+                  <div className="text-center mb-6 p-4 bg-indigo-50 rounded-xl">
+                    <p className="text-3xl font-bold text-indigo-600">
+                      {resultData.attempt.score} / {resultData.attempt.max_score}
+                    </p>
+                    <p className="text-gray-600 mt-1">
+                      {resultData.attempt.max_score > 0
+                        ? Math.round((resultData.attempt.score / resultData.attempt.max_score) * 100)
+                        : 0}%
+                    </p>
+                  </div>
+                  <h3 className="font-semibold text-gray-800 mb-3">Questions</h3>
+                  <ul className="space-y-4">
+                    {resultData.answers.map((a, idx) => {
+                      const correctDisplay =
+                        a.questionType === "multiple_choice" && a.options
+                          ? a.options[Number(a.correctAnswer)] ?? String(a.correctAnswer)
+                          : typeof a.correctAnswer === "boolean"
+                            ? a.correctAnswer
+                              ? "True"
+                              : "False"
+                            : String(a.correctAnswer);
+                      const userDisplay =
+                        a.questionType === "multiple_choice" && a.options && typeof a.userAnswer === "number"
+                          ? a.options[a.userAnswer] ?? String(a.userAnswer)
+                          : typeof a.userAnswer === "boolean"
+                            ? a.userAnswer
+                              ? "True"
+                              : "False"
+                            : String(a.userAnswer);
+                      return (
+                        <li
+                          key={a.questionId}
+                          className={`p-4 rounded-xl border-2 ${
+                            a.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
+                          }`}
+                        >
+                          <div className="flex items-start gap-2">
+                            <span
+                              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
+                                a.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"
+                              }`}
+                            >
+                              {a.isCorrect ? "✓" : "✗"}
+                            </span>
+                            <div className="flex-1 min-w-0">
+                              <p className="font-medium text-gray-800">
+                                {idx + 1}. {a.questionText}
+                              </p>
+                              <p className="text-sm text-gray-600 mt-1">
+                                Your answer: <span className="font-medium">{userDisplay}</span>
+                              </p>
+                              {!a.isCorrect && (
+                                <p className="text-sm text-green-700 mt-0.5">
+                                  Correct answer: <span className="font-medium">{correctDisplay}</span>
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </>
+              ) : (
+                <p className="text-gray-500 text-center py-8">No result data.</p>
+              )}
+            </div>
+            <div className="p-4 border-t border-gray-200">
+              <button
+                onClick={() => setResultModalOpen(false)}
+                className="w-full py-2.5 bg-gray-100 text-gray-800 rounded-xl font-semibold hover:bg-gray-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

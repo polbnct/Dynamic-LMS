@@ -176,3 +176,116 @@ export async function getActiveQuizAttempts(quizId: string): Promise<StudentQuiz
     return [];
   }
 }
+
+/** One attempt log for a student (same shape as StudentQuizStatus but used inside grouped data) */
+export type AttemptLog = StudentQuizStatus;
+
+/** Per-student grouping with all their attempts (logs) for this quiz */
+export interface StudentWithAttempts {
+  studentId: string;
+  studentName: string;
+  studentEmail: string;
+  attempts: AttemptLog[];
+}
+
+/** Get all quiz attempts for this quiz, grouped by student. Includes both active and submitted attempts. */
+export async function getQuizAttemptsGroupedByStudent(quizId: string): Promise<StudentWithAttempts[]> {
+  try {
+    const supabase = createClient();
+
+    const { data: attempts, error } = await supabase
+      .from("quiz_attempts")
+      .select("id, student_id, started_at, submitted_at")
+      .eq("quiz_id", quizId)
+      .order("started_at", { ascending: false });
+
+    if (error) {
+      console.error("Error fetching quiz attempts:", error);
+      return [];
+    }
+
+    if (!attempts || attempts.length === 0) return [];
+
+    let activityData: Record<string, { is_online?: boolean; is_focused?: boolean; tab_count?: number; last_activity_at?: string | null }> = {};
+    try {
+      const { data: activityRows } = await supabase
+        .from("quiz_attempts")
+        .select("id, is_online, is_focused, tab_count, last_activity_at")
+        .eq("quiz_id", quizId);
+      if (activityRows) {
+        activityRows.forEach((row: any) => {
+          activityData[row.id] = {
+            is_online: row.is_online,
+            is_focused: row.is_focused,
+            tab_count: row.tab_count,
+            last_activity_at: row.last_activity_at,
+          };
+        });
+      }
+    } catch (_) {
+      // Activity columns may not exist
+    }
+
+    const studentIds = [...new Set(attempts.map((a: any) => a.student_id).filter(Boolean))];
+    let studentInfoMap: Record<string, { name: string; email: string }> = {};
+
+    if (studentIds.length > 0) {
+      try {
+        const { data: studentsData } = await supabase
+          .from("students")
+          .select(`
+            id,
+            user_id,
+            users ( id, name, email )
+          `)
+          .in("id", studentIds);
+
+        if (studentsData) {
+          studentsData.forEach((student: any) => {
+            const user = Array.isArray(student.users) ? student.users[0] : student.users || {};
+            studentInfoMap[student.id] = {
+              name: (user && user.name) ? user.name : "Unknown Student",
+              email: (user && user.email) ? user.email : "",
+            };
+          });
+        }
+      } catch (e) {
+        console.warn("Error fetching student info:", e);
+      }
+    }
+
+    const attemptLogs: StudentQuizStatus[] = attempts.map((attempt: any) => {
+      const studentInfo = studentInfoMap[attempt.student_id] || { name: "Unknown Student", email: "" };
+      const activity = activityData[attempt.id] || {};
+      return {
+        attemptId: attempt.id,
+        studentId: attempt.student_id,
+        studentName: studentInfo.name,
+        studentEmail: studentInfo.email,
+        startedAt: attempt.started_at,
+        isOnline: activity.is_online ?? true,
+        isFocused: activity.is_focused ?? true,
+        tabCount: activity.tab_count ?? 1,
+        lastActivityAt: activity.last_activity_at ?? null,
+        submittedAt: attempt.submitted_at,
+      };
+    });
+
+    const byStudent = new Map<string, StudentQuizStatus[]>();
+    for (const log of attemptLogs) {
+      if (!byStudent.has(log.studentId)) byStudent.set(log.studentId, []);
+      byStudent.get(log.studentId)!.push(log);
+    }
+
+    const firstLog = (logs: StudentQuizStatus[]) => logs[0];
+    return Array.from(byStudent.entries()).map(([studentId, attempts]) => ({
+      studentId,
+      studentName: firstLog(attempts).studentName,
+      studentEmail: firstLog(attempts).studentEmail,
+      attempts,
+    }));
+  } catch (err: any) {
+    console.error("getQuizAttemptsGroupedByStudent error:", err);
+    return [];
+  }
+}

@@ -5,18 +5,19 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import {
-  getCourseById,
-  getCourseStudents,
-  getCurrentProfessorId,
-  type CourseWithStudents,
-} from "@/lib/supabase/queries/courses.client";
+import { getCourseById, getCourseStudents, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { getStudentGrades } from "@/lib/supabase/queries/grades";
+import type { Grade } from "@/lib/supabase/queries/grades";
+import { getAssignments } from "@/lib/supabase/queries/assignments";
+import { getQuizzes } from "@/lib/supabase/queries/quizzes";
 
 interface Student {
   id: string;
   name: string;
   email: string;
   studentId?: string;
+  studentDbId?: string;
   enrolledAt: string;
 }
 
@@ -29,6 +30,13 @@ export default function ClasslistPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [profileModalOpen, setProfileModalOpen] = useState(false);
+  const [selectedStudent, setSelectedStudent] = useState<Student | null>(null);
+  const [profileGrades, setProfileGrades] = useState<Grade[]>([]);
+  const [profileMissedAssignments, setProfileMissedAssignments] = useState<{ id: string; title: string; category: string }[]>([]);
+  const [profileMissedQuizzes, setProfileMissedQuizzes] = useState<{ id: string; name: string }[]>([]);
+  const [profileLoading, setProfileLoading] = useState(false);
+  const { handledCourses, createCourse } = useProfessorCourses();
 
   useEffect(() => {
     async function fetchCourseData() {
@@ -36,7 +44,7 @@ export default function ClasslistPage() {
         setLoading(true);
         const [courseData, studentsData] = await Promise.all([
           getCourseById(courseId),
-          getCourseStudents(courseId),
+          getCourseStudents(courseId).catch(() => []),
         ]);
 
         if (!courseData) {
@@ -45,7 +53,7 @@ export default function ClasslistPage() {
         }
 
         setCourse(courseData);
-        setStudents(studentsData);
+        setStudents(Array.isArray(studentsData) ? studentsData : []);
         setError("");
       } catch (err) {
         setError("Failed to load course data. Please try again.");
@@ -70,21 +78,11 @@ export default function ClasslistPage() {
     );
   });
 
-  const handledCourses = course
-    ? [
-        {
-          id: parseInt(course.id),
-          name: course.name,
-          code: course.code,
-          studentsCount: course.studentsCount,
-        },
-      ]
-    : [];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -98,7 +96,7 @@ export default function ClasslistPage() {
   if (error || !course) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
@@ -125,7 +123,7 @@ export default function ClasslistPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -246,7 +244,41 @@ export default function ClasslistPage() {
                         })}
                       </td>
                       <td className="py-4 px-4">
-                        <button className="text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors">
+                        <button
+                          onClick={async () => {
+                            if (!student.studentDbId) return;
+                            setSelectedStudent(student);
+                            setProfileModalOpen(true);
+                            setProfileLoading(true);
+                            setProfileGrades([]);
+                            setProfileMissedAssignments([]);
+                            setProfileMissedQuizzes([]);
+                            try {
+                              const [grades, assignments, quizzes] = await Promise.all([
+                                getStudentGrades(courseId, student.studentDbId),
+                                getAssignments(courseId),
+                                getQuizzes(courseId),
+                              ]);
+                              setProfileGrades(grades ?? []);
+                              const gradedAssignmentTitles = new Set(
+                                (grades ?? []).filter((g) => g.type === "assignment").map((g) => g.title)
+                              );
+                              const gradedQuizTitles = new Set(
+                                (grades ?? []).filter((g) => g.type === "quiz").map((g) => g.title)
+                              );
+                              setProfileMissedAssignments(
+                                (assignments ?? []).filter((a) => !gradedAssignmentTitles.has(a.title))
+                              );
+                              setProfileMissedQuizzes((quizzes ?? []).filter((q) => !gradedQuizTitles.has(q.name)));
+                            } catch (err) {
+                              console.error("Error loading student profile:", err);
+                              setError("Failed to load student grades.");
+                            } finally {
+                              setProfileLoading(false);
+                            }
+                          }}
+                          className="text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors"
+                        >
                           View Profile
                         </button>
                       </td>
@@ -273,6 +305,125 @@ export default function ClasslistPage() {
           </div>
         </div>
       </main>
+
+      {/* Student Profile / Grades Modal */}
+      {profileModalOpen && selectedStudent && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h2 className="text-xl font-bold text-gray-800">Student profile</h2>
+                <p className="text-gray-600 text-sm mt-1">{selectedStudent.name}</p>
+                {selectedStudent.email && (
+                  <p className="text-gray-500 text-sm">{selectedStudent.email}</p>
+                )}
+              </div>
+              <button
+                onClick={() => {
+                  setProfileModalOpen(false);
+                  setSelectedStudent(null);
+                }}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {profileLoading ? (
+                <div className="flex justify-center py-12">
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+                </div>
+              ) : (
+                <div className="space-y-6">
+                  {/* Grades in this course */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                      Grades in this course
+                    </h3>
+                    {profileGrades.length === 0 ? (
+                      <p className="text-gray-500 text-sm">No graded assignments or quizzes yet.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {profileGrades.map((g) => (
+                          <li
+                            key={g.id}
+                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-100"
+                          >
+                            <div>
+                              <span className="font-medium text-gray-800">{g.title}</span>
+                              <span className="ml-2 text-xs text-gray-500 capitalize">({g.type})</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-sm text-gray-600">
+                                {g.score}/{g.maxScore}
+                              </span>
+                              <span className="text-sm font-medium text-indigo-600">{Math.round(g.percentage)}%</span>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Missed assignments */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                      Missed assignments
+                    </h3>
+                    {profileMissedAssignments.length === 0 ? (
+                      <p className="text-gray-500 text-sm">None. Student submitted all assignments.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {profileMissedAssignments.map((a) => (
+                          <li
+                            key={a.id}
+                            className="flex items-center gap-2 py-2 px-3 bg-red-50 rounded-lg border border-red-100 text-red-800 text-sm"
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {a.title}
+                            <span className="text-red-600 text-xs capitalize">({a.category})</span>
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+
+                  {/* Missed quizzes */}
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">
+                      Missed quizzes
+                    </h3>
+                    {profileMissedQuizzes.length === 0 ? (
+                      <p className="text-gray-500 text-sm">None. Student took all quizzes.</p>
+                    ) : (
+                      <ul className="space-y-2">
+                        {profileMissedQuizzes.map((q) => (
+                          <li
+                            key={q.id}
+                            className="flex items-center gap-2 py-2 px-3 bg-red-50 rounded-lg border border-red-100 text-red-800 text-sm"
+                          >
+                            <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            {q.name}
+                          </li>
+                        ))}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

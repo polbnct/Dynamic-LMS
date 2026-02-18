@@ -1,98 +1,238 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useEffect, useState } from "react";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import { getProfessorCourses, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { createClient } from "@/lib/supabase/client";
+
+interface ProfileData {
+  name: string;
+  email: string;
+}
 
 export default function ProfProfile() {
-  const [handledCourses, setHandledCourses] = useState([]);
+  const { handledCourses, createCourse } = useProfessorCourses();
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [editing, setEditing] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [editName, setEditName] = useState("");
+  const [editEmail, setEditEmail] = useState("");
+
+  const fetchProfile = async () => {
+    const supabase = createClient();
+    setError("");
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("Not signed in.");
+        return;
+      }
+
+      const { data: userRow, error: userError } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", user.id)
+        .single();
+
+      if (userError || !userRow) {
+        setProfile({
+          name: user.user_metadata?.name ?? user.email?.split("@")[0] ?? "",
+          email: user.email ?? "",
+        });
+        return;
+      }
+
+      setProfile({
+        name: userRow.name ?? "",
+        email: userRow.email ?? user.email ?? "",
+      });
+    } catch (err) {
+      console.error("Error fetching profile:", err);
+      setError("Failed to load profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    async function fetchCourses() {
-      try {
-        const professorId = await getCurrentProfessorId(true);
-        if (!professorId) {
-          console.warn("Professor record not found. User may need to sign up again or contact support.");
-          // Set empty array instead of returning early so navbar still works
-          setHandledCourses([]);
-          return;
-        }
-        const courses = await getProfessorCourses(professorId);
-        setHandledCourses(
-          courses.map((course) => ({
-            id: parseInt(course.id),
-            name: course.name,
-            code: course.code,
-            studentsCount: course.studentsCount,
-          }))
-        );
-      } catch (err) {
-        console.error("Error fetching courses:", err);
-        setHandledCourses([]);
-      }
-    }
-    fetchCourses();
+    fetchProfile();
   }, []);
+
+  const startEditing = () => {
+    if (profile) {
+      setEditName(profile.name);
+      setEditEmail(profile.email);
+      setEditing(true);
+      setError("");
+      setSuccess("");
+    }
+  };
+
+  const cancelEditing = () => {
+    setEditing(false);
+    setError("");
+  };
+
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!profile) return;
+    setSaving(true);
+    setError("");
+    setSuccess("");
+    const supabase = createClient();
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        setError("Not signed in.");
+        setSaving(false);
+        return;
+      }
+
+      const name = editName.trim();
+      const email = editEmail.trim().toLowerCase();
+      if (!name) {
+        setError("Name is required.");
+        setSaving(false);
+        return;
+      }
+      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        setError("Please enter a valid email.");
+        setSaving(false);
+        return;
+      }
+
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ name, email })
+        .eq("id", user.id);
+
+      if (updateError) {
+        setError(updateError.message || "Failed to update profile.");
+        setSaving(false);
+        return;
+      }
+
+      if (email !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({ email });
+        if (authError) {
+          setError(authError.message || "Profile updated but email change may require verification.");
+        }
+      }
+
+      setProfile({ name, email });
+      setEditing(false);
+      setSuccess("Profile updated successfully.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err) {
+      console.error("Error saving profile:", err);
+      setError("Failed to save profile.");
+    } finally {
+      setSaving(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="profile" handledCourses={handledCourses} />
+      <ProfessorNavbar currentPage="profile" handledCourses={handledCourses} onCreateCourse={createCourse} />
 
-      {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
             Profile Settings
           </h1>
-          <p className="text-gray-600">Manage your account information and preferences</p>
+          <p className="text-gray-600">Manage your account information</p>
         </div>
 
-        {/* Profile Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
-            <button className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors">
-              <svg
-                className="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+        {error && (
+          <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-green-700 text-sm">
+            {success}
+          </div>
+        )}
+
+        {loading ? (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8 flex items-center justify-center min-h-[200px]">
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+          </div>
+        ) : editing ? (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Edit Profile</h2>
+            <form onSubmit={handleSave} className="space-y-6">
+              <div>
+                <label htmlFor="profile-name" className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
+                <input
+                  id="profile-name"
+                  type="text"
+                  value={editName}
+                  onChange={(e) => setEditName(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
                 />
-              </svg>
-              Edit Profile
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            <div>
-              <div className="font-semibold text-xl text-gray-800">Jane Doe</div>
-              <div className="text-gray-500 mt-1">jane.doe@university.edu</div>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pt-6 border-t border-gray-200">
-              <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Department
-                </label>
-                <div className="text-gray-800">Computer Science</div>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">
-                  Title
-                </label>
-                <div className="text-gray-800">Associate Professor</div>
+                <label htmlFor="profile-email" className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
+                <input
+                  id="profile-email"
+                  type="email"
+                  value={editEmail}
+                  onChange={(e) => setEditEmail(e.target.value)}
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  required
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={cancelEditing}
+                  className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                >
+                  {saving ? "Saving…" : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        ) : (
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
+              <button
+                type="button"
+                onClick={startEditing}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                </svg>
+                Edit Profile
+              </button>
+            </div>
+
+            <div className="space-y-6">
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Name</label>
+                <div className="font-semibold text-xl text-gray-800">{profile?.name ?? "—"}</div>
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                <div className="text-gray-700">{profile?.email ?? "—"}</div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
     </div>
   );

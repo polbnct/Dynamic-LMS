@@ -6,7 +6,8 @@ import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
-import { getQuizzes, getQuestions, createQuestion, createQuiz } from "@/lib/supabase/queries/quizzes";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { getQuizzes, getQuestions, createQuestion, createQuiz, updateQuiz, setQuizQuestions } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
@@ -45,7 +46,10 @@ export default function QuizzesPage() {
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [loading, setLoading] = useState(true);
   const [createQuizModalOpen, setCreateQuizModalOpen] = useState(false);
+  const [editingQuiz, setEditingQuiz] = useState<any>(null);
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
+  const [generatingQuestions, setGeneratingQuestions] = useState(false);
+  const [generatingForSourceId, setGeneratingForSourceId] = useState<string | null>(null);
   const [createQuestionModalOpen, setCreateQuestionModalOpen] = useState(false);
   const [monitoringQuizId, setMonitoringQuizId] = useState<string | null>(null);
   const [monitoringQuizName, setMonitoringQuizName] = useState<string>("");
@@ -53,6 +57,7 @@ export default function QuizzesPage() {
   // Form state
   const [quizName, setQuizName] = useState("");
   const [quizType, setQuizType] = useState<"mixed" | "multiple_choice" | "true_false" | "fill_blank">("mixed");
+  const [quizDueDate, setQuizDueDate] = useState("");
   const [generateQuestionType, setGenerateQuestionType] = useState<"multiple_choice" | "true_false" | "fill_blank">("multiple_choice");
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [quizBank, setQuizBank] = useState<Question[]>([]);
@@ -72,6 +77,7 @@ export default function QuizzesPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const { handledCourses, createCourse } = useProfessorCourses();
 
   useEffect(() => {
     async function fetchCourse() {
@@ -136,6 +142,9 @@ export default function QuizzesPage() {
   };
 
   const handleGenerateFromSource = async (sourceId: string, sourceType: "lesson" | "pdf") => {
+    setGeneratingQuestions(true);
+    setGeneratingForSourceId(sourceId);
+    setError("");
     try {
       const response = await fetch("/api/gemini/generate-questions", {
         method: "POST",
@@ -195,6 +204,9 @@ export default function QuizzesPage() {
     } catch (err: any) {
       console.error("Error generating questions:", err);
       setError(err.message || "Failed to generate questions");
+    } finally {
+      setGeneratingQuestions(false);
+      setGeneratingForSourceId(null);
     }
   };
 
@@ -286,44 +298,52 @@ export default function QuizzesPage() {
       return;
     }
 
-    if (!quizName.trim()) {
-      setError("Please enter a quiz name.");
+    const questionIds = selectedQuestions.map((q) => q.id).filter((id) => id && id.trim() !== "");
+    if (questionIds.length === 0) {
+      setError("No valid question IDs found. Please select questions again.");
       return;
     }
 
     try {
-      const questionIds = selectedQuestions.map((q) => q.id).filter((id) => id && id.trim() !== "");
-      
-      if (questionIds.length === 0) {
-        setError("No valid question IDs found. Please select questions again.");
+      if (editingQuiz) {
+        await updateQuiz(editingQuiz.id, {
+          name: quizName.trim(),
+          type: quizType,
+          due_date: quizDueDate.trim() ? quizDueDate.trim() : null,
+        });
+        await setQuizQuestions(editingQuiz.id, questionIds);
+        const updatedQuizzes = await getQuizzes(courseId);
+        setQuizzes(updatedQuizzes);
+        setSuccess("Quiz updated successfully!");
+        setEditingQuiz(null);
+        setQuizName("");
+        setQuizType("mixed");
+        setQuizDueDate("");
+        setSelectedQuestions([]);
+        setTimeout(() => {
+          setCreateQuizModalOpen(false);
+          setSuccess("");
+        }, 1000);
         return;
       }
-
-      console.log("Creating quiz with:", {
-        courseId,
-        quizName: quizName.trim(),
-        quizType,
-        questionIds,
-        questionCount: questionIds.length,
-      });
 
       const quiz = await createQuiz(
         courseId,
         {
           name: quizName.trim(),
           type: quizType,
+          due_date: quizDueDate.trim() ? quizDueDate.trim() : undefined,
         },
         questionIds
       );
 
-      // Fetch updated quizzes
       const updatedQuizzes = await getQuizzes(courseId);
       setQuizzes(updatedQuizzes);
       setSuccess("Quiz created successfully!");
 
-      // Reset form
       setQuizName("");
       setQuizType("mixed");
+      setQuizDueDate("");
       setSelectedQuestions([]);
 
       setTimeout(() => {
@@ -345,30 +365,22 @@ export default function QuizzesPage() {
 
   const handleCancel = () => {
     setCreateQuizModalOpen(false);
+    setEditingQuiz(null);
     setGenerateModalOpen(false);
     setCreateQuestionModalOpen(false);
     setQuizName("");
     setQuizType("mixed");
+    setQuizDueDate("");
     setSelectedQuestions([]);
     setError("");
     setSuccess("");
   };
 
-  const handledCourses = course
-    ? [
-        {
-          id: parseInt(course.id),
-          name: course.name,
-          code: course.code,
-          studentsCount: course.studentsCount,
-        },
-      ]
-    : [];
 
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
         <CourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -384,7 +396,7 @@ export default function QuizzesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -422,7 +434,14 @@ export default function QuizzesPage() {
               </p>
             </div>
             <button
-              onClick={() => setCreateQuizModalOpen(true)}
+              onClick={() => {
+                setEditingQuiz(null);
+                setQuizName("");
+                setQuizType("mixed");
+                setQuizDueDate("");
+                setSelectedQuestions([]);
+                setCreateQuizModalOpen(true);
+              }}
               className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -494,14 +513,29 @@ export default function QuizzesPage() {
                         />
                       </svg>
                     </button>
-                    <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                    <button
+                      onClick={() => {
+                        setEditingQuiz(quiz);
+                        setQuizName(quiz.name);
+                        setQuizType(quiz.type ?? "mixed");
+                        setQuizDueDate(quiz.due_date ? new Date(quiz.due_date).toISOString().slice(0, 10) : "");
+                        setSelectedQuestions(quiz.questions?.map((q: any) => ({
+                          id: q.id,
+                          type: q.type,
+                          question: q.question,
+                          options: q.options,
+                          correctAnswer: q.correct_answer,
+                          source: q.source_lesson_id,
+                          sourceType: q.source_type,
+                          createdAt: q.created_at,
+                        })) ?? []);
+                        setCreateQuizModalOpen(true);
+                      }}
+                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      title="Edit quiz"
+                    >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                       </svg>
                     </button>
                   </div>
@@ -524,7 +558,7 @@ export default function QuizzesPage() {
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
               <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                Create Quiz
+                {editingQuiz ? "Edit Quiz" : "Create Quiz"}
               </h2>
               <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -569,6 +603,19 @@ export default function QuizzesPage() {
                       <option value="true_false">True or False</option>
                       <option value="fill_blank">Fill in the Blank</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="quizDueDate" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Due Date <span className="text-gray-500 text-xs">(Optional)</span>
+                    </label>
+                    <input
+                      id="quizDueDate"
+                      type="date"
+                      value={quizDueDate}
+                      onChange={(e) => setQuizDueDate(e.target.value)}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                    />
                   </div>
                 </div>
 
@@ -800,7 +847,7 @@ export default function QuizzesPage() {
                   onClick={handleCreateQuiz}
                   className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                 >
-                  Create Quiz
+                  {editingQuiz ? "Save changes" : "Create Quiz"}
                 </button>
               </div>
             </div>
@@ -832,7 +879,8 @@ export default function QuizzesPage() {
                 <select
                   value={generateQuestionType}
                   onChange={(e) => setGenerateQuestionType(e.target.value as "multiple_choice" | "true_false" | "fill_blank")}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                  disabled={generatingQuestions}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="multiple_choice">Multiple Choice</option>
                   <option value="true_false">True or False</option>
@@ -845,6 +893,22 @@ export default function QuizzesPage() {
                 </p>
               </div>
 
+              {generatingQuestions && (
+                <div className="mb-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center gap-3">
+                  <svg className="animate-spin h-5 w-5 text-indigo-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  <span className="text-indigo-800 font-medium">Generating questions with Gemini…</span>
+                </div>
+              )}
+
+              {error && (
+                <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+
               <p className="text-gray-600 mb-4">Select a lesson or PDF to generate questions from:</p>
               <div className="space-y-2 max-h-96 overflow-y-auto">
                 {lessons.length === 0 ? (
@@ -852,21 +916,36 @@ export default function QuizzesPage() {
                     No lessons available. Create lessons first to generate questions.
                   </div>
                 ) : (
-                  lessons.map((lesson) => (
-                    <button
-                      key={lesson.id}
-                      onClick={() => handleGenerateFromSource(lesson.id, "lesson")}
-                      className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-colors"
-                    >
-                      <div className="font-semibold text-gray-800">{lesson.title}</div>
-                      {lesson.description && (
-                        <div className="text-sm text-gray-500 mt-1">{lesson.description}</div>
-                      )}
-                      {lesson.pdf_file_path && (
-                        <div className="text-sm text-gray-500 mt-1">PDF: {lesson.pdf_file_path.split("/").pop()}</div>
-                      )}
-                    </button>
-                  ))
+                  lessons.map((lesson) => {
+                    const isGenerating = generatingForSourceId === lesson.id;
+                    return (
+                      <button
+                        key={lesson.id}
+                        onClick={() => !generatingQuestions && handleGenerateFromSource(lesson.id, "lesson")}
+                        disabled={generatingQuestions}
+                        className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-gray-200"
+                      >
+                        <div className="flex items-center justify-between gap-2">
+                          <div className="font-semibold text-gray-800">{lesson.title}</div>
+                          {isGenerating && (
+                            <span className="shrink-0 flex items-center gap-1.5 text-indigo-600 text-sm font-medium">
+                              <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                              </svg>
+                              Generating…
+                            </span>
+                          )}
+                        </div>
+                        {lesson.description && (
+                          <div className="text-sm text-gray-500 mt-1">{lesson.description}</div>
+                        )}
+                        {lesson.pdf_file_path && (
+                          <div className="text-sm text-gray-500 mt-1">PDF: {lesson.pdf_file_path.split("/").pop()}</div>
+                        )}
+                      </button>
+                    );
+                  })
                 )}
               </div>
             </div>

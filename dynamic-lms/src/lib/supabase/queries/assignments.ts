@@ -224,3 +224,92 @@ export function getSubmissionFileUrl(filePath: string): string {
   return publicUrl;
 }
 
+/** Submission with student display info for professor view */
+export interface SubmissionWithStudent extends AssignmentSubmission {
+  studentName?: string;
+  studentEmail?: string;
+  fileUrl?: string;
+  fileName?: string;
+}
+
+/** Get all submissions for an assignment (for professor). Includes student name/email and file URL. */
+export async function getSubmissionsByAssignmentId(assignmentId: string): Promise<SubmissionWithStudent[]> {
+  const supabase = createClient();
+
+  const { data: rows, error } = await supabase
+    .from("assignment_submissions")
+    .select(`
+      id,
+      assignment_id,
+      student_id,
+      file_path,
+      submitted_at,
+      score,
+      max_score,
+      graded_at,
+      feedback,
+      students (
+        id,
+        user_id,
+        users ( name, email )
+      )
+    `)
+    .eq("assignment_id", assignmentId)
+    .order("submitted_at", { ascending: false });
+
+  if (error) {
+    console.error("Error fetching assignment submissions:", error);
+    throw error;
+  }
+
+  const submissions: SubmissionWithStudent[] = (rows || []).map((row: any) => {
+    const student = row.students;
+    const user = student && (Array.isArray(student.users) ? student.users[0] : student.users);
+    const filePath = row.file_path;
+    return {
+      id: row.id,
+      assignment_id: row.assignment_id,
+      student_id: row.student_id,
+      file_path: filePath,
+      submitted_at: row.submitted_at,
+      score: row.score,
+      max_score: row.max_score,
+      graded_at: row.graded_at,
+      feedback: row.feedback,
+      studentName: user?.name ?? "Unknown Student",
+      studentEmail: user?.email ?? "",
+      fileUrl: filePath ? getSubmissionFileUrl(filePath) : undefined,
+      fileName: filePath ? filePath.split("/").pop() : undefined,
+    };
+  });
+
+  return submissions;
+}
+
+/** Update a submission's grade (score, max_score, feedback). Sets graded_at to now. */
+export async function updateAssignmentSubmission(
+  submissionId: string,
+  updates: { score: number; max_score?: number; feedback?: string }
+): Promise<AssignmentSubmission> {
+  const supabase = createClient();
+
+  const { data, error } = await supabase
+    .from("assignment_submissions")
+    .update({
+      score: updates.score,
+      ...(updates.max_score != null && { max_score: updates.max_score }),
+      ...(updates.feedback != null && { feedback: updates.feedback }),
+      graded_at: new Date().toISOString(),
+    })
+    .eq("id", submissionId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating submission grade:", error);
+    throw error;
+  }
+
+  return data;
+}
+

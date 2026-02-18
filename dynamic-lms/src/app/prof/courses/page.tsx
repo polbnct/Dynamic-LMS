@@ -1,53 +1,32 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import { getProfessorCourses, getCurrentProfessorId, getInviteLink, updateCourseInviteCode, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { getInviteLink, updateCourseInviteCode, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfCoursesPage() {
-  const [courses, setCourses] = useState<CourseWithStudents[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { courses, handledCourses, loading, error: contextError, createCourse } = useProfessorCourses();
   const [error, setError] = useState("");
   const [inviteCourse, setInviteCourse] = useState<CourseWithStudents | null>(null);
   const [inviteCodeRegenerating, setInviteCodeRegenerating] = useState(false);
   const [inviteCopied, setInviteCopied] = useState<"link" | "code" | null>(null);
 
-  useEffect(() => {
-    async function fetchCourses() {
-      try {
-        setLoading(true);
-        // Try to create professor record if it doesn't exist
-        const professorId = await getCurrentProfessorId(true);
-        if (!professorId) {
-          setError("Unable to access professor account. Please ensure you signed up as a professor or contact support.");
-          return;
-        }
-        const data = await getProfessorCourses(professorId);
-        setCourses(data);
-        setError("");
-      } catch (err) {
-        setError("Failed to load courses. Please try again.");
-        console.error("Error fetching courses:", err);
-      } finally {
-        setLoading(false);
-      }
+  const handleCreateCourse = async (courseName: string) => {
+    try {
+      await createCourse(courseName);
+      setError("");
+    } catch (err) {
+      setError("Failed to create course. Please try again.");
+      console.error("Error creating course:", err);
     }
-
-    fetchCourses();
-  }, []);
-
-  const handledCourses = courses.map((course) => ({
-    id: parseInt(course.id),
-    name: course.name,
-    code: course.code,
-    studentsCount: course.studentsCount,
-  }));
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-      {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
+      {/* Professor Navbar - same courses as dashboard */}
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={handleCreateCourse} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -67,7 +46,7 @@ export default function ProfCoursesPage() {
         )}
 
         {/* Error State */}
-        {error && (
+        {(error || contextError) && (
           <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
             <svg
               className="w-5 h-5 text-red-600 flex-shrink-0"
@@ -82,12 +61,12 @@ export default function ProfCoursesPage() {
                 d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
               />
             </svg>
-            {error}
+            {error || contextError}
           </div>
         )}
 
         {/* Course Cards Grid */}
-        {!loading && !error && (
+        {!loading && !error && !contextError && (
           <>
             {courses.length === 0 ? (
               <div className="text-center py-16">

@@ -8,7 +8,7 @@ import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { getLessons, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
-import { getLessonStudyQuestions, type StudyAidQuestion } from "@/lib/supabase/queries/study-aid";
+import { getLessonStudyQuestions, submitStudyAidAttempt, getStudyAidAttemptsForCourse, type StudyAidQuestion } from "@/lib/supabase/queries/study-aid";
 
 interface LessonWithUI extends Lesson {
   pdfUrl?: string;
@@ -25,11 +25,16 @@ export default function StudentContentPage() {
   const [loading, setLoading] = useState(true);
   const [studyAidModalOpen, setStudyAidModalOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithUI | null>(null);
-  const [studyAidType, setStudyAidType] = useState<"flashcards" | "summary" | "multiple_choice">("flashcards");
+  const [studyAidType, setStudyAidType] = useState<"flashcards" | "summary" | "multiple_choice" | "fill_blank">("summary");
   const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
   const [studyAidLoading, setStudyAidLoading] = useState(false);
   const [studyAidIndex, setStudyAidIndex] = useState(0);
   const [studyAidReveal, setStudyAidReveal] = useState(false);
+  const [studyAidAnswers, setStudyAidAnswers] = useState<Record<string, number | string>>({});
+  const [studyAidScoreSubmitted, setStudyAidScoreSubmitted] = useState(false);
+  const [studyAidSubmitting, setStudyAidSubmitting] = useState(false);
+  const [studyAidSubmitError, setStudyAidSubmitError] = useState<string | null>(null);
+  const [studyAidAttempts, setStudyAidAttempts] = useState<{ lesson_id: string; score: number; max_score: number }[]>([]);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -43,6 +48,8 @@ export default function StudentContentPage() {
           pdfFileName: lesson.pdf_file_path ? lesson.pdf_file_path.split("/").pop() : undefined,
           createdAt: lesson.created_at,
         })));
+        const attempts = await getStudyAidAttemptsForCourse(courseId);
+        setStudyAidAttempts(attempts);
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -52,13 +59,19 @@ export default function StudentContentPage() {
     fetchCourse();
   }, [courseId]);
 
+  const isSummaryQuestion = (q: StudyAidQuestion) =>
+    q.type === "fill_blank" && String(q.correct_answer ?? "").toLowerCase().includes("summary");
+
   const handleStudyAid = async (lesson: LessonWithUI) => {
     setSelectedLesson(lesson);
     setStudyAidModalOpen(true);
-    setStudyAidType("flashcards");
+    setStudyAidType("summary");
     setStudyAidQuestions([]);
     setStudyAidIndex(0);
     setStudyAidReveal(false);
+    setStudyAidAnswers({});
+    setStudyAidScoreSubmitted(false);
+    setStudyAidSubmitError(null);
     setStudyAidLoading(true);
     try {
       const questions = await getLessonStudyQuestions(lesson.id);
@@ -70,16 +83,79 @@ export default function StudentContentPage() {
     }
   };
 
-  const questionsByType = (type: "flashcards" | "summary" | "multiple_choice") => {
+  const questionsByType = (type: "flashcards" | "summary" | "multiple_choice" | "fill_blank") => {
     if (type === "flashcards") return studyAidQuestions.filter((q) => q.type === "true_false");
     if (type === "multiple_choice") return studyAidQuestions.filter((q) => q.type === "multiple_choice");
-    return studyAidQuestions.filter((q) => q.type === "fill_blank");
+    if (type === "summary") return studyAidQuestions.filter((q) => isSummaryQuestion(q));
+    if (type === "fill_blank") return studyAidQuestions.filter((q) => q.type === "fill_blank" && !isSummaryQuestion(q));
+    return [];
   };
 
   const currentList = questionsByType(studyAidType);
   const currentQuestion = currentList[studyAidIndex];
   const hasAnyQuestions = studyAidQuestions.length > 0;
   const hasQuestionsForType = currentList.length > 0;
+
+  const isAnswerableType = studyAidType === "multiple_choice" || studyAidType === "fill_blank";
+  const allAnswered =
+    isAnswerableType &&
+    currentList.length > 0 &&
+    currentList.every((q) =>
+      studyAidType === "multiple_choice"
+        ? studyAidAnswers[q.id] !== undefined
+        : (studyAidAnswers[q.id] ?? "").toString().trim() !== ""
+    );
+  const score = isAnswerableType
+    ? currentList.filter((q) => {
+        const correct = q.correct_answer;
+        const ans = studyAidAnswers[q.id];
+        if (ans === undefined && studyAidType === "fill_blank") return false;
+        if (q.type === "multiple_choice") return Number(correct) === Number(ans);
+        return String(correct).trim().toLowerCase() === String(ans).trim().toLowerCase();
+      }).length
+    : 0;
+  const maxScore = currentList.length;
+
+  const handleSubmitAnswers = async () => {
+    if (!selectedLesson || !allAnswered || studyAidSubmitting || maxScore === 0) return;
+    setStudyAidSubmitting(true);
+    setStudyAidSubmitError(null);
+    try {
+      await submitStudyAidAttempt(selectedLesson.id, studyAidType as "multiple_choice" | "fill_blank", score, maxScore);
+      setStudyAidScoreSubmitted(true);
+      setStudyAidReveal(true);
+      setStudyAidAttempts((prev) => [...prev, { lesson_id: selectedLesson.id, score, max_score: maxScore }]);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Failed to save attempt";
+      setStudyAidSubmitError(message);
+      console.error("Failed to save study aid score:", err);
+    } finally {
+      setStudyAidSubmitting(false);
+    }
+  };
+
+  const handleTakeAgain = () => {
+    setStudyAidScoreSubmitted(false);
+    setStudyAidReveal(false);
+    setStudyAidAnswers({});
+    setStudyAidIndex(0);
+    setStudyAidSubmitError(null);
+  };
+
+  const PASSING_PERCENT = 70;
+  const orderedLessons = [...lessons].sort((a, b) => a.order - b.order);
+  const bestPctByLesson: Record<string, number> = {};
+  studyAidAttempts.forEach((a) => {
+    const pct = a.max_score > 0 ? (a.score / a.max_score) * 100 : 0;
+    if (bestPctByLesson[a.lesson_id] == null || pct > bestPctByLesson[a.lesson_id]) {
+      bestPctByLesson[a.lesson_id] = pct;
+    }
+  });
+  const unlockedLessonIds = new Set<string>();
+  orderedLessons.forEach((lesson, i) => {
+    if (i === 0) unlockedLessonIds.add(lesson.id);
+    else if (bestPctByLesson[orderedLessons[i - 1].id] >= PASSING_PERCENT) unlockedLessonIds.add(lesson.id);
+  });
 
   // Group lessons by category
   const lessonsByCategory = {
@@ -187,50 +263,67 @@ export default function StudentContentPage() {
 
                   {/* Lessons List */}
                   <div className="space-y-4">
-                    {categoryLessons.map((lesson) => (
+                    {categoryLessons.map((lesson) => {
+                      const isUnlocked = unlockedLessonIds.has(lesson.id);
+                      return (
                       <div
                         key={lesson.id}
-                        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
+                        className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-amber-200 bg-amber-50/50"}`}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1">
                             <h3 className="text-xl font-bold text-gray-800 mb-2">{lesson.title}</h3>
+                            {!isUnlocked && (
+                              <p className="text-amber-800 text-sm font-medium mb-2">
+                                Complete the previous lesson&apos;s study aid with at least 70% to unlock.
+                              </p>
+                            )}
                             {lesson.description && (
                               <p className="text-gray-600 mb-4">{lesson.description}</p>
                             )}
-                            <div className="flex items-center gap-4 mt-4">
-                              {lesson.pdfFileName && (
-                                <div className="flex items-center gap-2 text-indigo-600">
-                                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z"
-                                    />
-                                  </svg>
-                                  <span className="text-sm font-medium">{lesson.pdfFileName}</span>
-                                </div>
+                            <div className="flex items-center gap-4 mt-4 flex-wrap">
+                              {lesson.pdfUrl && (
+                                isUnlocked ? (
+                                  <a
+                                    href={lesson.pdfUrl}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 hover:bg-gray-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm border border-gray-300"
+                                  >
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                    </svg>
+                                    View PDF
+                                    {lesson.pdfFileName && <span className="text-gray-500 font-normal">({lesson.pdfFileName})</span>}
+                                  </a>
+                                ) : (
+                                  <span className="inline-flex items-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm border border-gray-300 cursor-not-allowed">
+                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                    View PDF (locked)
+                                  </span>
+                                )
                               )}
-                              <button
-                                onClick={() => handleStudyAid(lesson)}
-                                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    strokeWidth={2}
-                                    d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"
-                                  />
-                                </svg>
-                                Study Aid
-                              </button>
+                              {isUnlocked ? (
+                                <button
+                                  onClick={() => handleStudyAid(lesson)}
+                                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
+                                >
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                  </svg>
+                                  Study Aid
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm cursor-not-allowed">
+                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
+                                  Study Aid (locked)
+                                </span>
+                              )}
                             </div>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    ); })}
                   </div>
                 </div>
               );
@@ -264,32 +357,12 @@ export default function StudentContentPage() {
               </button>
             </div>
 
-            {/* Study Aid Type Selection */}
+            {/* Study Aid Type Selection — Summary first */}
             <div className="p-6 border-b border-gray-200 bg-gray-50">
-              <div className="flex gap-4">
-                <button
-                  onClick={() => { setStudyAidType("flashcards"); setStudyAidIndex(0); setStudyAidReveal(false); }}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                    studyAidType === "flashcards"
-                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
-                      : "bg-white text-gray-700 border border-gray-300 hover:border-indigo-300 hover:bg-indigo-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                      />
-                    </svg>
-                    Flashcards
-                  </div>
-                </button>
+              <div className="flex gap-4 flex-wrap">
                 <button
                   onClick={() => { setStudyAidType("summary"); setStudyAidIndex(0); setStudyAidReveal(false); }}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
                     studyAidType === "summary"
                       ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
                       : "bg-white text-gray-700 border border-gray-300 hover:border-indigo-300 hover:bg-indigo-50"
@@ -297,19 +370,36 @@ export default function StudentContentPage() {
                 >
                   <div className="flex items-center justify-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                     </svg>
                     Summary
                   </div>
                 </button>
                 <button
-                  onClick={() => { setStudyAidType("multiple_choice"); setStudyAidIndex(0); setStudyAidReveal(false); }}
-                  className={`flex-1 px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                  onClick={() => { setStudyAidType("flashcards"); setStudyAidIndex(0); setStudyAidReveal(false); }}
+                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                    studyAidType === "flashcards"
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
+                      : "bg-white text-gray-700 border border-gray-300 hover:border-indigo-300 hover:bg-indigo-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    Flashcards
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    setStudyAidType("multiple_choice");
+                    setStudyAidIndex(0);
+                    setStudyAidReveal(false);
+                    setStudyAidAnswers({});
+                    setStudyAidScoreSubmitted(false);
+                    setStudyAidSubmitError(null);
+                  }}
+                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
                     studyAidType === "multiple_choice"
                       ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
                       : "bg-white text-gray-700 border border-gray-300 hover:border-indigo-300 hover:bg-indigo-50"
@@ -317,14 +407,31 @@ export default function StudentContentPage() {
                 >
                   <div className="flex items-center justify-center gap-2">
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                     </svg>
                     Multiple Choice
+                  </div>
+                </button>
+                <button
+                  onClick={() => {
+                    setStudyAidType("fill_blank");
+                    setStudyAidIndex(0);
+                    setStudyAidReveal(false);
+                    setStudyAidAnswers({});
+                    setStudyAidScoreSubmitted(false);
+                    setStudyAidSubmitError(null);
+                  }}
+                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
+                    studyAidType === "fill_blank"
+                      ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white shadow-lg transform -translate-y-0.5"
+                      : "bg-white text-gray-700 border border-gray-300 hover:border-indigo-300 hover:bg-indigo-50"
+                  }`}
+                >
+                  <div className="flex items-center justify-center gap-2">
+                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                    </svg>
+                    Fill in the blank
                   </div>
                 </button>
               </div>
@@ -395,44 +502,33 @@ export default function StudentContentPage() {
               )}
 
               {studyAidType === "summary" && currentQuestion && (
-                <div className="text-center py-8">
+                <div className="py-8">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Summary</h3>
-                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-2xl mx-auto">
                     <div className="bg-white rounded-xl shadow-lg p-6 text-left">
-                      <p className="text-gray-700 mb-4">{currentQuestion.question}</p>
-                      {!studyAidReveal ? (
+                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{currentQuestion.question}</p>
+                    </div>
+                    {currentList.length > 1 && (
+                      <div className="flex items-center justify-center gap-4 mt-4">
                         <button
                           type="button"
-                          onClick={() => setStudyAidReveal(true)}
-                          className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                          onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
+                          disabled={studyAidIndex === 0}
+                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
                         >
-                          Show Answer
+                          Previous
                         </button>
-                      ) : (
-                        <p className="px-4 py-2 bg-indigo-50 rounded-lg font-medium text-indigo-800">
-                          Answer: {String(currentQuestion.correct_answer)}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-center gap-4">
-                      <button
-                        type="button"
-                        onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
-                        disabled={studyAidIndex === 0}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
-                      <button
-                        type="button"
-                        onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
-                        disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
-                      >
-                        Next
-                      </button>
-                    </div>
+                        <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
+                        <button
+                          type="button"
+                          onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
+                          disabled={studyAidIndex === currentList.length - 1}
+                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                        >
+                          Next
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </div>
               )}
@@ -440,41 +536,61 @@ export default function StudentContentPage() {
               {studyAidType === "multiple_choice" && currentQuestion && currentQuestion.options && (
                 <div className="text-center py-8">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
+                  {studyAidSubmitError && (
+                    <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                      {studyAidSubmitError}
+                      <p className="mt-1 text-xs">Ensure the study_aid_attempts table exists in Supabase (see src/migrations/add-study-aid-attempts.sql).</p>
+                    </div>
+                  )}
+                  {studyAidScoreSubmitted && (
+                    <p className="mb-4 text-lg font-semibold text-indigo-700">
+                      Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
+                    </p>
+                  )}
                   <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
                     <div className="bg-white rounded-xl shadow-lg p-6 text-left">
                       <p className="text-lg font-semibold text-gray-800 mb-4">{currentQuestion.question}</p>
-                      <div className="space-y-3">
+                      <div className="space-y-2">
                         {currentQuestion.options.map((option, idx) => (
-                          <div
+                          <label
                             key={idx}
-                            className={`px-4 py-3 border rounded-lg ${
-                              studyAidReveal && Number(currentQuestion.correct_answer) === idx
-                                ? "border-green-500 bg-green-50"
-                                : "border-gray-300"
+                            className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                              studyAidScoreSubmitted
+                                ? Number(currentQuestion.correct_answer) === idx
+                                  ? "border-green-500 bg-green-50"
+                                  : studyAidAnswers[currentQuestion.id] === idx
+                                    ? "border-red-400 bg-red-50"
+                                    : "border-gray-200 bg-gray-50"
+                                : studyAidAnswers[currentQuestion.id] === idx
+                                  ? "border-indigo-500 bg-indigo-50 cursor-pointer"
+                                  : "border-gray-300 hover:border-indigo-300 hover:bg-indigo-50/50 cursor-pointer"
                             }`}
                           >
+                            <input
+                              type="radio"
+                              name={`mc-${currentQuestion.id}`}
+                              checked={studyAidAnswers[currentQuestion.id] === idx}
+                              onChange={() => setStudyAidAnswers((prev) => ({ ...prev, [currentQuestion.id]: idx }))}
+                              disabled={studyAidScoreSubmitted}
+                              className="w-4 h-4 text-indigo-600"
+                            />
                             <span className="font-medium text-gray-700">{String.fromCharCode(65 + idx)}. {option}</span>
-                          </div>
+                            {studyAidScoreSubmitted && Number(currentQuestion.correct_answer) === idx && (
+                              <span className="ml-auto text-green-600 text-sm font-medium">Correct</span>
+                            )}
+                          </label>
                         ))}
                       </div>
-                      {!studyAidReveal ? (
-                        <button
-                          type="button"
-                          onClick={() => setStudyAidReveal(true)}
-                          className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-                        >
-                          Show Answer
-                        </button>
-                      ) : (
-                        <p className="mt-4 text-sm text-green-700 font-medium">
-                          Correct: {currentQuestion.options[Number(currentQuestion.correct_answer)]}
+                      {studyAidScoreSubmitted && (
+                        <p className="mt-4 text-sm text-gray-600">
+                          Correct answer: {currentQuestion.options[Number(currentQuestion.correct_answer)]}
                         </p>
                       )}
                     </div>
-                    <div className="flex items-center justify-center gap-4">
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
                       <button
                         type="button"
-                        onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
+                        onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
                         disabled={studyAidIndex === 0}
                         className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
                       >
@@ -483,12 +599,109 @@ export default function StudentContentPage() {
                       <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
                       <button
                         type="button"
-                        onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
+                        onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
                         disabled={studyAidIndex === currentList.length - 1}
                         className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
                       >
                         Next
                       </button>
+                      {!studyAidScoreSubmitted ? (
+                        <button
+                          type="button"
+                          onClick={handleSubmitAnswers}
+                          disabled={!allAnswered || studyAidSubmitting}
+                          className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {studyAidSubmitting ? "Submitting…" : "Submit answers"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleTakeAgain}
+                          className="px-6 py-2 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600"
+                        >
+                          Take again
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {studyAidType === "fill_blank" && currentQuestion && (
+                <div className="text-center py-8">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Fill in the blank</h3>
+                  {studyAidSubmitError && (
+                    <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
+                      {studyAidSubmitError}
+                      <p className="mt-1 text-xs">Ensure the study_aid_attempts table exists in Supabase (see src/migrations/add-study-aid-attempts.sql).</p>
+                    </div>
+                  )}
+                  {studyAidScoreSubmitted && (
+                    <p className="mb-4 text-lg font-semibold text-indigo-700">
+                      Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
+                    </p>
+                  )}
+                  <div className="bg-gradient-to-r from-indigo-50 to-purple-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
+                    <div className="bg-white rounded-xl shadow-lg p-6 text-left">
+                      <p className="text-lg font-semibold text-gray-800 mb-4">{currentQuestion.question}</p>
+                      <input
+                        type="text"
+                        value={String(studyAidAnswers[currentQuestion.id] ?? "")}
+                        onChange={(e) =>
+                          setStudyAidAnswers((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }))
+                        }
+                        placeholder="Type your answer..."
+                        disabled={studyAidScoreSubmitted}
+                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+                      />
+                      {studyAidScoreSubmitted && (
+                        <div className="mt-4 space-y-2">
+                          <p className="text-sm text-gray-600">Your answer: {String(studyAidAnswers[currentQuestion.id] ?? "").trim() || "(blank)"}</p>
+                          <p className={`text-sm font-medium ${String(currentQuestion.correct_answer).trim().toLowerCase() === String(studyAidAnswers[currentQuestion.id]).trim().toLowerCase() ? "text-green-700" : "text-red-700"}`}>
+                            {String(currentQuestion.correct_answer).trim().toLowerCase() === String(studyAidAnswers[currentQuestion.id]).trim().toLowerCase()
+                              ? "Correct!"
+                              : `Correct answer: ${String(currentQuestion.correct_answer)}`}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                      <button
+                        type="button"
+                        onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
+                        disabled={studyAidIndex === 0}
+                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
+                      >
+                        Previous
+                      </button>
+                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
+                      <button
+                        type="button"
+                        onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
+                        disabled={studyAidIndex === currentList.length - 1}
+                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                      >
+                        Next
+                      </button>
+                      {!studyAidScoreSubmitted ? (
+                        <button
+                          type="button"
+                          onClick={handleSubmitAnswers}
+                          disabled={!allAnswered || studyAidSubmitting}
+                          className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {studyAidSubmitting ? "Submitting…" : "Submit answers"}
+                        </button>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={handleTakeAgain}
+                          className="px-6 py-2 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600"
+                        >
+                          Take again
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>

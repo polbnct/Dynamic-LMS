@@ -90,15 +90,22 @@ export async function deleteLesson(lessonId: string): Promise<void> {
   }
 }
 
-// Upload PDF to Supabase Storage
+// Sanitize original filename for storage (keep same name as professor uploaded)
+function sanitizeLessonPDFFileName(originalName: string): string {
+  const base = originalName.replace(/^.*[\\/]/, "").trim() || "document";
+  const sanitized = base.replace(/[^\w\s.-]/gi, "").replace(/\s+/g, " ").trim().slice(0, 200);
+  const hasExt = /\.(pdf|PDF)$/.test(sanitized);
+  return hasExt ? sanitized : `${sanitized}.pdf`;
+}
+
+// Upload PDF to Supabase Storage (persistent path: courseId/lessonId/original-filename.pdf)
 export async function uploadLessonPDF(file: File, courseId: string, lessonId: string): Promise<string> {
   const supabase = createClient();
 
-  const fileExt = file.name.split(".").pop();
-  const fileName = `${courseId}/${lessonId}-${Date.now()}.${fileExt}`;
-  const filePath = `lessons/${fileName}`;
+  const fileName = sanitizeLessonPDFFileName(file.name);
+  const filePath = `lessons/${courseId}/${lessonId}/${fileName}`;
 
-  const { error: uploadError } = await supabase.storage.from("lesson-pdfs").upload(filePath, file);
+  const { error: uploadError } = await supabase.storage.from("lesson-pdfs").upload(filePath, file, { upsert: true });
 
   if (uploadError) {
     console.error("Error uploading PDF:", uploadError);

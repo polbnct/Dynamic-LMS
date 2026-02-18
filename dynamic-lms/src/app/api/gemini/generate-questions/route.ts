@@ -32,7 +32,7 @@ async function checkAvailableModels(): Promise<void> {
 
 export async function POST(request: NextRequest) {
   try {
-    const { lessonId, questionType, count, forStudyAid } = await request.json();
+    const { lessonId, questionType, count, forStudyAid, studyAidSummary } = await request.json();
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
@@ -99,8 +99,8 @@ Category: ${lesson.category}
       ? ["multiple_choice", "true_false", "fill_blank"]
       : [questionType];
 
-    // For study aid summary, only generate 1 summary
-    const isSummaryForStudyAid = forStudyAid && questionType === "fill_blank";
+    // For study aid: summary is one-time (1 summary); fill_blank practice uses normal prompt
+    const isSummaryForStudyAid = Boolean(forStudyAid && studyAidSummary);
     const questionsPerType = isSummaryForStudyAid ? 1 : Math.ceil((count || 5) / typesToGenerate.length);
 
     // Generate questions using Gemini API
@@ -301,7 +301,11 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
 
   const purposeContext = forStudyAid 
     ? "These questions are for STUDY AID purposes - they help students learn and review the material. Focus on key concepts, important facts, and essential information that students should remember."
-    : "These questions are for ASSESSMENT purposes - they test student knowledge and understanding.";
+    : `These questions are for QUIZ/ASSESSMENT purposes - they must be HARDER than study-aid questions. Requirements:
+- Test application, analysis, or synthesis of the material, not just recall. Include scenarios, "which of the following would...", or "based on the document, why...".
+- Make distractors highly plausible so that only students who truly understand get the right answer. Avoid obviously wrong options.
+- Do NOT repeat or mirror study-aid style questions. Assessment questions should require deeper thinking, comparison, or application.
+- Vary difficulty: include at least some questions that require connecting multiple ideas or inferring from the PDF.`;
 
   return `You are an educational content generator specializing in creating high-quality ${forStudyAid ? "study aid" : "assessment"} questions. Based on the PDF document provided and the following lesson metadata, generate exactly ${count} ${typeInstructions[questionType as keyof typeof typeInstructions] || "questions"}.
 
