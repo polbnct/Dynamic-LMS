@@ -21,6 +21,8 @@ interface QuizWithUI extends Quiz {
   taken?: boolean;
   score?: number;
   maxScore?: number;
+  attemptsUsed?: number;
+  remainingAttempts?: number | null;
 }
 
 export default function StudentQuizzesPage() {
@@ -50,10 +52,28 @@ export default function StudentQuizzesPage() {
           throw new Error("Student not found");
         }
 
+        // Fetch per-quiz attempt status (max + retakes) for this student
+        let statusMap: Record<string, any> = {};
+        try {
+          const res = await fetch("/api/quizzes/attempt-status", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ courseId }),
+          });
+          if (res.ok) {
+            const data = (await res.json().catch(() => null)) as any;
+            const statuses = Array.isArray(data?.statuses) ? data.statuses : [];
+            statusMap = Object.fromEntries(statuses.map((s: any) => [s.quizId, s]));
+          }
+        } catch {
+          statusMap = {};
+        }
+
         // Get quiz results for each quiz
         const quizzesWithResults = await Promise.all(
           quizzesData.map(async (quiz) => {
             const result = await getQuizResults(quiz.id, studentId);
+            const status = statusMap[quiz.id] || {};
             return {
               ...quiz,
               title: quiz.name,
@@ -65,6 +85,8 @@ export default function StudentQuizzesPage() {
               taken: !!result,
               score: result?.score != null ? Number(result.score) : undefined,
               maxScore: result?.max_score != null ? Number(result.max_score) : (quiz.questions?.length ?? 0) * 10 || 100,
+              attemptsUsed: status.attemptsUsed ?? 0,
+              remainingAttempts: status.remainingAttempts ?? null,
             };
           })
         );
@@ -258,38 +280,44 @@ export default function StudentQuizzesPage() {
                               )}
                             </div>
                           </div>
-                          {quiz.taken ? (
-                            <button
-                              onClick={async () => {
-                                setResultModalQuizName(quiz.name);
-                                setResultModalOpen(true);
-                                setResultModalLoading(true);
-                                setResultData(null);
-                                try {
-                                  const studentId = await getCurrentStudentId();
-                                  if (!studentId) return;
-                                  const attempt = await getQuizResults(quiz.id, studentId);
-                                  if (!attempt) return;
-                                  const withAnswers = await getQuizAttemptWithAnswers(attempt.id);
-                                  setResultData(withAnswers ?? null);
-                                } catch (err) {
-                                  console.error(err);
-                                } finally {
-                                  setResultModalLoading(false);
-                                }
-                              }}
-                              className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                            >
-                              View Results
-                            </button>
-                          ) : (
-                            <Link
-                              href={`/student/courses/${courseId}/quizzes/${quiz.id}/take`}
-                              className="ml-4 px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
-                            >
-                              Take Quiz
-                            </Link>
-                          )}
+                          {/* Action buttons: Take / Retake / View Results depending on remaining attempts */}
+                          <div className="ml-4 flex flex-col sm:flex-row gap-2">
+                            {quiz.taken && (
+                              <button
+                                onClick={async () => {
+                                  setResultModalQuizName(quiz.name);
+                                  setResultModalOpen(true);
+                                  setResultModalLoading(true);
+                                  setResultData(null);
+                                  try {
+                                    const studentId = await getCurrentStudentId();
+                                    if (!studentId) return;
+                                    const attempt = await getQuizResults(quiz.id, studentId);
+                                    if (!attempt) return;
+                                    const withAnswers = await getQuizAttemptWithAnswers(attempt.id);
+                                    setResultData(withAnswers ?? null);
+                                  } catch (err) {
+                                    console.error(err);
+                                  } finally {
+                                    setResultModalLoading(false);
+                                  }
+                                }}
+                                className="px-6 py-2 border border-indigo-600 text-indigo-600 rounded-lg font-semibold hover:bg-indigo-50 transform hover:-translate-y-0.5 transition-all duration-200"
+                              >
+                                View Results
+                              </button>
+                            )}
+                            {quiz.remainingAttempts === null || (quiz.remainingAttempts ?? 0) > 0 ? (
+                              <Link
+                                href={`/student/courses/${courseId}/quizzes/${quiz.id}/take`}
+                                className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
+                              >
+                                {quiz.taken ? "Retake Quiz" : "Take Quiz"}
+                              </Link>
+                            ) : !quiz.taken ? (
+                              <span className="text-sm text-red-600 font-medium">No attempts remaining</span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
                     ))}

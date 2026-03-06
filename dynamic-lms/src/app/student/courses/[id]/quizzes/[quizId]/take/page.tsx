@@ -1,12 +1,12 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
-import { getQuizzes, startQuizAttempt, submitQuizAnswers } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, submitQuizAnswers } from "@/lib/supabase/queries/quizzes";
 import type { Question } from "@/lib/supabase/queries/quizzes";
 
 export default function TakeQuizPage() {
@@ -14,6 +14,7 @@ export default function TakeQuizPage() {
   const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
+  const submittedOrNavigatingRef = useRef(false);
 
   const [course, setCourse] = useState<any>(null);
   const [quiz, setQuiz] = useState<any>(null);
@@ -32,6 +33,35 @@ export default function TakeQuizPage() {
     let tabCount = 1;
     let isFocused = true;
     let heartbeatInterval: NodeJS.Timeout;
+
+    // Update activity status (define early; used by multiple handlers below)
+    const updateActivity = async (status: "online" | "focused" | "blurred" | "tab_count") => {
+      try {
+        const res = await fetch("/api/quiz-activity", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            attemptId,
+            status,
+            tabCount,
+          }),
+        });
+        if (!res.ok) {
+          const text = await res.text().catch(() => "");
+          console.warn("quiz-activity failed:", res.status, text);
+          return;
+        }
+        // Helpful diagnostics when logs are not being persisted (e.g. migration not applied).
+        if (status !== "online") {
+          const data = (await res.json().catch(() => null)) as any;
+          if (data && data.logged === false) {
+            console.warn("quiz-activity log not saved:", data.logError || data);
+          }
+        }
+      } catch (err) {
+        console.error("Failed to update activity:", err);
+      }
+    };
 
     // Track tab visibility
     const handleVisibilityChange = () => {
@@ -67,11 +97,14 @@ export default function TakeQuizPage() {
 
     // Broadcast to other tabs
     channel.postMessage({ type: "tab-count", count: newTabs });
+    // Log tab count changes so professor can review multi-tab attempts
+    updateActivity("tab_count");
 
     // Listen for tab count updates from other tabs
     channel.onmessage = (event) => {
       if (event.data.type === "tab-count") {
         tabCount = event.data.count;
+        updateActivity("tab_count");
       }
     };
 
@@ -85,28 +118,9 @@ export default function TakeQuizPage() {
       }
     };
 
-    // Update activity status
-    const updateActivity = async (status: "online" | "focused" | "blurred" | "offline") => {
-      try {
-        await fetch("/api/quiz-activity", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            attemptId,
-            status,
-            tabCount,
-          }),
-        });
-      } catch (err) {
-        console.error("Failed to update activity:", err);
-      }
-    };
-
-    // Heartbeat to keep connection alive
+    // Heartbeat to keep connection alive (always send; focus state is tracked separately)
     const sendHeartbeat = () => {
-      if (isFocused && !document.hidden) {
-        updateActivity("online");
-      }
+      updateActivity("online");
     };
 
     // Initialize
@@ -129,12 +143,12 @@ export default function TakeQuizPage() {
       window.removeEventListener("beforeunload", handleBeforeUnload);
       clearInterval(heartbeatInterval);
       channel.close();
-      // Decrement tab count
       const tabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
       if (tabs > 0) {
         localStorage.setItem(tabKey, (tabs - 1).toString());
       }
-      updateActivity("offline");
+      // Don't send "offline" from client cleanup.
+      // Offline should be inferred server-side from missing heartbeats to avoid race conditions (dev strict mode, navigation).
     };
   }, [attemptId]);
 
@@ -160,7 +174,18 @@ export default function TakeQuizPage() {
           throw new Error("Student not found");
         }
 
-        const attempt = await startQuizAttempt(quizId, studentId);
+        const res = await fetch("/api/quizzes/start-attempt", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ quizId }),
+        });
+        if (!res.ok) {
+          const data = await res.json().catch(() => null) as any;
+          throw new Error(data?.error || "Failed to start quiz attempt");
+        }
+        const data = await res.json() as any;
+        const attempt = data?.attempt;
+        if (!attempt?.id) throw new Error("Quiz attempt not found");
         setAttemptId(attempt.id);
 
         // Set timer if time limit exists
@@ -216,7 +241,7 @@ export default function TakeQuizPage() {
 
       await submitQuizAnswers(attemptId, answerArray);
 
-      // Redirect to results or back to quizzes
+      submittedOrNavigatingRef.current = true;
       router.push(`/student/courses/${courseId}/quizzes`);
     } catch (err: any) {
       console.error("Error submitting quiz:", err);

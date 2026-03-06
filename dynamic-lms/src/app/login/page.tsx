@@ -249,7 +249,7 @@ export default function LoginPage() {
               </div>
             </div>
 
-            {/* Remember me and Forgot password */}
+            {/* Remember me */}
             <div className="flex items-center justify-between">
               <label className="flex items-center cursor-pointer">
                 <input
@@ -260,12 +260,6 @@ export default function LoginPage() {
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
-              <a
-                href="#"
-              className="text-sm font-semibold text-red-600 hover:text-red-700 transition-colors"
-              >
-                Forgot password?
-              </a>
             </div>
 
             {/* Error message */}
@@ -314,6 +308,7 @@ export default function LoginPage() {
           </p>
         </div>
       </div>
+
     </div>
   );
 }

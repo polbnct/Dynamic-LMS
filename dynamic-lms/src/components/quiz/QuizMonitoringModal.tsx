@@ -4,9 +4,12 @@ import React, { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
 import {
   getQuizAttemptsGroupedByStudent,
+  getActivityLogsForAttempts,
   type StudentQuizStatus,
   type StudentWithAttempts,
+  type QuizActivityLogEntry,
 } from "@/lib/supabase/queries/quiz-monitoring";
+import { getQuizAttemptWithAnswers, type QuizResultWithAnswers } from "@/lib/supabase/queries/quizzes";
 
 interface QuizMonitoringModalProps {
   quizId: string;
@@ -24,6 +27,11 @@ export default function QuizMonitoringModal({
   const [studentGroups, setStudentGroups] = useState<StudentWithAttempts[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedStudentId, setExpandedStudentId] = useState<string | null>(null);
+  const [activityLogsByAttemptId, setActivityLogsByAttemptId] = useState<Record<string, QuizActivityLogEntry[]>>({});
+  const [resultsModalOpen, setResultsModalOpen] = useState(false);
+  const [resultsLoading, setResultsLoading] = useState(false);
+  const [resultsAttemptLabel, setResultsAttemptLabel] = useState<string>("");
+  const [resultsData, setResultsData] = useState<QuizResultWithAnswers | null>(null);
 
   useEffect(() => {
     if (!isOpen || !quizId) return;
@@ -57,6 +65,9 @@ export default function QuizMonitoringModal({
     try {
       const grouped = await getQuizAttemptsGroupedByStudent(quizId);
       setStudentGroups(grouped);
+      const attemptIds = grouped.flatMap((g) => g.attempts.map((a) => a.attemptId));
+      const logs = await getActivityLogsForAttempts(attemptIds);
+      setActivityLogsByAttemptId(logs);
     } catch (error) {
       console.error("Error fetching quiz attempts:", error);
     } finally {
@@ -66,7 +77,6 @@ export default function QuizMonitoringModal({
 
   const getStatusColor = (attempt: StudentQuizStatus) => {
     if (attempt.submittedAt) return "bg-gray-100 text-gray-700";
-    if (!attempt.isOnline) return "bg-red-100 text-red-700";
     if (!attempt.isFocused) return "bg-yellow-100 text-yellow-700";
     if (attempt.tabCount > 1) return "bg-orange-100 text-orange-700";
     return "bg-green-100 text-green-700";
@@ -74,8 +84,8 @@ export default function QuizMonitoringModal({
 
   const getStatusText = (attempt: StudentQuizStatus) => {
     if (attempt.submittedAt) return "Submitted";
-    if (!attempt.isOnline) return "Disconnected";
-    if (!attempt.isFocused) return "Tab Switched";
+    // Only show "Disconnected" when student is not focused (alt-tab / switched tab).
+    if (!attempt.isFocused) return "Disconnected";
     if (attempt.tabCount > 1) return `${attempt.tabCount} Tabs Open`;
     return "Online";
   };
@@ -85,13 +95,6 @@ export default function QuizMonitoringModal({
       return (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-        </svg>
-      );
-    }
-    if (!attempt.isOnline) {
-      return (
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15 5a9 9 0 00-9 9" />
         </svg>
       );
     }
@@ -199,38 +202,86 @@ export default function QuizMonitoringModal({
                     {isExpanded && (
                       <div className="border-t border-gray-200 bg-white/80 p-4">
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
-                          Attempts (logs)
+                          Attempts & activity logs
                         </p>
-                        <div className="space-y-2">
-                          {group.attempts.map((attempt, idx) => (
-                            <div
-                              key={attempt.attemptId}
-                              className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50/80 p-3 text-sm"
-                            >
-                              <div className={`p-1.5 rounded-md ${getStatusColor(attempt)}`}>
-                                {getStatusIcon(attempt)}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="font-medium text-gray-800">
-                                    Attempt #{group.attempts.length - idx}
-                                  </span>
-                                  <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(attempt)}`}>
-                                    {getStatusText(attempt)}
-                                  </span>
-                                </div>
-                                <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
-                                  <span>Started: {formatDate(attempt.startedAt)}</span>
-                                  {attempt.lastActivityAt && (
-                                    <span>Last activity: {getTimeSince(attempt.lastActivityAt)}</span>
-                                  )}
+                        <div className="space-y-4">
+                          {group.attempts.map((attempt, idx) => {
+                            const logs = activityLogsByAttemptId[attempt.attemptId] || [];
+                            return (
+                              <div key={attempt.attemptId} className="rounded-lg border border-gray-200 bg-gray-50/80 overflow-hidden">
+                                <div className="flex items-center gap-3 p-3 text-sm">
+                                  <div className={`p-1.5 rounded-md ${getStatusColor(attempt)}`}>
+                                    {getStatusIcon(attempt)}
+                                  </div>
+                                  <div className="flex-1 min-w-0">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                      <span className="font-medium text-gray-800">
+                                        Attempt #{group.attempts.length - idx}
+                                      </span>
+                                      <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${getStatusColor(attempt)}`}>
+                                        {getStatusText(attempt)}
+                                      </span>
+                                    </div>
+                                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
+                                      <span>Started: {formatDate(attempt.startedAt)}</span>
+                                      {attempt.lastActivityAt && (
+                                        <span>Last activity: {getTimeSince(attempt.lastActivityAt)}</span>
+                                      )}
+                                      {attempt.submittedAt && (
+                                        <span className="text-gray-600">Submitted: {formatDate(attempt.submittedAt)}</span>
+                                      )}
+                                    </div>
+                                  </div>
                                   {attempt.submittedAt && (
-                                    <span className="text-gray-600">Submitted: {formatDate(attempt.submittedAt)}</span>
+                                    <div className="shrink-0">
+                                      <button
+                                        type="button"
+                                        onClick={async () => {
+                                          setResultsModalOpen(true);
+                                          setResultsLoading(true);
+                                          setResultsData(null);
+                                          setResultsAttemptLabel(`${group.studentName} · Attempt #${group.attempts.length - idx}`);
+                                          try {
+                                            const data = await getQuizAttemptWithAnswers(attempt.attemptId);
+                                            setResultsData(data);
+                                          } finally {
+                                            setResultsLoading(false);
+                                          }
+                                        }}
+                                        className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+                                      >
+                                        View score & answers
+                                      </button>
+                                    </div>
                                   )}
                                 </div>
+                                {logs.length > 0 && (
+                                  <div className="border-t border-gray-100 px-3 py-2 bg-white/60">
+                                    <p className="text-xs font-medium text-gray-500 mb-2">Activity log (tab switch, focus, etc.)</p>
+                                    <ul className="space-y-1 max-h-32 overflow-y-auto">
+                                      {logs.map((log) => (
+                                        <li key={log.id} className="flex items-center justify-between text-xs text-gray-600">
+                                          <span className="capitalize">
+                                            {log.event_type === "blurred"
+                                              ? "tab switched"
+                                              : log.event_type === "focused"
+                                                ? "returned to quiz"
+                                                : log.event_type === "tab_count"
+                                                  ? "tab count changed"
+                                                  : log.event_type}
+                                          </span>
+                                          {log.tab_count != null && log.tab_count > 1 && (
+                                            <span className="text-orange-600">{log.tab_count} tabs</span>
+                                          )}
+                                          <span className="text-gray-400">{formatDate(log.created_at)}</span>
+                                        </li>
+                                      ))}
+                                    </ul>
+                                  </div>
+                                )}
                               </div>
-                            </div>
-                          ))}
+                            );
+                          })}
                         </div>
                       </div>
                     )}
@@ -254,6 +305,99 @@ export default function QuizMonitoringModal({
           </div>
         </div>
       </div>
+
+      {/* Results modal (score + answers) */}
+      {resultsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
+            <div className="flex items-center justify-between p-6 border-b border-gray-200">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Quiz results</h3>
+                <p className="text-sm text-gray-600 mt-0.5">{resultsAttemptLabel}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setResultsModalOpen(false);
+                  setResultsData(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-6">
+              {resultsLoading ? (
+                <div className="flex items-center justify-center py-10">
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+                </div>
+              ) : !resultsData ? (
+                <p className="text-gray-600">No results found for this attempt.</p>
+              ) : (
+                <div className="space-y-5">
+                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                    <div className="text-sm text-gray-700">
+                      <span className="font-semibold">Score:</span>{" "}
+                      {resultsData.attempt.score ?? 0}/{resultsData.attempt.max_score ?? 0}
+                    </div>
+                    <div className="text-sm font-semibold text-indigo-700">
+                      {resultsData.attempt.max_score
+                        ? `${Math.round(((resultsData.attempt.score ?? 0) / resultsData.attempt.max_score) * 100)}%`
+                        : ""}
+                    </div>
+                  </div>
+
+                  <div>
+                    <h4 className="text-sm font-semibold text-gray-700 uppercase tracking-wide mb-3">Answers</h4>
+                    {resultsData.answers.length === 0 ? (
+                      <p className="text-gray-600 text-sm">No answers recorded.</p>
+                    ) : (
+                      <div className="space-y-3">
+                        {resultsData.answers.map((a, i) => (
+                          <div
+                            key={`${a.questionId}-${i}`}
+                            className={`rounded-xl border p-4 ${
+                              a.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
+                            }`}
+                          >
+                            <div className="flex items-start justify-between gap-4">
+                              <div className="flex-1">
+                                <p className="text-sm font-semibold text-gray-800">
+                                  {i + 1}. {a.questionText}
+                                </p>
+                                <p className="text-xs text-gray-600 mt-1 capitalize">Type: {a.questionType.replace("_", " ")}</p>
+                              </div>
+                              <span
+                                className={`px-2 py-1 rounded-full text-xs font-semibold ${
+                                  a.isCorrect ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                }`}
+                              >
+                                {a.isCorrect ? "Correct" : "Wrong"}
+                              </span>
+                            </div>
+                            <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                              <div>
+                                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Student answer</p>
+                                <p className="text-gray-800 mt-1 break-words">{String(a.userAnswer)}</p>
+                              </div>
+                              <div>
+                                <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Correct answer</p>
+                                <p className="text-gray-800 mt-1 break-words">{String(a.correctAnswer)}</p>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

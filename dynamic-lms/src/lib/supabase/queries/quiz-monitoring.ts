@@ -13,6 +13,12 @@ export interface StudentQuizStatus {
   submittedAt: string | null;
 }
 
+function computeIsOnlineFromLastActivity(lastActivityAt: string | null, thresholdSeconds = 15): boolean {
+  if (!lastActivityAt) return true;
+  const ageMs = new Date().getTime() - new Date(lastActivityAt).getTime();
+  return ageMs <= thresholdSeconds * 1000;
+}
+
 export async function getActiveQuizAttempts(quizId: string): Promise<StudentQuizStatus[]> {
   try {
     const supabase = createClient();
@@ -152,6 +158,7 @@ export async function getActiveQuizAttempts(quizId: string): Promise<StudentQuiz
   return attempts.map((attempt: any) => {
     const studentInfo = studentInfoMap[attempt.student_id] || { name: "Unknown Student", email: "" };
     const activity = activityData[attempt.id] || {};
+    const lastActivityAt = activity.last_activity_at || null;
     
     return {
       attemptId: attempt.id,
@@ -159,10 +166,11 @@ export async function getActiveQuizAttempts(quizId: string): Promise<StudentQuiz
       studentName: studentInfo.name,
       studentEmail: studentInfo.email,
       startedAt: attempt.started_at,
-      isOnline: activity.is_online ?? true, // Default to true if column doesn't exist
+      // Infer online/offline from heartbeat recency to avoid false "offline" during navigation/strict mode.
+      isOnline: computeIsOnlineFromLastActivity(lastActivityAt, 15),
       isFocused: activity.is_focused ?? true, // Default to true if column doesn't exist
       tabCount: activity.tab_count ?? 1, // Default to 1 if column doesn't exist
-      lastActivityAt: activity.last_activity_at || null,
+      lastActivityAt,
       submittedAt: attempt.submitted_at,
     };
   });
@@ -257,16 +265,17 @@ export async function getQuizAttemptsGroupedByStudent(quizId: string): Promise<S
     const attemptLogs: StudentQuizStatus[] = attempts.map((attempt: any) => {
       const studentInfo = studentInfoMap[attempt.student_id] || { name: "Unknown Student", email: "" };
       const activity = activityData[attempt.id] || {};
+      const lastActivityAt = activity.last_activity_at ?? null;
       return {
         attemptId: attempt.id,
         studentId: attempt.student_id,
         studentName: studentInfo.name,
         studentEmail: studentInfo.email,
         startedAt: attempt.started_at,
-        isOnline: activity.is_online ?? true,
+        isOnline: computeIsOnlineFromLastActivity(lastActivityAt, 15),
         isFocused: activity.is_focused ?? true,
         tabCount: activity.tab_count ?? 1,
-        lastActivityAt: activity.last_activity_at ?? null,
+        lastActivityAt,
         submittedAt: attempt.submitted_at,
       };
     });
@@ -287,5 +296,50 @@ export async function getQuizAttemptsGroupedByStudent(quizId: string): Promise<S
   } catch (err: any) {
     console.error("getQuizAttemptsGroupedByStudent error:", err);
     return [];
+  }
+}
+
+export interface QuizActivityLogEntry {
+  id: string;
+  attempt_id: string;
+  event_type: string;
+  tab_count: number | null;
+  created_at: string;
+}
+
+/** Fetch activity logs (tab switch, focus, etc.) for the given attempt IDs. Returns a map attemptId -> logs (newest first). */
+export async function getActivityLogsForAttempts(
+  attemptIds: string[]
+): Promise<Record<string, QuizActivityLogEntry[]>> {
+  if (attemptIds.length === 0) return {};
+  try {
+    // Use server API (service-role) so professor can read logs even if RLS blocks direct selects.
+    const res = await fetch("/api/quiz-activity/logs", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ attemptIds }),
+    });
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      console.warn("getActivityLogsForAttempts api failed:", res.status, text);
+      return {};
+    }
+    const json = (await res.json().catch(() => null)) as any;
+    const raw = (json?.logsByAttemptId || {}) as Record<string, any[]>;
+    const byAttempt: Record<string, QuizActivityLogEntry[]> = {};
+    for (const id of attemptIds) byAttempt[id] = [];
+    Object.entries(raw).forEach(([attemptId, rows]) => {
+      byAttempt[attemptId] = (rows || []).map((row: any) => ({
+        id: row.id,
+        attempt_id: row.attempt_id,
+        event_type: row.event_type,
+        tab_count: row.tab_count,
+        created_at: row.created_at,
+      }));
+    });
+    return byAttempt;
+  } catch (err: any) {
+    console.warn("getActivityLogsForAttempts error:", err);
+    return {};
   }
 }

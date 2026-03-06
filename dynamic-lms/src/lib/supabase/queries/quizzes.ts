@@ -20,6 +20,7 @@ export interface Quiz {
   type: "mixed" | "multiple_choice" | "true_false" | "fill_blank" | null;
   time_limit?: number;
   due_date?: string;
+  max_attempts?: number | null;
   created_at: string;
 }
 
@@ -192,6 +193,7 @@ export async function createQuiz(
     type: "mixed" | "multiple_choice" | "true_false" | "fill_blank";
     time_limit?: number;
     due_date?: string;
+    max_attempts?: number | null;
   },
   questionIds: string[]
 ): Promise<Quiz> {
@@ -218,6 +220,7 @@ export async function createQuiz(
     name: quizData.name.trim(),
     ...(quizData.time_limit && { time_limit: quizData.time_limit }),
     ...(quizData.due_date && { due_date: quizData.due_date }),
+    ...(Object.prototype.hasOwnProperty.call(quizData, "max_attempts") && { max_attempts: quizData.max_attempts }),
   };
 
   // Only set type if it's not "mixed" (mixed quizzes have null type)
@@ -332,6 +335,7 @@ export async function updateQuiz(
     type?: "mixed" | "multiple_choice" | "true_false" | "fill_blank";
     time_limit?: number;
     due_date?: string | null;
+    max_attempts?: number | null;
   }
 ): Promise<Quiz> {
   const supabase = createClient();
@@ -343,6 +347,7 @@ export async function updateQuiz(
       ...(updates.type != null && { type: dbType }),
       ...(updates.time_limit != null && { time_limit: updates.time_limit }),
       ...(Object.prototype.hasOwnProperty.call(updates, "due_date") && { due_date: updates.due_date ?? null }),
+      ...(Object.prototype.hasOwnProperty.call(updates, "max_attempts") && { max_attempts: updates.max_attempts ?? null }),
     })
     .eq("id", quizId)
     .select()
@@ -380,6 +385,26 @@ export async function setQuizQuestions(quizId: string, questionIds: string[]): P
 // Start a quiz attempt
 export async function startQuizAttempt(quizId: string, studentId: string): Promise<QuizAttempt> {
   const supabase = createClient();
+
+  // If there is already an in-progress attempt for this student/quiz, reuse it.
+  // This avoids duplicate attempts in dev (React Strict Mode) and on refresh.
+  const { data: existingAttempt } = await supabase
+    .from("quiz_attempts")
+    .select("*")
+    .eq("quiz_id", quizId)
+    .eq("student_id", studentId)
+    .is("submitted_at", null)
+    .order("started_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (existingAttempt) {
+    return {
+      ...existingAttempt,
+      score: existingAttempt.score != null ? Number(existingAttempt.score) : 0,
+      max_score: existingAttempt.max_score != null ? Number(existingAttempt.max_score) : 0,
+    };
+  }
 
   // Get quiz to determine max score
   const { data: quiz } = await supabase.from("quizzes").select("id").eq("id", quizId).single();
