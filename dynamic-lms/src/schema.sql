@@ -71,6 +71,7 @@ CREATE TABLE public.assignments (
   category content_category NOT NULL,
   pdf_file_path TEXT,
   due_date TIMESTAMPTZ,
+  max_submissions INTEGER CHECK (max_submissions IS NULL OR max_submissions > 0),
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

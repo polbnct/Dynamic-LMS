@@ -183,7 +183,7 @@ export default function StudentContentPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <StudentNavbar currentPage="courses" />
+        <StudentNavbar currentPage="dashboard" />
         <StudentCourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -199,7 +199,7 @@ export default function StudentContentPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Main Student Navbar */}
-      <StudentNavbar currentPage="courses" />
+      <StudentNavbar currentPage="dashboard" />
       
       {/* Student Course Navbar */}
       <StudentCourseNavbar
@@ -225,7 +225,7 @@ export default function StudentContentPage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to Courses
+            Back to Dashboard
           </Link>
           <div>
             <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
@@ -733,4 +733,3 @@ export default function StudentContentPage() {
     </div>
   );
 }
-

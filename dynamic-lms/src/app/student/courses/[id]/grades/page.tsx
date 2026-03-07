@@ -92,7 +92,7 @@ export default function StudentGradesPage() {
         {/* Page Header */}
         <div className="mb-8">
           <Link
-            href="/student/courses"
+            href="/student/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

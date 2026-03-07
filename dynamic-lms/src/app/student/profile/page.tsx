@@ -1,16 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { createClient } from "@/lib/supabase/client";
 
 export default function StudentProfile() {
   const [formData, setFormData] = useState({
     name: "John Doe",
     email: "john.doe@student.edu",
     studentId: "STU2024001",
-    phone: "+1 (555) 123-4567",
-    department: "Computer Science",
-    year: "2024",
+    phone: "",
+    department: "",
+    year: "",
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -23,6 +24,45 @@ export default function StudentProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+
+  // Load current student profile from Supabase (users + students tables)
+  useEffect(() => {
+    const loadProfile = async () => {
+      try {
+        const supabase = createClient();
+
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) {
+          return;
+        }
+
+        const { data: userRow } = await supabase
+          .from("users")
+          .select("name, email")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        const { data: studentRow } = await supabase
+          .from("students")
+          .select("student_id")
+          .eq("user_id", user.id)
+          .maybeSingle();
+
+        setFormData((prev) => ({
+          ...prev,
+          name: userRow?.name || user.user_metadata?.name || prev.name,
+          email: userRow?.email || user.email || prev.email,
+          studentId: studentRow?.student_id || prev.studentId,
+        }));
+      } catch (err) {
+        console.error("Failed to load profile:", err);
+      }
+    };
+
+    loadProfile();
+  }, []);
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
@@ -102,7 +142,7 @@ export default function StudentProfile() {
     return Object.keys(newErrors).length === 0;
   };
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess("");
 
@@ -110,10 +150,49 @@ export default function StudentProfile() {
       return;
     }
 
-    // TODO: Add real profile update logic here
-    setSuccess("Profile updated successfully!");
-    setIsEditing(false);
-    setTimeout(() => setSuccess(""), 3000);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        throw new Error("Not authenticated");
+      }
+
+      // Update basic profile info in users table
+      const updates: any = {
+        name: formData.name.trim(),
+      };
+      // Only attempt to change email if it actually changed
+      if (formData.email.trim() && formData.email.trim() !== user.email) {
+        updates.email = formData.email.trim();
+      }
+
+      if (Object.keys(updates).length > 0) {
+        const { error: userError } = await supabase.from("users").update(updates).eq("id", user.id);
+        if (userError) {
+          throw userError;
+        }
+      }
+
+      // Optionally sync auth profile name/email (email change may require confirmation)
+      await supabase.auth.updateUser({
+        email: updates.email,
+        data: { name: updates.name },
+      }).catch(() => {
+        // Ignore auth update failures; users table is still updated
+      });
+
+      setSuccess("Profile updated successfully!");
+      setIsEditing(false);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      console.error("Failed to update profile:", err);
+      setErrors((prev) => ({
+        ...prev,
+        form: err?.message || "Failed to update profile.",
+      }));
+    }
   };
 
   const handlePasswordSubmit = (e: React.FormEvent) => {

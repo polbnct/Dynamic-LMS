@@ -16,6 +16,8 @@ interface AssignmentWithUI extends Assignment {
   dueDate?: string;
   submitted?: boolean;
   submittedAt?: string;
+  submissionCount?: number;
+  maxSubmissions?: number | null;
 }
 
 export default function StudentAssignmentsPage() {
@@ -59,24 +61,53 @@ export default function StudentAssignmentsPage() {
 
       await submitAssignment(selectedAssignment.id, studentId, submissionFile);
 
-      // Refresh assignments
+      // Refresh assignments and submissions
       const [assignmentsData] = await Promise.all([getAssignments(courseId)]);
       const assignmentIds = assignmentsData.map((a) => a.id);
       const submissions = await getAssignmentSubmissions(studentId, assignmentIds);
-      const submissionMap = new Map(submissions.map((s) => [s.assignment_id, s]));
 
-      setAssignments(assignmentsData.map((assignment) => {
-        const submission = submissionMap.get(assignment.id);
-        return {
-          ...assignment,
-          pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
-          pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
-          createdAt: assignment.created_at,
-          dueDate: assignment.due_date,
-          submitted: !!submission,
-          submittedAt: submission?.submitted_at,
-        };
-      }));
+      const submissionsByAssignment = new Map<
+        string,
+        { latest: (typeof submissions)[number]; count: number }
+      >();
+
+      submissions.forEach((s) => {
+        const existing = submissionsByAssignment.get(s.assignment_id);
+        if (!existing) {
+          submissionsByAssignment.set(s.assignment_id, { latest: s, count: 1 });
+        } else {
+          const isLater =
+            new Date(s.submitted_at).getTime() >
+            new Date(existing.latest.submitted_at).getTime();
+          submissionsByAssignment.set(s.assignment_id, {
+            latest: isLater ? s : existing.latest,
+            count: existing.count + 1,
+          });
+        }
+      });
+
+      setAssignments(
+        assignmentsData.map((assignment) => {
+          const entry = submissionsByAssignment.get(assignment.id);
+          const latest = entry?.latest;
+          const count = entry?.count ?? 0;
+          return {
+            ...assignment,
+            pdfUrl: assignment.pdf_file_path
+              ? getAssignmentPDFUrl(assignment.pdf_file_path)
+              : undefined,
+            pdfFileName: assignment.pdf_file_path
+              ? assignment.pdf_file_path.split("/").pop()
+              : undefined,
+            createdAt: assignment.created_at,
+            dueDate: assignment.due_date,
+            submitted: count > 0,
+            submittedAt: latest?.submitted_at,
+            submissionCount: count,
+            maxSubmissions: assignment.max_submissions ?? null,
+          };
+        })
+      );
 
       setSubmitSuccess("Assignment submitted successfully!");
       setTimeout(() => {
@@ -110,20 +141,49 @@ export default function StudentAssignmentsPage() {
 
         const assignmentIds = assignmentsData.map((a) => a.id);
         const submissions = await getAssignmentSubmissions(studentId, assignmentIds);
-        const submissionMap = new Map(submissions.map((s) => [s.assignment_id, s]));
 
-        setAssignments(assignmentsData.map((assignment) => {
-          const submission = submissionMap.get(assignment.id);
-          return {
-            ...assignment,
-            pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
-            pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
-            createdAt: assignment.created_at,
-            dueDate: assignment.due_date,
-            submitted: !!submission,
-            submittedAt: submission?.submitted_at,
-          };
-        }));
+        const submissionsByAssignment = new Map<
+          string,
+          { latest: (typeof submissions)[number]; count: number }
+        >();
+
+        submissions.forEach((s) => {
+          const existing = submissionsByAssignment.get(s.assignment_id);
+          if (!existing) {
+            submissionsByAssignment.set(s.assignment_id, { latest: s, count: 1 });
+          } else {
+            const isLater =
+              new Date(s.submitted_at).getTime() >
+              new Date(existing.latest.submitted_at).getTime();
+            submissionsByAssignment.set(s.assignment_id, {
+              latest: isLater ? s : existing.latest,
+              count: existing.count + 1,
+            });
+          }
+        });
+
+        setAssignments(
+          assignmentsData.map((assignment) => {
+            const entry = submissionsByAssignment.get(assignment.id);
+            const latest = entry?.latest;
+            const count = entry?.count ?? 0;
+            return {
+              ...assignment,
+              pdfUrl: assignment.pdf_file_path
+                ? getAssignmentPDFUrl(assignment.pdf_file_path)
+                : undefined,
+              pdfFileName: assignment.pdf_file_path
+                ? assignment.pdf_file_path.split("/").pop()
+                : undefined,
+              createdAt: assignment.created_at,
+              dueDate: assignment.due_date,
+              submitted: count > 0,
+              submittedAt: latest?.submitted_at,
+              submissionCount: count,
+              maxSubmissions: assignment.max_submissions ?? null,
+            };
+          })
+        );
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -180,7 +240,7 @@ export default function StudentAssignmentsPage() {
         {/* Page Header */}
         <div className="mb-8">
           <Link
-            href="/student/courses"
+            href="/student/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -239,7 +299,13 @@ export default function StudentAssignmentsPage() {
 
                   {/* Assignments List */}
                   <div className="space-y-4">
-                    {categoryAssignments.map((assignment) => (
+                    {categoryAssignments.map((assignment) => {
+                      const maxSubs = assignment.maxSubmissions ?? null;
+                      const submissionCount = assignment.submissionCount ?? 0;
+                      const hasLimit = maxSubs != null;
+                      const canSubmitMore = !hasLimit || submissionCount < maxSubs;
+
+                      return (
                       <div
                         key={assignment.id}
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
@@ -283,7 +349,17 @@ export default function StudentAssignmentsPage() {
                                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                     />
                                   </svg>
-                                  <span>Due: {new Date(assignment.dueDate).toLocaleDateString()}</span>
+                                  <span>
+                                    Due (PH time):{" "}
+                                    {new Date(assignment.dueDate).toLocaleString("en-PH", {
+                                      timeZone: "Asia/Manila",
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
                                 </div>
                               )}
                               {assignment.submittedAt && (
@@ -296,7 +372,27 @@ export default function StudentAssignmentsPage() {
                                       d="M5 13l4 4L19 7"
                                     />
                                   </svg>
-                                  <span>Submitted: {new Date(assignment.submittedAt).toLocaleDateString()}</span>
+                                  <span>
+                                    Submitted:{" "}
+                                    {new Date(assignment.submittedAt).toLocaleString("en-PH", {
+                                      timeZone: "Asia/Manila",
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                </div>
+                              )}
+                              {hasLimit && (
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <span>
+                                    Submissions used: {submissionCount} / {maxSubs}
+                                  </span>
+                                </div>
+                              )}
+                              {!hasLimit && submissionCount > 0 && (
+                                <div className="flex items-center gap-2 text-gray-500">
+                                  <span>Submissions so far: {submissionCount}</span>
                                 </div>
                               )}
                             </div>
@@ -315,19 +411,27 @@ export default function StudentAssignmentsPage() {
                               onClick={() => {
                                 if (assignment.submitted) {
                                   alert("View submission functionality coming soon");
-                                } else {
+                                } else if (canSubmitMore) {
                                   setSelectedAssignment(assignment);
                                   setSubmitModalOpen(true);
+                                } else {
+                                  setSubmitError(
+                                    "You have reached the maximum number of submissions allowed for this assignment."
+                                  );
                                 }
                               }}
                               className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                             >
-                              {assignment.submitted ? "View Submission" : "Submit Assignment"}
+                              {assignment.submitted
+                                ? "View Submission"
+                                : canSubmitMore
+                                  ? "Submit Assignment"
+                                  : "Submission limit reached"}
                             </button>
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 </div>
               );

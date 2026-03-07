@@ -25,7 +25,7 @@ export async function POST(request: NextRequest) {
     // Quizzes in this course
     const { data: quizzes, error: quizErr } = await admin
       .from("quizzes")
-      .select("id, max_attempts")
+      .select("id, max_attempts, due_date")
       .eq("course_id", courseId);
     if (quizErr || !quizzes?.length) return NextResponse.json({ statuses: [] }, { status: 200 });
 
@@ -55,12 +55,15 @@ export async function POST(request: NextRequest) {
       extraMap[r.quiz_id] = r.extra_attempts != null ? Number(r.extra_attempts) : 0;
     });
 
+    const now = new Date();
+
     const statuses = quizzes.map((q: any) => {
       const used = usedMap[q.id] || 0;
       const extra = extraMap[q.id] || 0;
       const baseMax = q.max_attempts == null ? null : Number(q.max_attempts);
       const allowed = baseMax == null ? null : baseMax + extra;
       const remaining = allowed == null ? null : Math.max(allowed - used, 0);
+      const isLocked = q.due_date ? new Date(q.due_date as string).getTime() <= now.getTime() : false;
       return {
         quizId: q.id,
         attemptsUsed: used,
@@ -68,6 +71,7 @@ export async function POST(request: NextRequest) {
         maxAttempts: baseMax,
         allowedAttempts: allowed,
         remainingAttempts: remaining,
+        isLocked,
       };
     });
 

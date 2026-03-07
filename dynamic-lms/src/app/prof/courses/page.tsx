@@ -233,12 +233,24 @@ export default function ProfCoursesPage() {
                     <button
                       type="button"
                       onClick={async () => {
+                        const code = inviteCourse.classroom_code;
+                        const hasClipboard =
+                          typeof navigator !== "undefined" &&
+                          navigator.clipboard &&
+                          typeof navigator.clipboard.writeText === "function";
                         try {
-                          await navigator.clipboard.writeText(inviteCourse.classroom_code);
-                          setInviteCopied("code");
-                          setTimeout(() => setInviteCopied(null), 2000);
+                          if (hasClipboard) {
+                            await navigator.clipboard.writeText(code);
+                            setInviteCopied("code");
+                            setTimeout(() => setInviteCopied(null), 2000);
+                          } else {
+                            window.prompt("Copy this code:", code);
+                            setInviteCopied("code");
+                            setTimeout(() => setInviteCopied(null), 2000);
+                          }
                         } catch (e) {
                           console.error("Copy failed", e);
+                          window.prompt("Copy this code:", code);
                         }
                       }}
                       className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700"

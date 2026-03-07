@@ -10,6 +10,36 @@ import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { getAssignments, createAssignment, updateAssignment, deleteAssignment, uploadAssignmentPDF, getAssignmentPDFUrl, getSubmissionFileUrl, getSubmissionsByAssignmentId, updateAssignmentSubmission } from "@/lib/supabase/queries/assignments";
 import type { Assignment, SubmissionWithStudent } from "@/lib/supabase/queries/assignments";
 
+const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+function manilaInputToUtcIso(input: string): string | null {
+  if (!input) return null;
+  const [datePart, timePart] = input.split("T");
+  if (!datePart || !timePart) return null;
+  const [year, month, day] = datePart.split("-").map((x) => parseInt(x, 10));
+  const [hour, minute] = timePart.split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day) || Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+  const manilaMs = Date.UTC(year, month - 1, day, hour, minute);
+  const utcMs = manilaMs - MANILA_OFFSET_MS;
+  return new Date(utcMs).toISOString();
+}
+
+function utcIsoToManilaInput(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const manilaMs = d.getTime() + MANILA_OFFSET_MS;
+  const manila = new Date(manilaMs);
+  const yyyy = manila.getUTCFullYear();
+  const mm = String(manila.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(manila.getUTCDate()).padStart(2, "0");
+  const hh = String(manila.getUTCHours()).padStart(2, "0");
+  const mi = String(manila.getUTCMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
 export default function AssignmentsPage() {
   const params = useParams();
   const courseId = params.id as string;
@@ -18,14 +48,23 @@ export default function AssignmentsPage() {
   const [assignments, setAssignments] = useState<Assignment[]>([]);
   const [loading, setLoading] = useState(true);
   const [createAssignmentModalOpen, setCreateAssignmentModalOpen] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<(Assignment & { pdfUrl?: string; pdfFileName?: string; createdAt?: string; dueDate?: string }) | null>(null);
-  const [editForm, setEditForm] = useState({ title: "", description: "", category: "prelim" as "prelim" | "midterm" | "finals", dueDate: "" });
+  const [editingAssignment, setEditingAssignment] = useState<
+    (Assignment & { pdfUrl?: string; pdfFileName?: string; createdAt?: string; dueDate?: string }) | null
+  >(null);
+  const [editForm, setEditForm] = useState({
+    title: "",
+    description: "",
+    category: "prelim" as "prelim" | "midterm" | "finals",
+    dueDate: "",
+    maxSubmissions: "1" as string, // "unlimited" or a positive integer string
+  });
   const [formData, setFormData] = useState({
     title: "",
     description: "",
     category: "prelim" as "prelim" | "midterm" | "finals",
     dueDate: "",
     pdfFile: null as File | null,
+    maxSubmissions: "1" as string, // "unlimited" or a positive integer string
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -46,13 +85,15 @@ export default function AssignmentsPage() {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
         const assignmentsData = await getAssignments(courseId);
-        setAssignments(assignmentsData.map((assignment) => ({
-          ...assignment,
-          pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
-          pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
-          createdAt: assignment.created_at,
-          dueDate: assignment.due_date,
-        })));
+        setAssignments(
+          assignmentsData.map((assignment) => ({
+            ...assignment,
+            pdfUrl: assignment.pdf_file_path ? getAssignmentPDFUrl(assignment.pdf_file_path) : undefined,
+            pdfFileName: assignment.pdf_file_path ? assignment.pdf_file_path.split("/").pop() : undefined,
+            createdAt: assignment.created_at,
+            dueDate: assignment.due_date,
+          }))
+        );
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -86,11 +127,15 @@ export default function AssignmentsPage() {
 
     try {
       // Create assignment in database first so we have a real ID for the PDF path
+      const maxSubmissionsValue =
+        formData.maxSubmissions === "unlimited" ? null : Number(formData.maxSubmissions) || null;
+
       const newAssignment = await createAssignment(courseId, {
         title: formData.title.trim(),
         description: formData.description.trim() || undefined,
         category: formData.category,
-        due_date: formData.dueDate ? formData.dueDate : undefined,
+        due_date: formData.dueDate ? manilaInputToUtcIso(formData.dueDate) ?? undefined : undefined,
+        max_submissions: maxSubmissionsValue ?? undefined,
       });
 
       let pdfPath: string | undefined;
@@ -127,6 +172,7 @@ export default function AssignmentsPage() {
         category: "prelim",
         dueDate: "",
         pdfFile: null,
+        maxSubmissions: "1",
       });
 
       // Close modal after a short delay
@@ -148,6 +194,7 @@ export default function AssignmentsPage() {
       category: "prelim",
       dueDate: "",
       pdfFile: null,
+      maxSubmissions: "1",
     });
     setError("");
     setSuccess("");
@@ -160,11 +207,15 @@ export default function AssignmentsPage() {
     setSuccess("");
     setSaving(true);
     try {
+      const maxSubmissionsValue =
+        editForm.maxSubmissions === "unlimited" ? null : Number(editForm.maxSubmissions) || null;
+
       const updated = await updateAssignment(editingAssignment.id, {
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
         category: editForm.category,
-        due_date: editForm.dueDate ? editForm.dueDate : undefined,
+        due_date: editForm.dueDate ? manilaInputToUtcIso(editForm.dueDate) ?? undefined : undefined,
+        max_submissions: maxSubmissionsValue ?? undefined,
       });
       setAssignments((prev) =>
         prev.map((a) =>
@@ -380,14 +431,18 @@ export default function AssignmentsPage() {
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                               </svg>
                             </button>
-                            <button
+                          <button
                               onClick={() => {
                                 setEditingAssignment(assignment);
                                 setEditForm({
                                   title: assignment.title,
                                   description: assignment.description ?? "",
                                   category: assignment.category,
-                                  dueDate: assignment.dueDate ? new Date(assignment.dueDate).toISOString().slice(0, 10) : "",
+                                  dueDate: assignment.dueDate ? utcIsoToManilaInput(assignment.dueDate) : "",
+                                  maxSubmissions:
+                                    assignment.max_submissions == null
+                                      ? "unlimited"
+                                      : String(assignment.max_submissions),
                                 });
                               }}
                               className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
@@ -546,18 +601,45 @@ export default function AssignmentsPage() {
                   </div>
                 </div>
 
-                {/* Due Date (Optional) */}
+                {/* Due Date (Optional, PH time) */}
                 <div>
                   <label htmlFor="dueDate" className="block text-sm font-semibold text-gray-700 mb-2">
-                    Due Date <span className="text-gray-500 text-xs">(Optional)</span>
+                    Due date &amp; time (PH) <span className="text-gray-500 text-xs">(Optional)</span>
                   </label>
                   <input
                     id="dueDate"
-                    type="date"
+                    type="datetime-local"
                     value={formData.dueDate}
                     onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   />
+                  <p className="mt-1 text-xs text-gray-500">
+                    Interpreted as Philippine time (Asia/Manila) when saving.
+                  </p>
+                </div>
+
+                {/* Max submissions per student */}
+                <div>
+                  <label htmlFor="maxSubmissions" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Max submissions per student
+                  </label>
+                  <select
+                    id="maxSubmissions"
+                    value={formData.maxSubmissions}
+                    onChange={(e) => setFormData({ ...formData, maxSubmissions: e.target.value })}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
+                  >
+                    <option value="1">1 (single submission)</option>
+                    <option value="2">2 submissions</option>
+                    <option value="3">3 submissions</option>
+                    <option value="5">5 submissions</option>
+                    <option value="10">10 submissions</option>
+                    <option value="unlimited">Unlimited</option>
+                  </select>
+                  <p className="mt-1 text-xs text-gray-500">
+                    Students will be stopped from submitting again after they reach this limit. Choose{" "}
+                    <span className="font-semibold">Unlimited</span> to allow any number of submissions.
+                  </p>
                 </div>
 
                 {/* PDF Upload (Optional) */}
@@ -704,13 +786,32 @@ export default function AssignmentsPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-semibold text-gray-700 mb-2">Due Date (Optional)</label>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Due date &amp; time (PH, optional)
+                </label>
                 <input
-                  type="date"
+                  type="datetime-local"
                   value={editForm.dueDate}
                   onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50/50 focus:bg-white"
                 />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Max submissions per student
+                </label>
+                <select
+                  value={editForm.maxSubmissions}
+                  onChange={(e) => setEditForm({ ...editForm, maxSubmissions: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 bg-gray-50/50 focus:bg-white"
+                >
+                  <option value="1">1 (single submission)</option>
+                  <option value="2">2 submissions</option>
+                  <option value="3">3 submissions</option>
+                  <option value="5">5 submissions</option>
+                  <option value="10">10 submissions</option>
+                  <option value="unlimited">Unlimited</option>
+                </select>
               </div>
               {editingAssignment.pdfUrl && (
                 <p className="text-sm text-gray-600">

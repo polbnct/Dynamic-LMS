@@ -36,13 +36,24 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ attempt: existingAttempt }, { status: 200 });
     }
 
-    // Load quiz config
+    // Load quiz config (max attempts and lock time)
     const { data: quiz, error: quizErr } = await admin
       .from("quizzes")
-      .select("id, max_attempts")
+      .select("id, max_attempts, due_date")
       .eq("id", quizId)
       .single();
     if (quizErr || !quiz) return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
+
+    // Enforce lock time: after due_date, no new attempts may be started
+    if (quiz.due_date) {
+      const lockTime = new Date(quiz.due_date).getTime();
+      if (!Number.isNaN(lockTime) && lockTime <= Date.now()) {
+        return NextResponse.json(
+          { error: "This quiz is locked and can no longer be taken." },
+          { status: 403 }
+        );
+      }
+    }
 
     // Count submitted attempts
     const { count: submittedCount, error: countErr } = await admin
@@ -91,6 +102,25 @@ export async function POST(request: NextRequest) {
       .single();
 
     if (insertErr || !attempt) {
+      // Handle unique constraint on in-progress attempts (partial index)
+      const code = (insertErr as any)?.code;
+      if (code === "23505") {
+        // Another request created the in-progress attempt; fetch and reuse it
+        const { data: concurrentAttempt } = await admin
+          .from("quiz_attempts")
+          .select("*")
+          .eq("quiz_id", quizId)
+          .eq("student_id", student.id)
+          .is("submitted_at", null)
+          .order("started_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (concurrentAttempt) {
+          return NextResponse.json({ attempt: concurrentAttempt }, { status: 200 });
+        }
+      }
+
       return NextResponse.json({ error: "Failed to start attempt" }, { status: 500 });
     }
 

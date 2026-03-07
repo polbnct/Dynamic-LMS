@@ -23,6 +23,7 @@ interface QuizWithUI extends Quiz {
   maxScore?: number;
   attemptsUsed?: number;
   remainingAttempts?: number | null;
+  isLocked?: boolean;
 }
 
 export default function StudentQuizzesPage() {
@@ -87,6 +88,7 @@ export default function StudentQuizzesPage() {
               maxScore: result?.max_score != null ? Number(result.max_score) : (quiz.questions?.length ?? 0) * 10 || 100,
               attemptsUsed: status.attemptsUsed ?? 0,
               remainingAttempts: status.remainingAttempts ?? null,
+              isLocked: status.isLocked ?? false,
             };
           })
         );
@@ -148,7 +150,7 @@ export default function StudentQuizzesPage() {
         {/* Page Header */}
         <div className="mb-8">
           <Link
-            href="/student/courses"
+            href="/student/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -207,7 +209,12 @@ export default function StudentQuizzesPage() {
 
                   {/* Quizzes List */}
                   <div className="space-y-4">
-                    {categoryQuizzes.map((quiz) => (
+                    {categoryQuizzes.map((quiz) => {
+                      const isLocked = quiz.isLocked ?? false;
+                      const hasRemainingAttempts =
+                        quiz.remainingAttempts === null || (quiz.remainingAttempts ?? 0) > 0;
+
+                      return (
                       <div
                         key={quiz.id}
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
@@ -262,7 +269,17 @@ export default function StudentQuizzesPage() {
                                       d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
                                     />
                                   </svg>
-                                  <span>Due: {new Date(quiz.dueDate).toLocaleDateString()}</span>
+                                  <span>
+                                    Locks (PH time):{" "}
+                                    {new Date(quiz.dueDate).toLocaleString("en-PH", {
+                                      timeZone: "Asia/Manila",
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                      hour: "2-digit",
+                                      minute: "2-digit",
+                                    })}
+                                  </span>
                                 </div>
                               )}
                               {quiz.taken && quiz.score !== undefined && quiz.maxScore != null && quiz.maxScore > 0 && (
@@ -280,7 +297,7 @@ export default function StudentQuizzesPage() {
                               )}
                             </div>
                           </div>
-                          {/* Action buttons: Take / Retake / View Results depending on remaining attempts */}
+                          {/* Action buttons: Take / Retake / View Results depending on remaining attempts and lock state */}
                           <div className="ml-4 flex flex-col sm:flex-row gap-2">
                             {quiz.taken && (
                               <button
@@ -307,20 +324,26 @@ export default function StudentQuizzesPage() {
                                 View Results
                               </button>
                             )}
-                            {quiz.remainingAttempts === null || (quiz.remainingAttempts ?? 0) > 0 ? (
+                            {isLocked ? (
+                              <span className="text-sm text-red-600 font-medium">
+                                Quiz locked
+                              </span>
+                            ) : hasRemainingAttempts ? (
                               <Link
-                                href={`/student/courses/${courseId}/quizzes/${quiz.id}/take`}
+                                href={`/student/dashboard/${courseId}/quizzes/${quiz.id}/take`}
                                 className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
                               >
                                 {quiz.taken ? "Retake Quiz" : "Take Quiz"}
                               </Link>
                             ) : !quiz.taken ? (
-                              <span className="text-sm text-red-600 font-medium">No attempts remaining</span>
+                              <span className="text-sm text-red-600 font-medium">
+                                No attempts remaining
+                              </span>
                             ) : null}
                           </div>
                         </div>
                       </div>
-                    ))}
+                    );})}
                   </div>
                 </div>
               );

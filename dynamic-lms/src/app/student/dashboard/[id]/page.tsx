@@ -10,9 +10,8 @@ export default function StudentCourseDetailPage() {
 
   useEffect(() => {
     // Redirect to content page as default
-    router.replace(`/student/courses/${courseId}/content`);
+    router.replace(`/student/dashboard/${courseId}/content`);
   }, [courseId, router]);
 
   return null;
 }
-

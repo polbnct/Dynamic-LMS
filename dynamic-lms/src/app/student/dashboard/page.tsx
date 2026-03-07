@@ -5,11 +5,13 @@ import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import { getStudentCourses, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 import { getAssignments } from "@/lib/supabase/queries/assignments";
+import { getQuizzes } from "@/lib/supabase/queries/quizzes";
 import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 
 export default function StudentDashboard() {
   const [courses, setCourses] = useState<CourseWithStudents[]>([]);
   const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
+  const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -23,18 +25,35 @@ export default function StudentDashboard() {
         const coursesData = await getStudentCourses(studentId);
         setCourses(coursesData);
 
-        // Get upcoming assignments from all courses
+        // Get upcoming assignments & quizzes from all enrolled courses
         const courseIds = coursesData.map((c) => c.id);
         if (courseIds.length > 0) {
-          const allAssignments = await Promise.all(
-            courseIds.map((id) => getAssignments(id))
-          );
-          const flattened = allAssignments.flat();
-          const upcoming = flattened
+          const [allAssignments, allQuizzes] = await Promise.all([
+            Promise.all(courseIds.map((id) => getAssignments(id))),
+            Promise.all(courseIds.map((id) => getQuizzes(id))),
+          ]);
+
+          const flattenedAssignments = allAssignments.flat();
+          const upcomingA = flattenedAssignments
             .filter((a) => a.due_date && new Date(a.due_date) > new Date())
-            .sort((a, b) => new Date(a.due_date!).getTime() - new Date(b.due_date!).getTime())
+            .sort(
+              (a, b) =>
+                new Date(a.due_date as string).getTime() -
+                new Date(b.due_date as string).getTime()
+            )
             .slice(0, 5);
-          setUpcomingAssignments(upcoming);
+          setUpcomingAssignments(upcomingA);
+
+          const flattenedQuizzes = allQuizzes.flat();
+          const upcomingQ = flattenedQuizzes
+            .filter((q) => q.due_date && new Date(q.due_date) > new Date())
+            .sort(
+              (a, b) =>
+                new Date(a.due_date as string).getTime() -
+                new Date(b.due_date as string).getTime()
+            )
+            .slice(0, 5);
+          setUpcomingQuizzes(upcomingQ);
         }
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
@@ -73,7 +92,7 @@ export default function StudentDashboard() {
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-12 text-center">
               <p className="text-gray-600">No courses enrolled yet</p>
               <Link
-                href="/student/courses"
+                href="/student/dashboard"
                 className="mt-4 inline-block text-red-600 hover:text-red-700 font-semibold"
               >
                 Browse Courses
@@ -84,7 +103,7 @@ export default function StudentDashboard() {
               {courses.slice(0, 6).map((course) => (
                 <Link
                   key={course.id}
-                  href={`/student/courses/${course.id}/content`}
+                  href={`/student/dashboard/${course.id}/content`}
                   className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg border border-rose-100 p-6 hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-1"
                 >
                   <h3 className="text-xl font-semibold text-gray-900 mb-1">{course.name}</h3>
@@ -97,23 +116,65 @@ export default function StudentDashboard() {
 
         {/* Upcoming Assignments */}
         {upcomingAssignments.length > 0 && (
-          <div>
+          <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Upcoming Assignments</h2>
             <div className="space-y-3">
               {upcomingAssignments.map((assignment) => (
-                <div
+                <Link
                   key={assignment.id}
-                  className="bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4"
+                  href={`/student/dashboard/${assignment.course_id}/assignments`}
+                  className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                 >
                   <div className="flex items-center justify-between">
                     <div>
                       <h4 className="font-semibold text-gray-800">{assignment.title}</h4>
                       <p className="text-sm text-gray-500">
-                        Due: {assignment.due_date ? new Date(assignment.due_date).toLocaleDateString() : "No due date"}
+                        Due:{" "}
+                        {assignment.due_date
+                          ? new Date(assignment.due_date).toLocaleString("en-PH", {
+                              timeZone: "Asia/Manila",
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })
+                          : "No due date"}
                       </p>
                     </div>
+                    <span className="text-xs font-semibold text-rose-600">View assignment</span>
                   </div>
-                </div>
+                </Link>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Upcoming Quizzes */}
+        {upcomingQuizzes.length > 0 && (
+          <div>
+            <h2 className="text-2xl font-bold text-gray-800 mb-4">Upcoming Quizzes</h2>
+            <div className="space-y-3">
+              {upcomingQuizzes.map((quiz) => (
+                <Link
+                  key={quiz.id}
+                  href={`/student/dashboard/${quiz.course_id}/quizzes`}
+                  className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                >
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h4 className="font-semibold text-gray-800">{quiz.name}</h4>
+                      <p className="text-sm text-gray-500">
+                        Locks:{" "}
+                        {quiz.due_date
+                          ? new Date(quiz.due_date).toLocaleString("en-PH", {
+                              timeZone: "Asia/Manila",
+                              dateStyle: "medium",
+                              timeStyle: "short",
+                            })
+                          : "No lock time"}
+                      </p>
+                    </div>
+                    <span className="text-xs font-semibold text-rose-600">View quiz</span>
+                  </div>
+                </Link>
               ))}
             </div>
           </div>

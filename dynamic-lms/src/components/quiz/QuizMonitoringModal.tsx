@@ -77,6 +77,7 @@ export default function QuizMonitoringModal({
 
   const getStatusColor = (attempt: StudentQuizStatus) => {
     if (attempt.submittedAt) return "bg-gray-100 text-gray-700";
+    if (!attempt.isOnline) return "bg-gray-100 text-gray-500";
     if (!attempt.isFocused) return "bg-yellow-100 text-yellow-700";
     if (attempt.tabCount > 1) return "bg-orange-100 text-orange-700";
     return "bg-green-100 text-green-700";
@@ -84,6 +85,7 @@ export default function QuizMonitoringModal({
 
   const getStatusText = (attempt: StudentQuizStatus) => {
     if (attempt.submittedAt) return "Submitted";
+    if (!attempt.isOnline) return "Offline";
     // Only show "Disconnected" when student is not focused (alt-tab / switched tab).
     if (!attempt.isFocused) return "Disconnected";
     if (attempt.tabCount > 1) return `${attempt.tabCount} Tabs Open`;
@@ -98,10 +100,27 @@ export default function QuizMonitoringModal({
         </svg>
       );
     }
+    if (!attempt.isOnline) {
+      return (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M18.364 5.636l-12.728 12.728M5.636 5.636l12.728 12.728"
+          />
+        </svg>
+      );
+    }
     if (!attempt.isFocused || attempt.tabCount > 1) {
       return (
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+          />
         </svg>
       );
     }

@@ -41,7 +41,7 @@ export default function StudentJoinCoursePage() {
       await joinCourseByCode(trimmed, studentId);
       setSuccess("You have joined the course!");
       setCode("");
-      setTimeout(() => router.push("/student/courses"), 1500);
+      setTimeout(() => router.push("/student/dashboard"), 1500);
     } catch (err: any) {
       setError(err?.message || "Failed to join course. Check the code and try again.");
     } finally {
@@ -98,7 +98,7 @@ export default function StudentJoinCoursePage() {
           )}
 
           <p className="mt-6 text-center text-sm text-gray-500">
-            <Link href="/student/courses" className="text-rose-600 hover:underline">
+            <Link href="/student/dashboard" className="text-rose-600 hover:underline">
               ← Back to my courses
             </Link>
           </p>

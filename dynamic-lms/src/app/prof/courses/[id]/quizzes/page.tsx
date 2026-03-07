@@ -13,6 +13,37 @@ import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import QuizMonitoringModal from "@/components/quiz/QuizMonitoringModal";
 
+const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
+
+function manilaInputToUtcIso(input: string): string | null {
+  if (!input) return null;
+  const [datePart, timePart] = input.split("T");
+  if (!datePart || !timePart) return null;
+  const [year, month, day] = datePart.split("-").map((x) => parseInt(x, 10));
+  const [hour, minute] = timePart.split(":").map((x) => parseInt(x, 10));
+  if (Number.isNaN(year) || Number.isNaN(month) || Number.isNaN(day) || Number.isNaN(hour) || Number.isNaN(minute)) {
+    return null;
+  }
+  // Treat the input as Asia/Manila local time (UTC+8, no DST)
+  const manilaMs = Date.UTC(year, month - 1, day, hour, minute);
+  const utcMs = manilaMs - MANILA_OFFSET_MS;
+  return new Date(utcMs).toISOString();
+}
+
+function utcIsoToManilaInput(iso: string): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const manilaMs = d.getTime() + MANILA_OFFSET_MS;
+  const manila = new Date(manilaMs);
+  const yyyy = manila.getUTCFullYear();
+  const mm = String(manila.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(manila.getUTCDate()).padStart(2, "0");
+  const hh = String(manila.getUTCHours()).padStart(2, "0");
+  const mi = String(manila.getUTCMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd}T${hh}:${mi}`;
+}
+
 // Quiz question interfaces for UI
 interface Question {
   id: string;
@@ -314,7 +345,7 @@ export default function QuizzesPage() {
         await updateQuiz(editingQuiz.id, {
           name: quizName.trim(),
           type: quizType,
-          due_date: quizDueDate.trim() ? quizDueDate.trim() : null,
+          due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) : null,
           max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
         });
         await setQuizQuestions(editingQuiz.id, questionIds);
@@ -339,7 +370,7 @@ export default function QuizzesPage() {
         {
           name: quizName.trim(),
           type: quizType,
-          due_date: quizDueDate.trim() ? quizDueDate.trim() : undefined,
+          due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) ?? undefined : undefined,
           max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
         },
         questionIds
@@ -529,7 +560,7 @@ export default function QuizzesPage() {
                         setEditingQuiz(quiz);
                         setQuizName(quiz.name);
                         setQuizType(quiz.type ?? "mixed");
-                        setQuizDueDate(quiz.due_date ? new Date(quiz.due_date).toISOString().slice(0, 10) : "");
+                        setQuizDueDate(quiz.due_date ? utcIsoToManilaInput(quiz.due_date) : "");
                         setQuizMaxAttempts(quiz.max_attempts != null ? String(quiz.max_attempts) : "");
                         setSelectedQuestions(quiz.questions?.map((q: any) => ({
                           id: q.id,
@@ -647,15 +678,18 @@ export default function QuizzesPage() {
 
                   <div>
                     <label htmlFor="quizDueDate" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Due Date <span className="text-gray-500 text-xs">(Optional)</span>
+                      Lock date &amp; time <span className="text-gray-500 text-xs">(Optional)</span>
                     </label>
                     <input
                       id="quizDueDate"
-                      type="date"
+                      type="datetime-local"
                       value={quizDueDate}
                       onChange={(e) => setQuizDueDate(e.target.value)}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                     />
+                    <p className="mt-1 text-xs text-gray-500">
+                      After this time, students will no longer be able to start this quiz.
+                    </p>
                   </div>
 
                   <div>

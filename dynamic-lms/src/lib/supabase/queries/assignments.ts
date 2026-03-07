@@ -8,6 +8,8 @@ export interface Assignment {
   category: "prelim" | "midterm" | "finals";
   pdf_file_path?: string;
   due_date?: string;
+   /** NULL means unlimited submissions */
+  max_submissions?: number | null;
   created_at: string;
 }
 
@@ -50,6 +52,7 @@ export async function createAssignment(
     category: "prelim" | "midterm" | "finals";
     pdf_file_path?: string;
     due_date?: string;
+    max_submissions?: number | null;
   }
 ): Promise<Assignment> {
   const supabase = createClient();
@@ -152,8 +155,35 @@ export async function submitAssignment(
     throw uploadError;
   }
 
-  // Get max score from assignment
-  const { data: assignment } = await supabase.from("assignments").select("id").eq("id", assignmentId).single();
+  // Get assignment settings (including max_submissions)
+  const { data: assignment, error: assignmentError } = await supabase
+    .from("assignments")
+    .select("id, max_submissions")
+    .eq("id", assignmentId)
+    .single();
+
+  if (assignmentError) {
+    console.error("Error fetching assignment before submission:", assignmentError);
+    throw assignmentError;
+  }
+
+  // Enforce max_submissions per student if set
+  if (assignment?.max_submissions != null) {
+    const { data: existingSubmissions, error: existingError } = await supabase
+      .from("assignment_submissions")
+      .select("id")
+      .eq("assignment_id", assignmentId)
+      .eq("student_id", studentId);
+
+    if (existingError) {
+      console.error("Error checking existing submissions:", existingError);
+      throw existingError;
+    }
+
+    if ((existingSubmissions?.length || 0) >= assignment.max_submissions) {
+      throw new Error("You have reached the maximum number of submissions allowed for this assignment.");
+    }
+  }
 
   // Create submission record
   const { data: submission, error: submitError } = await supabase

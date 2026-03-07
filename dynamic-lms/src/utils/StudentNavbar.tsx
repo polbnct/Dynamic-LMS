@@ -57,7 +57,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
-          <Link href="/student/courses" className="flex items-center gap-2">
+          <Link href="/student/dashboard" className="flex items-center gap-2">
             <div className="w-10 h-10 bg-gradient-to-br from-red-600 via-rose-500 to-orange-400 rounded-xl flex items-center justify-center shadow-lg shadow-red-200">
               <svg
                 className="w-6 h-6 text-white"
@@ -150,7 +150,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                             return (
                               <Link
                                 key={course.id}
-                                href={`/student/courses/${course.id}/content`}
+                                href={`/student/dashboard/${course.id}/content`}
                                 onClick={() => setCoursesDropdownOpen(false)}
                                 className="block p-4 hover:bg-rose-50 transition-colors"
                               >
@@ -188,7 +188,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                         Join with code
                       </Link>
                       <Link
-                        href="/student/courses"
+                        href="/student/dashboard"
                         onClick={() => setCoursesDropdownOpen(false)}
                         className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-red-500 text-white py-2.5 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2"
                       >
