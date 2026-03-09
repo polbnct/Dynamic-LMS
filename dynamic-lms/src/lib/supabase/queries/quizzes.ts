@@ -118,9 +118,29 @@ export async function getQuizzes(courseId: string): Promise<(Quiz & { questions:
   return quizzesWithQuestions;
 }
 
-// Get questions for a course or professor
-export async function getQuestions(courseId?: string, professorId?: string): Promise<Question[]> {
+// Get questions for a course or professor.
+// By default, excludes questions that are only used for lesson study aids (linked via lesson_study_questions),
+// so study-aid content does not pollute the quiz/assessment question bank.
+export async function getQuestions(
+  courseId?: string,
+  professorId?: string,
+  options?: { includeStudyAid?: boolean }
+): Promise<Question[]> {
   const supabase = createClient();
+
+  const includeStudyAid = options?.includeStudyAid ?? false;
+
+  // When excluding study-aid questions, we fetch the IDs that are linked in lesson_study_questions
+  // and filter them out client-side. This avoids schema changes while keeping separation of concerns.
+  let studyAidQuestionIds: Set<string> | null = null;
+  if (!includeStudyAid) {
+    const { data: links, error: linksError } = await supabase
+      .from("lesson_study_questions")
+      .select("question_id");
+    if (!linksError && links) {
+      studyAidQuestionIds = new Set(links.map((l: any) => l.question_id));
+    }
+  }
 
   let query = supabase.from("questions").select("*");
 
@@ -141,13 +161,19 @@ export async function getQuestions(courseId?: string, professorId?: string): Pro
     throw error;
   }
 
-  // Parse JSON fields
-  return (questions || []).map((q) => ({
+  // Parse JSON fields and optionally filter out study-aid-only questions
+  const parsed = (questions || []).map((q) => ({
     ...q,
     options: q.options ? (typeof q.options === "string" ? JSON.parse(q.options) : q.options) : undefined,
     correct_answer:
       typeof q.correct_answer === "string" ? JSON.parse(q.correct_answer) : q.correct_answer,
   }));
+
+  if (!includeStudyAid && studyAidQuestionIds) {
+    return parsed.filter((q) => !studyAidQuestionIds!.has(q.id));
+  }
+
+  return parsed;
 }
 
 // Create a question
@@ -194,6 +220,7 @@ export async function createQuiz(
     time_limit?: number;
     due_date?: string;
     max_attempts?: number | null;
+    points_per_question?: number | null;
   },
   questionIds: string[]
 ): Promise<Quiz> {
@@ -220,7 +247,14 @@ export async function createQuiz(
     name: quizData.name.trim(),
     ...(quizData.time_limit && { time_limit: quizData.time_limit }),
     ...(quizData.due_date && { due_date: quizData.due_date }),
-    ...(Object.prototype.hasOwnProperty.call(quizData, "max_attempts") && { max_attempts: quizData.max_attempts }),
+    ...(Object.prototype.hasOwnProperty.call(quizData, "max_attempts") && {
+      max_attempts: quizData.max_attempts,
+    }),
+    // Default points per question to 10 if not provided
+    points_per_question:
+      quizData.points_per_question != null && !Number.isNaN(quizData.points_per_question)
+        ? Number(quizData.points_per_question)
+        : 10,
   };
 
   // Only set type if it's not "mixed" (mixed quizzes have null type)
@@ -336,6 +370,7 @@ export async function updateQuiz(
     time_limit?: number;
     due_date?: string | null;
     max_attempts?: number | null;
+    points_per_question?: number | null;
   }
 ): Promise<Quiz> {
   const supabase = createClient();
@@ -347,7 +382,15 @@ export async function updateQuiz(
       ...(updates.type != null && { type: dbType }),
       ...(updates.time_limit != null && { time_limit: updates.time_limit }),
       ...(Object.prototype.hasOwnProperty.call(updates, "due_date") && { due_date: updates.due_date ?? null }),
-      ...(Object.prototype.hasOwnProperty.call(updates, "max_attempts") && { max_attempts: updates.max_attempts ?? null }),
+      ...(Object.prototype.hasOwnProperty.call(updates, "max_attempts") && {
+        max_attempts: updates.max_attempts ?? null,
+      }),
+      ...(Object.prototype.hasOwnProperty.call(updates, "points_per_question") && {
+        points_per_question:
+          updates.points_per_question != null && !Number.isNaN(updates.points_per_question)
+            ? Number(updates.points_per_question)
+            : 10,
+      }),
     })
     .eq("id", quizId)
     .select()
@@ -380,56 +423,6 @@ export async function setQuizQuestions(quizId: string, questionIds: string[]): P
       throw insertError;
     }
   }
-}
-
-// Start a quiz attempt
-export async function startQuizAttempt(quizId: string, studentId: string): Promise<QuizAttempt> {
-  const supabase = createClient();
-
-  // If there is already an in-progress attempt for this student/quiz, reuse it.
-  // This avoids duplicate attempts in dev (React Strict Mode) and on refresh.
-  const { data: existingAttempt } = await supabase
-    .from("quiz_attempts")
-    .select("*")
-    .eq("quiz_id", quizId)
-    .eq("student_id", studentId)
-    .is("submitted_at", null)
-    .order("started_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-
-  if (existingAttempt) {
-    return {
-      ...existingAttempt,
-      score: existingAttempt.score != null ? Number(existingAttempt.score) : 0,
-      max_score: existingAttempt.max_score != null ? Number(existingAttempt.max_score) : 0,
-    };
-  }
-
-  // Get quiz to determine max score
-  const { data: quiz } = await supabase.from("quizzes").select("id").eq("id", quizId).single();
-  const { count } = await supabase
-    .from("quiz_questions")
-    .select("*", { count: "exact", head: true })
-    .eq("quiz_id", quizId);
-
-  const { data: attempt, error } = await supabase
-    .from("quiz_attempts")
-    .insert({
-      quiz_id: quizId,
-      student_id: studentId,
-      started_at: new Date().toISOString(),
-      max_score: (count || 0) * 10, // Assuming 10 points per question
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error starting quiz attempt:", error);
-    throw error;
-  }
-
-  return attempt;
 }
 
 // Submit quiz answers
@@ -635,4 +628,70 @@ export async function getQuizAttemptWithAnswers(attemptId: string): Promise<Quiz
     answers,
   };
 }
+
+// Delete a quiz and its related data (answers, attempts, quiz_questions).
+// This is designed for professor use in the quiz management UI.
+export async function deleteQuiz(quizId: string): Promise<void> {
+  const supabase = createClient();
+
+  // Fetch all attempts for this quiz so we can delete their answers first.
+  const { data: attempts, error: attemptsError } = await supabase
+    .from("quiz_attempts")
+    .select("id")
+    .eq("quiz_id", quizId);
+
+  if (attemptsError) {
+    console.error("Error fetching quiz attempts before delete:", attemptsError);
+    throw attemptsError;
+  }
+
+  const attemptIds = (attempts ?? []).map((a: any) => a.id);
+
+  if (attemptIds.length > 0) {
+    // Delete all answers tied to those attempts.
+    const { error: answersError } = await supabase
+      .from("quiz_answers")
+      .delete()
+      .in("attempt_id", attemptIds);
+
+    if (answersError) {
+      console.error("Error deleting quiz answers:", answersError);
+      throw answersError;
+    }
+
+    // Delete the attempts themselves.
+    const { error: attemptsDelError } = await supabase
+      .from("quiz_attempts")
+      .delete()
+      .in("id", attemptIds);
+
+    if (attemptsDelError) {
+      console.error("Error deleting quiz attempts:", attemptsDelError);
+      throw attemptsDelError;
+    }
+  }
+
+  // Delete quiz_questions entries for this quiz.
+  const { error: qqError } = await supabase
+    .from("quiz_questions")
+    .delete()
+    .eq("quiz_id", quizId);
+
+  if (qqError) {
+    console.error("Error deleting quiz questions:", qqError);
+    throw qqError;
+  }
+
+  // Finally, delete the quiz itself.
+  const { error: quizError } = await supabase
+    .from("quizzes")
+    .delete()
+    .eq("id", quizId);
+
+  if (quizError) {
+    console.error("Error deleting quiz:", quizError);
+    throw quizError;
+  }
+}
+
 

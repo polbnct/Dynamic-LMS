@@ -33,6 +33,7 @@ const ProfessorNavbar = forwardRef<ProfessorNavbarRef, ProfessorNavbarProps>(({
   const [createCourseModalOpen, setCreateCourseModalOpen] = useState(false);
   const [courseName, setCourseName] = useState("");
   const [error, setError] = useState("");
+  const [creatingCourse, setCreatingCourse] = useState(false);
 
   const handleLogout = async () => {
     try {
@@ -67,13 +68,17 @@ const ProfessorNavbar = forwardRef<ProfessorNavbarRef, ProfessorNavbarProps>(({
 
     // Call the parent's onCreateCourse handler
     if (onCreateCourse) {
+      if (creatingCourse) return;
       try {
+        setCreatingCourse(true);
         await onCreateCourse(courseName.trim());
         setCourseName("");
         setCreateCourseModalOpen(false);
       } catch (err) {
         setError("Failed to create course. Please try again.");
         console.error("Error creating course:", err);
+      } finally {
+        setCreatingCourse(false);
       }
     } else {
       // Fallback if no handler provided
@@ -381,9 +386,10 @@ const ProfessorNavbar = forwardRef<ProfessorNavbarRef, ProfessorNavbarProps>(({
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                    disabled={creatingCourse}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                   >
-                    Create Course
+                    {creatingCourse ? "Creating..." : "Create Course"}
                   </button>
                 </div>
               </form>

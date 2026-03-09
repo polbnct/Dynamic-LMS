@@ -1,5 +1,6 @@
 import { createClient } from "../client";
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { deleteQuiz } from "@/lib/supabase/queries/quizzes";
 
 export interface Course {
   id: string;
@@ -361,6 +362,110 @@ export async function joinCourseByCode(classroomCode: string, studentId: string)
   }
 
   return course;
+}
+
+// Remove a single student from a course (unenroll).
+// Uses the students table id (studentDbId) stored in enrollments.student_id.
+export async function removeStudentFromCourse(courseId: string, studentDbId: string): Promise<void> {
+  const supabase = createClient();
+
+  const { error } = await supabase
+    .from("enrollments")
+    .delete()
+    .eq("course_id", courseId)
+    .eq("student_id", studentDbId);
+
+  if (error) {
+    console.error("Error removing student from course:", error);
+    throw error;
+  }
+}
+
+// Delete a course and related data owned by the professor.
+// This removes enrollments, assignments + submissions, quizzes + attempts/answers/questions,
+// lessons, and finally the course row itself.
+export async function deleteCourse(courseId: string): Promise<void> {
+  const supabase = createClient();
+
+  // Enrollments
+  const { error: enrollError } = await supabase
+    .from("enrollments")
+    .delete()
+    .eq("course_id", courseId);
+  if (enrollError) {
+    console.error("Error deleting enrollments for course:", enrollError);
+    throw enrollError;
+  }
+
+  // Assignments and submissions
+  const { data: assignments, error: assignmentsError } = await supabase
+    .from("assignments")
+    .select("id")
+    .eq("course_id", courseId);
+  if (assignmentsError) {
+    console.error("Error fetching assignments before course delete:", assignmentsError);
+    throw assignmentsError;
+  }
+
+  const assignmentIds = (assignments ?? []).map((a: any) => a.id);
+  if (assignmentIds.length > 0) {
+    const { error: subError } = await supabase
+      .from("assignment_submissions")
+      .delete()
+      .in("assignment_id", assignmentIds);
+    if (subError) {
+      console.error("Error deleting assignment submissions:", subError);
+      throw subError;
+    }
+
+    const { error: assnDelError } = await supabase
+      .from("assignments")
+      .delete()
+      .in("id", assignmentIds);
+    if (assnDelError) {
+      console.error("Error deleting assignments:", assnDelError);
+      throw assnDelError;
+    }
+  }
+
+  // Quizzes and related data via helper
+  const { data: quizzes, error: quizzesError } = await supabase
+    .from("quizzes")
+    .select("id")
+    .eq("course_id", courseId);
+  if (quizzesError) {
+    console.error("Error fetching quizzes before course delete:", quizzesError);
+    throw quizzesError;
+  }
+
+  for (const quiz of quizzes ?? []) {
+    try {
+      await deleteQuiz(quiz.id);
+    } catch (err) {
+      console.error("Error deleting quiz while deleting course:", err);
+      throw err;
+    }
+  }
+
+  // Lessons
+  const { error: lessonsError } = await supabase
+    .from("lessons")
+    .delete()
+    .eq("course_id", courseId);
+  if (lessonsError) {
+    console.error("Error deleting lessons for course:", lessonsError);
+    throw lessonsError;
+  }
+
+  // Course row
+  const { error: courseError } = await supabase
+    .from("courses")
+    .delete()
+    .eq("id", courseId);
+  if (courseError) {
+    console.error("Error deleting course:", courseError);
+    throw courseError;
+  }
 }
 
 // Get current user ID from auth (client-side)

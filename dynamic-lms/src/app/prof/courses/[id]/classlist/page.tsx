@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import { getCourseById, getCourseStudents, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { getCourseById, getCourseStudents, removeStudentFromCourse, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { getStudentGrades } from "@/lib/supabase/queries/grades";
 import type { Grade } from "@/lib/supabase/queries/grades";
@@ -37,6 +37,7 @@ export default function ClasslistPage() {
   const [profileMissedQuizzes, setProfileMissedQuizzes] = useState<{ id: string; name: string }[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const { handledCourses, createCourse } = useProfessorCourses();
+  const [removingStudentId, setRemovingStudentId] = useState<string | null>(null);
 
   useEffect(() => {
     async function fetchCourseData() {
@@ -244,43 +245,82 @@ export default function ClasslistPage() {
                         })}
                       </td>
                       <td className="py-4 px-4">
-                        <button
-                          onClick={async () => {
-                            if (!student.studentDbId) return;
-                            setSelectedStudent(student);
-                            setProfileModalOpen(true);
-                            setProfileLoading(true);
-                            setProfileGrades([]);
-                            setProfileMissedAssignments([]);
-                            setProfileMissedQuizzes([]);
-                            try {
-                              const [grades, assignments, quizzes] = await Promise.all([
-                                getStudentGrades(courseId, student.studentDbId),
-                                getAssignments(courseId),
-                                getQuizzes(courseId),
-                              ]);
-                              setProfileGrades(grades ?? []);
-                              const gradedAssignmentTitles = new Set(
-                                (grades ?? []).filter((g) => g.type === "assignment").map((g) => g.title)
-                              );
-                              const gradedQuizTitles = new Set(
-                                (grades ?? []).filter((g) => g.type === "quiz").map((g) => g.title)
-                              );
-                              setProfileMissedAssignments(
-                                (assignments ?? []).filter((a) => !gradedAssignmentTitles.has(a.title))
-                              );
-                              setProfileMissedQuizzes((quizzes ?? []).filter((q) => !gradedQuizTitles.has(q.name)));
-                            } catch (err) {
-                              console.error("Error loading student profile:", err);
-                              setError("Failed to load student grades.");
-                            } finally {
-                              setProfileLoading(false);
-                            }
-                          }}
-                          className="text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors"
-                        >
-                          View Profile
-                        </button>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={async () => {
+                              if (!student.studentDbId) return;
+                              setSelectedStudent(student);
+                              setProfileModalOpen(true);
+                              setProfileLoading(true);
+                              setProfileGrades([]);
+                              setProfileMissedAssignments([]);
+                              setProfileMissedQuizzes([]);
+                              try {
+                                const [grades, assignments, quizzes] = await Promise.all([
+                                  getStudentGrades(courseId, student.studentDbId),
+                                  getAssignments(courseId),
+                                  getQuizzes(courseId),
+                                ]);
+                                setProfileGrades(grades ?? []);
+                                const gradedAssignmentTitles = new Set(
+                                  (grades ?? []).filter((g) => g.type === "assignment").map((g) => g.title)
+                                );
+                                const gradedQuizTitles = new Set(
+                                  (grades ?? []).filter((g) => g.type === "quiz").map((g) => g.title)
+                                );
+                                setProfileMissedAssignments(
+                                  (assignments ?? []).filter((a) => !gradedAssignmentTitles.has(a.title))
+                                );
+                                setProfileMissedQuizzes((quizzes ?? []).filter((q) => !gradedQuizTitles.has(q.name)));
+                              } catch (err) {
+                                console.error("Error loading student profile:", err);
+                                setError("Failed to load student grades.");
+                              } finally {
+                                setProfileLoading(false);
+                              }
+                            }}
+                            className="text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors"
+                          >
+                            View Profile
+                          </button>
+                          <button
+                            type="button"
+                            disabled={removingStudentId === student.studentDbId}
+                            onClick={async () => {
+                              if (!student.studentDbId) return;
+                              if (
+                                !confirm(
+                                  `Remove ${student.name} from this course? They will be unenrolled but their past records will remain.`
+                                )
+                              ) {
+                                return;
+                              }
+                              setRemovingStudentId(student.studentDbId);
+                              try {
+                                await removeStudentFromCourse(courseId, student.studentDbId);
+                                setStudents((prev) =>
+                                  prev.filter((s) => s.studentDbId !== student.studentDbId)
+                                );
+                                setCourse((prev) =>
+                                  prev
+                                    ? {
+                                        ...prev,
+                                        studentsCount: Math.max((prev.studentsCount ?? 1) - 1, 0),
+                                      }
+                                    : prev
+                                );
+                              } catch (err: any) {
+                                console.error("Error removing student from course:", err);
+                                setError(err?.message || "Failed to remove student from course.");
+                              } finally {
+                                setRemovingStudentId(null);
+                              }
+                            }}
+                            className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors disabled:opacity-50"
+                          >
+                            Remove
+                          </button>
+                        </div>
                       </td>
                     </tr>
                   ))}

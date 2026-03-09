@@ -25,7 +25,7 @@ function EditStudyQuestionForm({
 }: {
   question: StudyAidQuestion;
   onSave: (updates: {
-    type?: "multiple_choice" | "true_false" | "fill_blank";
+    type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question?: string;
     options?: string[];
     correct_answer?: number | boolean | string;
@@ -34,7 +34,7 @@ function EditStudyQuestionForm({
   saving: boolean;
 }) {
   const [questionText, setQuestionText] = useState(question.question);
-  const [type, setType] = useState<"multiple_choice" | "true_false" | "fill_blank">(question.type);
+  const [type, setType] = useState<"multiple_choice" | "true_false" | "fill_blank" | "summary">(question.type);
   const [options, setOptions] = useState<string[]>(
     question.type === "multiple_choice" && question.options?.length
       ? question.options
@@ -91,8 +91,10 @@ function EditStudyQuestionForm({
       <div>
         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Question type</label>
           <select
-            value={type}
-            onChange={(e) => setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank")}
+            value={type === "summary" ? "fill_blank" : type}
+            onChange={(e) =>
+              setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank")
+            }
             className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
           >
             <option value="multiple_choice">Multiple choice</option>
@@ -236,6 +238,7 @@ export default function ContentPage() {
   const [editingStudyQuestion, setEditingStudyQuestion] = useState<StudyAidQuestion | null>(null);
   const [studyAidSaving, setStudyAidSaving] = useState(false);
   const { handledCourses, createCourse } = useProfessorCourses();
+  const [creatingLesson, setCreatingLesson] = useState(false);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -285,7 +288,10 @@ export default function ContentPage() {
       return;
     }
 
+    if (creatingLesson) return;
+
     try {
+      setCreatingLesson(true);
       // Calculate order
       const categoryLessons = lessons.filter((l) => l.category === formData.category);
       const order = categoryLessons.length + 1;
@@ -332,6 +338,8 @@ export default function ContentPage() {
     } catch (err: any) {
       console.error("Error creating lesson:", err);
       setError(err.message || "Failed to create lesson. Please try again.");
+    } finally {
+      setCreatingLesson(false);
     }
   };
 
@@ -688,7 +696,13 @@ export default function ContentPage() {
                         >
                           <span className="flex-1 text-sm text-gray-800 line-clamp-2 pr-2">{q.question}</span>
                           <span className="flex-shrink-0 text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
-                            {q.type === "true_false" ? "Flashcard" : q.type === "fill_blank" ? "Summary" : "Multiple choice"}
+                            {q.type === "true_false"
+                              ? "Flashcard"
+                              : q.type === "summary"
+                                ? "Summary"
+                                : q.type === "fill_blank"
+                                  ? "Fill in the blank"
+                                  : "Multiple choice"}
                           </span>
                           <div className="flex items-center gap-1">
                             <button
@@ -815,9 +829,13 @@ export default function ContentPage() {
                         </div>
                       </div>
                     )}
-                    {studyAidGenerateType === "summary" && studyAidQuestions.some(
-                      (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
-                    ) && (
+                    {studyAidGenerateType === "summary" &&
+                      studyAidQuestions.some(
+                        (q) =>
+                          q.type === "summary" ||
+                          (q.type === "fill_blank" &&
+                            String(q.correct_answer || "").toLowerCase().includes("summary"))
+                      ) && (
                       <span className="text-sm text-amber-700 font-medium">Summary already exists for this lesson.</span>
                     )}
                     <button
@@ -833,7 +851,12 @@ export default function ContentPage() {
                         // Summary is one-time only: do not allow generating again if one exists
                         if (studyAidGenerateType === "summary") {
                           const existingSummary = studyAidQuestions.find(
-                            (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                            (q) =>
+                              q.type === "summary" ||
+                              (q.type === "fill_blank" &&
+                                String(q.correct_answer || "")
+                                  .toLowerCase()
+                                  .includes("summary"))
                           );
                           if (existingSummary) {
                             return; // Button is disabled when summary exists; no-op
@@ -939,18 +962,29 @@ export default function ContentPage() {
                               // When adding a new summary, remove existing summary first (only if we ever allowed replace; currently summary is one-time so this path is for first add only)
                               if (studyAidGenerateType === "summary") {
                                 const existingSummary = studyAidQuestions.find(
-                                  (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                                  (q) =>
+                                    q.type === "summary" ||
+                                    (q.type === "fill_blank" &&
+                                      String(q.correct_answer || "")
+                                        .toLowerCase()
+                                        .includes("summary"))
                                 );
                                 if (existingSummary) {
                                   try {
-                                    await removeLessonStudyQuestion(studyAidLesson.id, existingSummary.id);
+                                    await removeLessonStudyQuestion(
+                                      studyAidLesson.id,
+                                      existingSummary.id
+                                    );
                                   } catch (e) {
                                     console.error("Error removing existing summary:", e);
                                   }
                                 }
                               }
                               const payload = toAdd.map((q: any) => ({
-                                type: q.type,
+                                type:
+                                  studyAidGenerateType === "summary"
+                                    ? "summary"
+                                    : (q.type as "multiple_choice" | "true_false" | "fill_blank"),
                                 question: q.question,
                                 options: q.options,
                                 correct_answer: q.correct_answer,
@@ -1178,9 +1212,10 @@ export default function ContentPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                    disabled={creatingLesson}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
-                    Add Lesson
+                    {creatingLesson ? "Adding..." : "Add Lesson"}
                   </button>
                 </div>
               </form>

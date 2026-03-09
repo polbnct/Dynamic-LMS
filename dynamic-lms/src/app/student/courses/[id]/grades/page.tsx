@@ -39,11 +39,49 @@ export default function StudentGradesPage() {
     fetchCourse();
   }, [courseId]);
 
-  // Group grades by category
+  // Group grades by category, then by underlying assessment (assignment/quiz)
+  type GradeItem = {
+    itemId: string;
+    title: string;
+    type: Grade["type"];
+    category: Grade["category"];
+    attempts: Grade[];
+  };
+
+  const groupByItem = (items: Grade[]): GradeItem[] => {
+    const map = new Map<string, GradeItem>();
+    for (const g of items) {
+      const key = `${g.type}:${g.itemId}`;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          itemId: g.itemId,
+          title: g.title,
+          type: g.type,
+          category: g.category,
+          attempts: [g],
+        });
+      } else {
+        existing.attempts.push(g);
+      }
+    }
+
+    // Sort attempts by submittedAt/gradedAt ascending
+    for (const item of map.values()) {
+      item.attempts.sort((a, b) => {
+        const aDate = a.submittedAt || a.gradedAt || "";
+        const bDate = b.submittedAt || b.gradedAt || "";
+        return new Date(aDate).getTime() - new Date(bDate).getTime();
+      });
+    }
+
+    return Array.from(map.values());
+  };
+
   const gradesByCategory = {
-    prelim: grades.filter((g) => g.category === "prelim"),
-    midterm: grades.filter((g) => g.category === "midterm"),
-    finals: grades.filter((g) => g.category === "finals"),
+    prelim: groupByItem(grades.filter((g) => g.category === "prelim")),
+    midterm: groupByItem(grades.filter((g) => g.category === "midterm")),
+    finals: groupByItem(grades.filter((g) => g.category === "finals")),
   };
 
   const categoryLabels = {
@@ -109,9 +147,9 @@ export default function StudentGradesPage() {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
               Grades
             </h1>
-            <p className="text-gray-600">
-              {course?.name} ({course?.code}) • {totalGrades} grade{totalGrades !== 1 ? "s" : ""}
-            </p>
+              <p className="text-gray-600">
+                {course?.name} ({course?.code}) • {totalGrades} attempt{totalGrades !== 1 ? "s" : ""}
+              </p>
           </div>
         </div>
 
@@ -136,8 +174,8 @@ export default function StudentGradesPage() {
         ) : (
           <div className="space-y-8">
             {(["prelim", "midterm", "finals"] as const).map((category) => {
-              const categoryGrades = gradesByCategory[category];
-              if (categoryGrades.length === 0) return null;
+              const categoryItems = gradesByCategory[category];
+              if (categoryItems.length === 0) return null;
 
               return (
                 <div key={category}>
@@ -145,67 +183,66 @@ export default function StudentGradesPage() {
                   <div className="mb-4 flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
                     <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
-                      {categoryGrades.length} item{categoryGrades.length !== 1 ? "s" : ""}
+                      {categoryItems.length} item{categoryItems.length !== 1 ? "s" : ""}
                     </span>
                   </div>
 
                   {/* Grades List */}
                   <div className="space-y-4">
-                    {categoryGrades.map((grade) => (
+                    {categoryItems.map((item) => (
                       <div
-                        key={grade.id}
+                        key={item.itemId}
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex items-start justify-between mb-4">
                           <div className="flex-1">
-                            <div className="flex items-center gap-3 mb-2">
-                              <h3 className="text-xl font-bold text-gray-800">{grade.title}</h3>
+                            <div className="flex items-center gap-3 mb-1">
+                              <h3 className="text-xl font-bold text-gray-800">{item.title}</h3>
                               <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
-                                {typeLabels[grade.type]}
+                                {typeLabels[item.type]}
                               </span>
                             </div>
-                            <div className="flex items-center gap-6 text-sm text-gray-600 mb-2">
-                              {grade.submittedAt && (
-                                <div className="flex items-center gap-2">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M5 13l4 4L19 7"
-                                    />
-                                  </svg>
-                                  <span>Submitted: {new Date(grade.submittedAt).toLocaleDateString()}</span>
+                            <p className="text-xs text-gray-500">
+                              {item.attempts.length} attempt{item.attempts.length !== 1 ? "s" : ""}
+                            </p>
+                          </div>
+                        </div>
+
+                        {/* Attempts list */}
+                        <div className="space-y-2 mt-2">
+                          {item.attempts.map((attempt, idx) => (
+                            <div
+                              key={attempt.id}
+                              className="flex items-center justify-between py-2 px-3 rounded-xl bg-gray-50 border border-gray-100"
+                            >
+                              <div className="flex items-center gap-3">
+                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                                  #{idx + 1}
+                                </span>
+                                <div className="flex flex-col">
+                                  {attempt.submittedAt && (
+                                    <span className="text-xs text-gray-600">
+                                      Submitted:{" "}
+                                      {new Date(attempt.submittedAt).toLocaleDateString()}
+                                    </span>
+                                  )}
+                                  {attempt.gradedAt && (
+                                    <span className="text-xs text-gray-500">
+                                      Graded: {new Date(attempt.gradedAt).toLocaleDateString()}
+                                    </span>
+                                  )}
                                 </div>
-                              )}
-                              {grade.gradedAt && (
-                                <div className="flex items-center gap-2">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path
-                                      strokeLinecap="round"
-                                      strokeLinejoin="round"
-                                      strokeWidth={2}
-                                      d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                    />
-                                  </svg>
-                                  <span>Graded: {new Date(grade.gradedAt).toLocaleDateString()}</span>
-                                </div>
-                              )}
-                            </div>
-                            <div className="flex items-center gap-4 mt-4">
+                              </div>
                               <div className="flex items-center gap-2">
-                                <span className="text-3xl font-bold text-indigo-600">{grade.percentage.toFixed(0)}%</span>
-                                <span className="text-gray-600">
-                                  ({grade.score}/{grade.maxScore})
+                                <span className="text-sm text-gray-700">
+                                  {attempt.score}/{attempt.maxScore}
+                                </span>
+                                <span className="text-sm font-semibold text-indigo-600">
+                                  {attempt.percentage.toFixed(0)}%
                                 </span>
                               </div>
-                              {grade.score === 0 && (
-                                <span className="px-3 py-1 bg-yellow-100 text-yellow-700 rounded-full text-xs font-semibold">
-                                  Not Submitted
-                                </span>
-                              )}
                             </div>
-                          </div>
+                          ))}
                         </div>
                       </div>
                     ))}

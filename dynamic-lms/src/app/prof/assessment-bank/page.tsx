@@ -24,7 +24,7 @@ export default function AssessmentBankPage() {
           throw new Error("Professor not found");
         }
 
-        const questionsData = await getQuestions(undefined, professorId);
+        const questionsData = await getQuestions(undefined, professorId, { includeStudyAid: false });
         setQuestions(questionsData);
       } catch (err) {
         console.error("Error fetching questions:", err);

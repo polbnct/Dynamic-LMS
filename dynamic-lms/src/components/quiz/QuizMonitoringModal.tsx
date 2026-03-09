@@ -1,7 +1,6 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { createClient } from "@/lib/supabase/client";
 import {
   getQuizAttemptsGroupedByStudent,
   getActivityLogsForAttempts,
@@ -35,30 +34,8 @@ export default function QuizMonitoringModal({
 
   useEffect(() => {
     if (!isOpen || !quizId) return;
-
+    // Fetch a snapshot of attempts and activity logs when the modal opens.
     fetchStudents();
-
-    const supabase = createClient();
-    const channel = supabase
-      .channel(`quiz-activity-${quizId}`)
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "quiz_attempts",
-          filter: `quiz_id=eq.${quizId}`,
-        },
-        () => fetchStudents()
-      )
-      .subscribe();
-
-    const pollInterval = setInterval(fetchStudents, 3000);
-
-    return () => {
-      channel.unsubscribe();
-      clearInterval(pollInterval);
-    };
   }, [isOpen, quizId]);
 
   const fetchStudents = async () => {
@@ -157,7 +134,7 @@ export default function QuizMonitoringModal({
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
             <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-              Live Quiz Monitoring
+              Quiz attempts & activity logs
             </h2>
             <p className="text-gray-600 text-sm mt-1">{quizName}</p>
           </div>
@@ -311,17 +288,9 @@ export default function QuizMonitoringModal({
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-200 bg-gray-50">
-          <div className="flex items-center justify-between text-sm text-gray-600">
-            <span>
-              {studentGroups.length} student{studentGroups.length !== 1 ? "s" : ""} · {totalAttempts} total attempt
-              {totalAttempts !== 1 ? "s" : ""}
-            </span>
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Live updates</span>
-            </div>
-          </div>
+        <div className="p-4 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
+          {studentGroups.length} student{studentGroups.length !== 1 ? "s" : ""} · {totalAttempts} total attempt
+          {totalAttempts !== 1 ? "s" : ""}
         </div>
       </div>
 

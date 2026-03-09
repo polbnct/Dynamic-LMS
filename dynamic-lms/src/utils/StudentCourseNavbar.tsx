@@ -19,7 +19,7 @@ export default function StudentCourseNavbar({
   const navItems = [
     {
       name: "Assignments",
-      href: `/student/dashboard/${courseId}/assignments`,
+      href: `/student/courses/${courseId}/assignments`,
       key: "assignments" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@ export default function StudentCourseNavbar({
     },
     {
       name: "Quizzes",
-      href: `/student/dashboard/${courseId}/quizzes`,
+      href: `/student/courses/${courseId}/quizzes`,
       key: "quizzes" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,7 +49,7 @@ export default function StudentCourseNavbar({
     },
     {
       name: "Grades",
-      href: `/student/dashboard/${courseId}/grades`,
+      href: `/student/courses/${courseId}/grades`,
       key: "grades" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,7 +64,7 @@ export default function StudentCourseNavbar({
     },
     {
       name: "Content",
-      href: `/student/dashboard/${courseId}/content`,
+      href: `/student/courses/${courseId}/content`,
       key: "content" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -86,7 +86,7 @@ export default function StudentCourseNavbar({
         {(courseName || courseCode) && (
           <div className="pt-4 pb-2 border-b border-rose-100">
             <Link
-              href={`/student/dashboard/${courseId}/content`}
+              href={`/student/courses/${courseId}/content`}
               className="text-sm text-gray-600 hover:text-red-600 transition-colors"
             >
               {courseCode && <span className="font-medium">{courseCode}</span>}

@@ -4,6 +4,8 @@ export interface Grade {
   id: string;
   type: "assignment" | "quiz" | "exam";
   title: string;
+  // Underlying assessment id (assignment_id or quiz_id)
+  itemId: string;
   category: "prelim" | "midterm" | "finals";
   score: number;
   maxScore: number;
@@ -60,6 +62,7 @@ export async function getStudentGrades(courseId: string, studentId: string): Pro
           id: submission.id,
           type: "assignment",
           title: assignment.title,
+          itemId: assignment.id,
           category: assignment.category,
           score: submission.score || 0,
           maxScore: submission.max_score || 100,
@@ -80,6 +83,7 @@ export async function getStudentGrades(courseId: string, studentId: string): Pro
           id: attempt.id,
           type: "quiz",
           title: quiz.name,
+          itemId: quiz.id,
           category: "prelim", // Quizzes don't have category in schema, defaulting
           score: attempt.score || 0,
           maxScore: attempt.max_score || 100,
@@ -92,14 +96,5 @@ export async function getStudentGrades(courseId: string, studentId: string): Pro
   }
 
   return grades;
-}
-
-// Calculate category average
-export function calculateCategoryAverage(grades: Grade[], category: "prelim" | "midterm" | "finals"): number | null {
-  const categoryGrades = grades.filter((g) => g.category === category && g.score > 0);
-  if (categoryGrades.length === 0) return null;
-
-  const totalPercentage = categoryGrades.reduce((sum, g) => sum + g.percentage, 0);
-  return totalPercentage / categoryGrades.length;
 }
 

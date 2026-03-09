@@ -22,7 +22,8 @@ interface AssignmentWithUI extends Assignment {
 
 export default function StudentAssignmentsPage() {
   const params = useParams();
-  const courseId = params.id as string;
+  const rawId = params.id as string | undefined;
+  const courseId = typeof rawId === "string" && rawId !== "undefined" ? rawId : "";
 
   const [course, setCourse] = useState<any>(null);
   const [assignments, setAssignments] = useState<AssignmentWithUI[]>([]);
@@ -126,6 +127,11 @@ export default function StudentAssignmentsPage() {
 
   useEffect(() => {
     async function fetchCourse() {
+      if (!courseId) {
+        console.error("StudentAssignmentsPage: invalid course id from route params", rawId);
+        setLoading(false);
+        return;
+      }
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
@@ -191,7 +197,7 @@ export default function StudentAssignmentsPage() {
       }
     }
     fetchCourse();
-  }, [courseId]);
+  }, [courseId, rawId]);
 
   // Group assignments by category
   const assignmentsByCategory = {

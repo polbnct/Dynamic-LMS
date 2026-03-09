@@ -69,7 +69,8 @@ export default function StudentContentPage() {
   }, [courseId]);
 
   const isSummaryQuestion = (q: StudyAidQuestion) =>
-    q.type === "fill_blank" && String(q.correct_answer ?? "").toLowerCase().includes("summary");
+    q.type === "summary" ||
+    (q.type === "fill_blank" && String(q.correct_answer ?? "").toLowerCase().includes("summary"));
 
   const handleStudyAid = async (lesson: LessonWithUI) => {
     setSelectedLesson(lesson);
@@ -96,7 +97,8 @@ export default function StudentContentPage() {
     if (type === "flashcards") return studyAidQuestions.filter((q) => q.type === "true_false");
     if (type === "multiple_choice") return studyAidQuestions.filter((q) => q.type === "multiple_choice");
     if (type === "summary") return studyAidQuestions.filter((q) => isSummaryQuestion(q));
-    if (type === "fill_blank") return studyAidQuestions.filter((q) => q.type === "fill_blank" && !isSummaryQuestion(q));
+    if (type === "fill_blank")
+      return studyAidQuestions.filter((q) => q.type === "fill_blank" && !isSummaryQuestion(q));
     return [];
   };
 

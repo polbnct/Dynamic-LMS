@@ -33,8 +33,16 @@ export default function StudentDashboard() {
             Promise.all(courseIds.map((id) => getQuizzes(id))),
           ]);
 
-          const flattenedAssignments = allAssignments.flat();
+          // Ensure every upcoming item has a valid course_id by forcing it
+          // to the originating courseId (ignore whatever is on the row).
+          const flattenedAssignments = allAssignments.flatMap((list, index) =>
+            (list || []).map((a: any) => ({
+              ...a,
+              course_id: courseIds[index],
+            }))
+          );
           const upcomingA = flattenedAssignments
+            .filter((a) => a.course_id)
             .filter((a) => a.due_date && new Date(a.due_date) > new Date())
             .sort(
               (a, b) =>
@@ -44,8 +52,14 @@ export default function StudentDashboard() {
             .slice(0, 5);
           setUpcomingAssignments(upcomingA);
 
-          const flattenedQuizzes = allQuizzes.flat();
+          const flattenedQuizzes = allQuizzes.flatMap((list, index) =>
+            (list || []).map((q: any) => ({
+              ...q,
+              course_id: courseIds[index],
+            }))
+          );
           const upcomingQ = flattenedQuizzes
+            .filter((q) => q.course_id)
             .filter((q) => q.due_date && new Date(q.due_date) > new Date())
             .sort(
               (a, b) =>
@@ -115,67 +129,71 @@ export default function StudentDashboard() {
         </div>
 
         {/* Upcoming Assignments */}
-        {upcomingAssignments.length > 0 && (
+        {upcomingAssignments.filter((a) => a.course_id && a.course_id !== "undefined").length > 0 && (
           <div className="mb-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Upcoming Assignments</h2>
             <div className="space-y-3">
-              {upcomingAssignments.map((assignment) => (
-                <Link
-                  key={assignment.id}
-                  href={`/student/dashboard/${assignment.course_id}/assignments`}
-                  className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-800">{assignment.title}</h4>
-                      <p className="text-sm text-gray-500">
-                        Due:{" "}
-                        {assignment.due_date
-                          ? new Date(assignment.due_date).toLocaleString("en-PH", {
-                              timeZone: "Asia/Manila",
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })
-                          : "No due date"}
-                      </p>
+              {upcomingAssignments
+                .filter((assignment) => assignment.course_id && assignment.course_id !== "undefined")
+                .map((assignment) => (
+                  <Link
+                    key={assignment.id}
+                    href={`/student/dashboard/${assignment.course_id}/assignments`}
+                    className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-gray-800">{assignment.title}</h4>
+                        <p className="text-sm text-gray-500">
+                          Due:{" "}
+                          {assignment.due_date
+                            ? new Date(assignment.due_date).toLocaleString("en-PH", {
+                                timeZone: "Asia/Manila",
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : "No due date"}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-rose-600">View assignment</span>
                     </div>
-                    <span className="text-xs font-semibold text-rose-600">View assignment</span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                ))}
             </div>
           </div>
         )}
 
         {/* Upcoming Quizzes */}
-        {upcomingQuizzes.length > 0 && (
+        {upcomingQuizzes.filter((q) => q.course_id && q.course_id !== "undefined").length > 0 && (
           <div>
             <h2 className="text-2xl font-bold text-gray-800 mb-4">Upcoming Quizzes</h2>
             <div className="space-y-3">
-              {upcomingQuizzes.map((quiz) => (
-                <Link
-                  key={quiz.id}
-                  href={`/student/dashboard/${quiz.course_id}/quizzes`}
-                  className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
-                >
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <h4 className="font-semibold text-gray-800">{quiz.name}</h4>
-                      <p className="text-sm text-gray-500">
-                        Locks:{" "}
-                        {quiz.due_date
-                          ? new Date(quiz.due_date).toLocaleString("en-PH", {
-                              timeZone: "Asia/Manila",
-                              dateStyle: "medium",
-                              timeStyle: "short",
-                            })
-                          : "No lock time"}
-                      </p>
+              {upcomingQuizzes
+                .filter((quiz) => quiz.course_id && quiz.course_id !== "undefined")
+                .map((quiz) => (
+                  <Link
+                    key={quiz.id}
+                    href={`/student/dashboard/${quiz.course_id}/quizzes`}
+                    className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
+                  >
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h4 className="font-semibold text-gray-800">{quiz.name}</h4>
+                        <p className="text-sm text-gray-500">
+                          Locks:{" "}
+                          {quiz.due_date
+                            ? new Date(quiz.due_date).toLocaleString("en-PH", {
+                                timeZone: "Asia/Manila",
+                                dateStyle: "medium",
+                                timeStyle: "short",
+                              })
+                            : "No lock time"}
+                        </p>
+                      </div>
+                      <span className="text-xs font-semibold text-rose-600">View quiz</span>
                     </div>
-                    <span className="text-xs font-semibold text-rose-600">View quiz</span>
-                  </div>
-                </Link>
-              ))}
+                  </Link>
+                ))}
             </div>
           </div>
         )}

@@ -1,6 +1,7 @@
 export interface StudyAidQuestion {
   id: string;
-  type: "multiple_choice" | "true_false" | "fill_blank";
+  // "summary" is treated as a separate, non-quiz-bank type for per-lesson summaries
+  type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
   question: string;
   options?: string[];
   correct_answer: number | boolean | string;
@@ -21,7 +22,7 @@ export async function getLessonStudyQuestions(
 export async function addLessonStudyQuestions(
   lessonId: string,
   questions: Array<{
-    type: "multiple_choice" | "true_false" | "fill_blank";
+    type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question: string;
     options?: string[];
     correct_answer: number | boolean | string;
@@ -44,7 +45,7 @@ export async function updateLessonStudyQuestion(
   lessonId: string,
   questionId: string,
   updates: {
-    type?: "multiple_choice" | "true_false" | "fill_blank";
+    type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question?: string;
     options?: string[];
     correct_answer?: number | boolean | string;

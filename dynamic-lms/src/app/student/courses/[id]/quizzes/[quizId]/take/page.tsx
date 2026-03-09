@@ -14,7 +14,6 @@ export default function TakeQuizPage() {
   const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
-  const submittedOrNavigatingRef = useRef(false);
 
   const [course, setCourse] = useState<any>(null);
   const [quiz, setQuiz] = useState<any>(null);
@@ -26,131 +25,41 @@ export default function TakeQuizPage() {
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
 
-  // Track student activity for monitoring
+  // Lightweight activity logging: track when the quiz tab gains/loses focus (alt-tab / tab switch)
+  // ONLY while the student is actually on the quiz-taking page with questions loaded.
+  // We rely solely on document.visibilitychange to avoid duplicate events from window focus/blur.
   useEffect(() => {
-    if (!attemptId) return;
+    if (!attemptId || questions.length === 0) return;
 
-    let tabCount = 1;
-    let isFocused = true;
-    let heartbeatInterval: NodeJS.Timeout;
-
-    // Update activity status (define early; used by multiple handlers below)
-    const updateActivity = async (status: "online" | "focused" | "blurred" | "tab_count") => {
+    const logActivity = async (status: "focused" | "blurred") => {
       try {
-        const res = await fetch("/api/quiz-activity", {
+        await fetch("/api/quiz-activity", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            attemptId,
-            status,
-            tabCount,
-          }),
+          body: JSON.stringify({ attemptId, status }),
         });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          console.warn("quiz-activity failed:", res.status, text);
-          return;
-        }
-        // Helpful diagnostics when logs are not being persisted (e.g. migration not applied).
-        if (status !== "online") {
-          const data = (await res.json().catch(() => null)) as any;
-          if (data && data.logged === false) {
-            console.warn("quiz-activity log not saved:", data.logError || data);
-          }
-        }
       } catch (err) {
-        console.error("Failed to update activity:", err);
+        console.error("Failed to log quiz activity:", err);
       }
     };
 
-    // Track tab visibility
     const handleVisibilityChange = () => {
       if (document.hidden) {
-        isFocused = false;
-        updateActivity("blurred");
+        logActivity("blurred");
       } else {
-        isFocused = true;
-        updateActivity("focused");
+        logActivity("focused");
       }
     };
 
-    // Track window focus/blur
-    const handleFocus = () => {
-      isFocused = true;
-      updateActivity("focused");
-    };
-
-    const handleBlur = () => {
-      isFocused = false;
-      updateActivity("blurred");
-    };
-
-    // Track multiple tabs (using BroadcastChannel and localStorage)
-    const tabKey = `quiz-tab-${attemptId}`;
-    const channel = new BroadcastChannel(`quiz-${attemptId}`);
-    
-    // Increment tab count on load
-    const currentTabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
-    const newTabs = currentTabs + 1;
-    localStorage.setItem(tabKey, newTabs.toString());
-    tabCount = newTabs;
-
-    // Broadcast to other tabs
-    channel.postMessage({ type: "tab-count", count: newTabs });
-    // Log tab count changes so professor can review multi-tab attempts
-    updateActivity("tab_count");
-
-    // Listen for tab count updates from other tabs
-    channel.onmessage = (event) => {
-      if (event.data.type === "tab-count") {
-        tabCount = event.data.count;
-        updateActivity("tab_count");
-      }
-    };
-
-    // Clean up on page unload
-    const handleBeforeUnload = () => {
-      const tabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
-      if (tabs > 0) {
-        const updatedTabs = tabs - 1;
-        localStorage.setItem(tabKey, updatedTabs.toString());
-        channel.postMessage({ type: "tab-count", count: updatedTabs });
-      }
-    };
-
-    // Heartbeat to keep connection alive (always send; focus state is tracked separately)
-    const sendHeartbeat = () => {
-      updateActivity("online");
-    };
-
-    // Initialize
     document.addEventListener("visibilitychange", handleVisibilityChange);
-    window.addEventListener("focus", handleFocus);
-    window.addEventListener("blur", handleBlur);
-    window.addEventListener("beforeunload", handleBeforeUnload);
-    
-    // Send initial status
-    updateActivity("online");
-    
-    // Send heartbeat every 5 seconds
-    heartbeatInterval = setInterval(sendHeartbeat, 5000);
 
-    // Cleanup
+    // Initial state: assume focused when the attempt starts.
+    logActivity("focused");
+
     return () => {
       document.removeEventListener("visibilitychange", handleVisibilityChange);
-      window.removeEventListener("focus", handleFocus);
-      window.removeEventListener("blur", handleBlur);
-      window.removeEventListener("beforeunload", handleBeforeUnload);
-      clearInterval(heartbeatInterval);
-      channel.close();
-      const tabs = parseInt(localStorage.getItem(tabKey) || "0", 10);
-      if (tabs > 0) {
-        localStorage.setItem(tabKey, (tabs - 1).toString());
-      }
-      // Don't send "offline" from client cleanup.
-      // Offline should be inferred server-side from missing heartbeats to avoid race conditions (dev strict mode, navigation).
     };
-  }, [attemptId]);
+  }, [attemptId, questions.length]);
 
   useEffect(() => {
     async function fetchQuiz() {
@@ -169,11 +78,6 @@ export default function TakeQuizPage() {
         setQuestions(foundQuiz.questions || []);
 
         // Start quiz attempt
-        const studentId = await getCurrentStudentId();
-        if (!studentId) {
-          throw new Error("Student not found");
-        }
-
         const res = await fetch("/api/quizzes/start-attempt", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -240,9 +144,7 @@ export default function TakeQuizPage() {
       }));
 
       await submitQuizAnswers(attemptId, answerArray);
-
-      submittedOrNavigatingRef.current = true;
-      router.push(`/student/dashboard/${courseId}/quizzes`);
+      router.push(`/student/courses/${courseId}/quizzes`);
     } catch (err: any) {
       console.error("Error submitting quiz:", err);
       setError(err.message || "Failed to submit quiz");
@@ -383,7 +285,7 @@ export default function TakeQuizPage() {
         {/* Submit button */}
         <div className="mt-8 flex gap-4">
           <Link
-            href={`/student/dashboard/${courseId}/quizzes`}
+            href={`/student/courses/${courseId}/quizzes`}
             className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-center"
           >
             Cancel

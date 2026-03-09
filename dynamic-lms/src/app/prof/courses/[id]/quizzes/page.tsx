@@ -7,7 +7,7 @@ import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
-import { getQuizzes, getQuestions, createQuestion, createQuiz, updateQuiz, setQuizQuestions } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, getQuestions, createQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
@@ -90,6 +90,7 @@ export default function QuizzesPage() {
   const [quizType, setQuizType] = useState<"mixed" | "multiple_choice" | "true_false" | "fill_blank">("mixed");
   const [quizDueDate, setQuizDueDate] = useState("");
   const [quizMaxAttempts, setQuizMaxAttempts] = useState<string>("1");
+  const [quizPointsPerQuestion, setQuizPointsPerQuestion] = useState<string>("10");
   const [generateQuestionType, setGenerateQuestionType] = useState<"multiple_choice" | "true_false" | "fill_blank">("multiple_choice");
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [quizBank, setQuizBank] = useState<Question[]>([]);
@@ -109,8 +110,7 @@ export default function QuizzesPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [retakeModalOpen, setRetakeModalOpen] = useState(false);
-  const [retakeQuiz, setRetakeQuiz] = useState<any>(null);
+  // Retake management state (now shown inside the Edit Quiz modal)
   const [retakeRows, setRetakeRows] = useState<any[]>([]);
   const [retakeLoading, setRetakeLoading] = useState(false);
   const { handledCourses, createCourse } = useProfessorCourses();
@@ -124,7 +124,8 @@ export default function QuizzesPage() {
         // Fetch quizzes, questions, and lessons
         const [quizzesData, questionsData, lessonsData] = await Promise.all([
           getQuizzes(courseId),
-          getQuestions(courseId),
+          // Exclude study-aid-only questions so the quiz bank stays assessment-focused.
+          getQuestions(courseId, undefined, { includeStudyAid: false }),
           getLessons(courseId),
         ]);
         
@@ -347,6 +348,9 @@ export default function QuizzesPage() {
           type: quizType,
           due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) : null,
           max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
+          points_per_question: quizPointsPerQuestion.trim()
+            ? Number(quizPointsPerQuestion)
+            : 10,
         });
         await setQuizQuestions(editingQuiz.id, questionIds);
         const updatedQuizzes = await getQuizzes(courseId);
@@ -372,6 +376,9 @@ export default function QuizzesPage() {
           type: quizType,
           due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) ?? undefined : undefined,
           max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
+          points_per_question: quizPointsPerQuestion.trim()
+            ? Number(quizPointsPerQuestion)
+            : 10,
         },
         questionIds
       );
@@ -413,6 +420,8 @@ export default function QuizzesPage() {
     setQuizDueDate("");
     setQuizMaxAttempts("1");
     setSelectedQuestions([]);
+    setRetakeRows([]);
+    setRetakeLoading(false);
     setError("");
     setSuccess("");
   };
@@ -481,6 +490,7 @@ export default function QuizzesPage() {
                 setQuizType("mixed");
                 setQuizDueDate("");
                 setQuizMaxAttempts("1");
+                setQuizPointsPerQuestion("10");
                 setSelectedQuestions([]);
                 setCreateQuizModalOpen(true);
               }}
@@ -538,7 +548,7 @@ export default function QuizzesPage() {
                         setMonitoringQuizName(quiz.name);
                       }}
                       className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      title="Monitor active students"
+                      title="View attempts & logs"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
@@ -556,23 +566,52 @@ export default function QuizzesPage() {
                       </svg>
                     </button>
                     <button
-                      onClick={() => {
+                      onClick={async () => {
+                        // Open edit modal with quiz details
                         setEditingQuiz(quiz);
                         setQuizName(quiz.name);
                         setQuizType(quiz.type ?? "mixed");
                         setQuizDueDate(quiz.due_date ? utcIsoToManilaInput(quiz.due_date) : "");
                         setQuizMaxAttempts(quiz.max_attempts != null ? String(quiz.max_attempts) : "");
-                        setSelectedQuestions(quiz.questions?.map((q: any) => ({
-                          id: q.id,
-                          type: q.type,
-                          question: q.question,
-                          options: q.options,
-                          correctAnswer: q.correct_answer,
-                          source: q.source_lesson_id,
-                          sourceType: q.source_type,
-                          createdAt: q.created_at,
-                        })) ?? []);
+                        setQuizPointsPerQuestion(
+                          (quiz as any).points_per_question != null
+                            ? String((quiz as any).points_per_question)
+                            : "10"
+                        );
+                        setSelectedQuestions(
+                          quiz.questions?.map((q: any) => ({
+                            id: q.id,
+                            type: q.type,
+                            question: q.question,
+                            options: q.options,
+                            correctAnswer: q.correct_answer,
+                            source: q.source_lesson_id,
+                            sourceType: q.source_type,
+                            createdAt: q.created_at,
+                          })) ?? []
+                        );
                         setCreateQuizModalOpen(true);
+
+                        // Load retake rows for this quiz to manage inside the edit modal
+                        setRetakeLoading(true);
+                        setRetakeRows([]);
+                        try {
+                          const res = await fetch("/api/quizzes/retakes/list", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ quizId: quiz.id }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) {
+                            throw new Error(data?.error || "Failed to load retakes");
+                          }
+                          setRetakeRows(Array.isArray(data?.rows) ? data.rows : []);
+                        } catch (e: any) {
+                          console.error("Error loading retakes:", e);
+                          setError(e.message || "Failed to load retakes");
+                        } finally {
+                          setRetakeLoading(false);
+                        }
                       }}
                       className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
                       title="Edit quiz"
@@ -583,30 +622,29 @@ export default function QuizzesPage() {
                     </button>
                     <button
                       onClick={async () => {
-                        setRetakeQuiz(quiz);
-                        setRetakeModalOpen(true);
-                        setRetakeLoading(true);
-                        setRetakeRows([]);
+                        if (!confirm(`Delete quiz "${quiz.name}"? This will also remove its attempts and answers.`)) {
+                          return;
+                        }
                         try {
-                          const res = await fetch("/api/quizzes/retakes/list", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({ quizId: quiz.id }),
-                          });
-                          const data = await res.json().catch(() => ({}));
-                          if (!res.ok) throw new Error(data?.error || "Failed to load retakes");
-                          setRetakeRows(Array.isArray(data?.rows) ? data.rows : []);
-                        } catch (e: any) {
-                          setError(e.message || "Failed to load retakes");
-                        } finally {
-                          setRetakeLoading(false);
+                          await deleteQuiz(quiz.id);
+                          setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
+                          setSuccess("Quiz deleted.");
+                          setTimeout(() => setSuccess(""), 3000);
+                        } catch (err: any) {
+                          console.error("Error deleting quiz:", err);
+                          setError(err?.message || "Failed to delete quiz.");
                         }
                       }}
-                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
-                      title="Manage retakes"
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Delete quiz"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8 8 0 104.582 9m0 0H9" />
+                        <path
+                          strokeLinecap="round"
+                          strokeLinejoin="round"
+                          strokeWidth={2}
+                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        />
                       </svg>
                     </button>
                   </div>
@@ -616,7 +654,7 @@ export default function QuizzesPage() {
           </div>
         )}
 
-      {/* Create Quiz Modal */}
+      {/* Create / Edit Quiz Modal (also includes Manage Retakes when editing) */}
       {createQuizModalOpen && (
         <div
           className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
@@ -674,6 +712,24 @@ export default function QuizzesPage() {
                       <option value="true_false">True or False</option>
                       <option value="fill_blank">Fill in the Blank</option>
                     </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="quizPointsPerQuestion" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Points per question <span className="text-gray-500 text-xs">(Required)</span>
+                    </label>
+                    <input
+                      id="quizPointsPerQuestion"
+                      type="number"
+                      min={1}
+                      value={quizPointsPerQuestion}
+                      onChange={(e) => setQuizPointsPerQuestion(e.target.value)}
+                      placeholder="10"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                    />
+                    <p className="text-xs text-gray-500 mt-1">
+                      Used to compute total quiz score (points × number of items).
+                    </p>
                   </div>
 
                   <div>
@@ -768,6 +824,99 @@ export default function QuizzesPage() {
                     </div>
                   )}
                 </div>
+
+                {/* Manage Retakes (only for editing an existing quiz) */}
+                {editingQuiz && (
+                  <div className="mb-6">
+                    <div className="flex items-center justify-between mb-3">
+                      <h3 className="text-lg font-bold text-gray-800">Manage Retakes</h3>
+                      {retakeLoading && (
+                        <span className="text-xs text-gray-500">Loading retakes…</span>
+                      )}
+                    </div>
+                    {retakeLoading ? (
+                      <div className="bg-gray-50 rounded-xl p-4 text-center text-gray-500">
+                        <div className="flex items-center justify-center gap-2">
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent" />
+                          <span>Loading retake data…</span>
+                        </div>
+                      </div>
+                    ) : retakeRows.length === 0 ? (
+                      <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500">
+                        No students found for retake management.
+                      </div>
+                    ) : (
+                      <div className="space-y-2 max-h-56 overflow-y-auto">
+                        {retakeRows.map((r) => (
+                          <div
+                            key={r.studentDbId}
+                            className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-center justify-between gap-3"
+                          >
+                            <div className="min-w-0">
+                              <p className="font-semibold text-gray-800 truncate">{r.name}</p>
+                              <p className="text-xs text-gray-600 truncate">{r.email}</p>
+                              <p className="text-xs text-gray-500 mt-1">
+                                Attempts used: {r.attemptsUsed} • Extra retakes: {r.extraAttempts} •{" "}
+                                {r.allowedAttempts == null
+                                  ? "Allowed: unlimited"
+                                  : `Allowed: ${r.allowedAttempts}`} •{" "}
+                                {r.remainingAttempts == null
+                                  ? "Remaining: unlimited"
+                                  : `Remaining: ${r.remainingAttempts}`}
+                              </p>
+                            </div>
+                            <button
+                              onClick={async () => {
+                                try {
+                                  const res = await fetch("/api/quizzes/retakes/grant", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({
+                                      quizId: editingQuiz.id,
+                                      studentId: r.studentDbId,
+                                      incrementBy: 1,
+                                    }),
+                                  });
+                                  const data = await res.json().catch(() => ({}));
+                                  if (!res.ok) {
+                                    throw new Error(data?.error || "Failed to grant retake");
+                                  }
+                                  setRetakeRows((prev) =>
+                                    prev.map((x) =>
+                                      x.studentDbId === r.studentDbId
+                                        ? {
+                                            ...x,
+                                            extraAttempts: data.extra_attempts,
+                                            allowedAttempts:
+                                              x.maxAttempts == null
+                                                ? null
+                                                : x.maxAttempts + data.extra_attempts,
+                                            remainingAttempts:
+                                              x.maxAttempts == null
+                                                ? null
+                                                : Math.max(
+                                                    (x.maxAttempts + data.extra_attempts) - x.attemptsUsed,
+                                                    0
+                                                  ),
+                                          }
+                                        : x
+                                    )
+                                  );
+                                } catch (e: any) {
+                                  console.error("Error granting retake:", e);
+                                  setError(e.message || "Failed to grant retake");
+                                }
+                              }}
+                              className="shrink-0 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700"
+                            >
+                              Grant retake
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
 
                 {/* Error/Success Messages */}
                 {error && (
@@ -940,86 +1089,6 @@ export default function QuizzesPage() {
                   {editingQuiz ? "Save changes" : "Create Quiz"}
                 </button>
               </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Retake Management Modal */}
-      {retakeModalOpen && retakeQuiz && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setRetakeModalOpen(false)}>
-          <div className="bg-white rounded-2xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Manage retakes</h2>
-                <p className="text-sm text-gray-600 mt-1">{retakeQuiz.name}</p>
-              </div>
-              <button onClick={() => setRetakeModalOpen(false)} className="text-gray-400 hover:text-gray-600">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </div>
-            <div className="flex-1 overflow-y-auto p-6">
-              {retakeLoading ? (
-                <div className="flex justify-center py-10">
-                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
-                </div>
-              ) : retakeRows.length === 0 ? (
-                <p className="text-gray-600">No students found.</p>
-              ) : (
-                <div className="space-y-3">
-                  {retakeRows.map((r) => (
-                    <div key={r.studentDbId} className="border border-gray-200 rounded-xl p-4 bg-gray-50/50 flex items-center justify-between gap-4">
-                      <div className="min-w-0">
-                        <p className="font-semibold text-gray-800 truncate">{r.name}</p>
-                        <p className="text-sm text-gray-600 truncate">{r.email}</p>
-                        <p className="text-xs text-gray-500 mt-1">
-                          Attempts used: {r.attemptsUsed} • Extra retakes: {r.extraAttempts} •{" "}
-                          {r.allowedAttempts == null ? "Allowed: unlimited" : `Allowed: ${r.allowedAttempts}`} •{" "}
-                          {r.remainingAttempts == null ? "Remaining: unlimited" : `Remaining: ${r.remainingAttempts}`}
-                        </p>
-                      </div>
-                      <button
-                        onClick={async () => {
-                          try {
-                            const res = await fetch("/api/quizzes/retakes/grant", {
-                              method: "POST",
-                              headers: { "Content-Type": "application/json" },
-                              body: JSON.stringify({ quizId: retakeQuiz.id, studentId: r.studentDbId, incrementBy: 1 }),
-                            });
-                            const data = await res.json().catch(() => ({}));
-                            if (!res.ok) throw new Error(data?.error || "Failed to grant retake");
-                            setRetakeRows((prev) =>
-                              prev.map((x) =>
-                                x.studentDbId === r.studentDbId
-                                  ? {
-                                      ...x,
-                                      extraAttempts: data.extra_attempts,
-                                      allowedAttempts: x.maxAttempts == null ? null : x.maxAttempts + data.extra_attempts,
-                                      remainingAttempts:
-                                        x.maxAttempts == null
-                                          ? null
-                                          : Math.max((x.maxAttempts + data.extra_attempts) - x.attemptsUsed, 0),
-                                    }
-                                  : x
-                              )
-                            );
-                          } catch (e: any) {
-                            setError(e.message || "Failed to grant retake");
-                          }
-                        }}
-                        className="shrink-0 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700"
-                      >
-                        Grant retake
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-            <div className="p-4 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
-              Granting a retake increases the student&apos;s allowed attempts by 1.
             </div>
           </div>
         </div>
@@ -1304,7 +1373,7 @@ export default function QuizzesPage() {
         )}
       </main>
 
-      {/* Quiz Monitoring Modal - Outside main for proper rendering */}
+      {/* Quiz attempts & activity logs modal */}
       {monitoringQuizId && (
         <QuizMonitoringModal
           quizId={monitoringQuizId}
@@ -1316,6 +1385,7 @@ export default function QuizzesPage() {
           }}
         />
       )}
+
     </div>
   );
 }

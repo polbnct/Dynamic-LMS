@@ -28,7 +28,8 @@ interface QuizWithUI extends Quiz {
 
 export default function StudentQuizzesPage() {
   const params = useParams();
-  const courseId = params.id as string;
+  const rawId = params.id as string | undefined;
+  const courseId = typeof rawId === "string" && rawId !== "undefined" ? rawId : "";
 
   const [course, setCourse] = useState<any>(null);
   const [quizzes, setQuizzes] = useState<Quiz[]>([]);
@@ -40,6 +41,11 @@ export default function StudentQuizzesPage() {
 
   useEffect(() => {
     async function fetchCourse() {
+      if (!courseId) {
+        console.error("StudentQuizzesPage: invalid course id from route params", rawId);
+        setLoading(false);
+        return;
+      }
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
@@ -101,7 +107,7 @@ export default function StudentQuizzesPage() {
       }
     }
     fetchCourse();
-  }, [courseId]);
+  }, [courseId, rawId]);
 
   // Group quizzes by category
   const quizzesByCategory = {
@@ -330,7 +336,7 @@ export default function StudentQuizzesPage() {
                               </span>
                             ) : hasRemainingAttempts ? (
                               <Link
-                                href={`/student/dashboard/${courseId}/quizzes/${quiz.id}/take`}
+                                href={`/student/courses/${courseId}/quizzes/${quiz.id}/take`}
                                 className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
                               >
                                 {quiz.taken ? "Retake Quiz" : "Take Quiz"}

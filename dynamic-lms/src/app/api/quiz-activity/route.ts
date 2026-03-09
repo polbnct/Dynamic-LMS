@@ -55,10 +55,12 @@ export async function POST(request: NextRequest) {
         ? (eventType as "focused" | "blurred" | "offline" | "online" | "tab_count")
         : "online";
 
-    // Insert a log row for meaningful events (tab switch, focus, offline, multi-tab).
-    // Avoid spamming logs for heartbeat "online" pings.
-    const shouldLog =
-      normalizedStatus !== "online" || (typeof tabCount === "number" && Number(tabCount) > 1);
+    // We no longer run high-frequency heartbeats from the client. This endpoint is now
+    // meant only for occasional, explicit logs (e.g. important state changes).
+    // To keep behaviour simple and predictable, we:
+    // - Always insert a log row when this endpoint is called
+    // - Only update basic activity columns on the attempt row
+    const shouldLog = true;
 
     let logInserted = false;
     let logErrorMessage: string | null = null;
@@ -79,34 +81,20 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // For submitted attempts, do not update is_online/is_focused so we don't overwrite with "offline"
+    // For submitted attempts, we only record the log row, not attempt activity columns.
     if (isSubmitted) {
-      return NextResponse.json({ success: true, logged: shouldLog ? logInserted : undefined, logError: logErrorMessage });
+      return NextResponse.json({
+        success: true,
+        logged: shouldLog ? logInserted : undefined,
+        logError: logErrorMessage,
+      });
     }
 
-    // Status mapping:
-    // - focused  -> focused=true, last_activity_at=now
-    // - blurred  -> focused=false, last_activity_at=now  (alt-tab / not focused is NOT offline)
-    // - online   -> last_activity_at=now (heartbeat)
-    // - offline  -> do NOT update last_activity_at (offline is inferred from missing heartbeats)
+    // Simple, low-noise activity update for the attempt row.
     const now = new Date().toISOString();
     const updateData: Record<string, unknown> = {
-      tab_count: tabCount ?? 1,
+      last_activity_at: now,
     };
-
-    if (normalizedStatus !== "offline") {
-      updateData.last_activity_at = now;
-    }
-
-    // Keep is_online true while we are receiving events/heartbeats.
-    // "Offline" should be inferred on the read side from last_activity_at staleness.
-    updateData.is_online = true;
-
-    if (normalizedStatus === "focused") {
-      updateData.is_focused = true;
-    } else if (normalizedStatus === "blurred" || normalizedStatus === "offline") {
-      updateData.is_focused = false;
-    }
 
     try {
       const { error: updateError } = await admin
@@ -121,7 +109,11 @@ export async function POST(request: NextRequest) {
       console.warn("Error updating activity:", err);
     }
 
-    return NextResponse.json({ success: true, logged: shouldLog ? logInserted : undefined, logError: logErrorMessage });
+    return NextResponse.json({
+      success: true,
+      logged: shouldLog ? logInserted : undefined,
+      logError: logErrorMessage,
+    });
   } catch (error: any) {
     console.error("Error in quiz activity route:", error);
     return NextResponse.json({ error: error.message || "Internal server error" }, { status: 500 });
