@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import { getInviteLink, updateCourseInviteCode, deleteCourse, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { getInviteLink, updateCourseInviteCode, deleteCourse, getCurrentProfessorId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfCoursesPage() {
@@ -298,9 +298,7 @@ export default function ProfCoursesPage() {
                     try {
                       const newCode = await updateCourseInviteCode(inviteCourse.id, professorId);
                       setInviteCourse({ ...inviteCourse, classroom_code: newCode });
-                      setCourses((prev) =>
-                        prev.map((c) => (c.id === inviteCourse.id ? { ...c, classroom_code: newCode } : c))
-                      );
+                      await refetch();
                     } catch (err: any) {
                       setError(err?.message || "Failed to regenerate code");
                     } finally {
