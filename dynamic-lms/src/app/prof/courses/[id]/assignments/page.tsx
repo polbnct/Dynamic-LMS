@@ -10,6 +10,13 @@ import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { getAssignments, createAssignment, updateAssignment, deleteAssignment, uploadAssignmentPDF, getAssignmentPDFUrl, getSubmissionFileUrl, getSubmissionsByAssignmentId, updateAssignmentSubmission } from "@/lib/supabase/queries/assignments";
 import type { Assignment, SubmissionWithStudent } from "@/lib/supabase/queries/assignments";
 
+type AssignmentWithUI = Assignment & {
+  pdfUrl?: string;
+  pdfFileName?: string;
+  createdAt?: string;
+  dueDate?: string;
+};
+
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function manilaInputToUtcIso(input: string): string | null {
@@ -45,12 +52,10 @@ export default function AssignmentsPage() {
   const courseId = params.id as string;
 
   const [course, setCourse] = useState<any>(null);
-  const [assignments, setAssignments] = useState<Assignment[]>([]);
+  const [assignments, setAssignments] = useState<AssignmentWithUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [createAssignmentModalOpen, setCreateAssignmentModalOpen] = useState(false);
-  const [editingAssignment, setEditingAssignment] = useState<
-    (Assignment & { pdfUrl?: string; pdfFileName?: string; createdAt?: string; dueDate?: string }) | null
-  >(null);
+  const [editingAssignment, setEditingAssignment] = useState<AssignmentWithUI | null>(null);
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -70,7 +75,7 @@ export default function AssignmentsPage() {
   const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
   const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false);
-  const [assignmentForSubmissions, setAssignmentForSubmissions] = useState<(Assignment & { pdfUrl?: string; pdfFileName?: string; createdAt?: string; dueDate?: string }) | null>(null);
+  const [assignmentForSubmissions, setAssignmentForSubmissions] = useState<AssignmentWithUI | null>(null);
   const [submissionsList, setSubmissionsList] = useState<SubmissionWithStudent[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionWithStudent | null>(null);
@@ -399,13 +404,15 @@ export default function AssignmentsPage() {
                                     View PDF {assignment.pdfFileName && `(${assignment.pdfFileName})`}
                                   </a>
                                 )}
-                                <span>
-                                  Created: {new Date(assignment.createdAt).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
-                                </span>
+                                {assignment.createdAt && (
+                                  <span>
+                                    Created: {new Date(assignment.createdAt).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>

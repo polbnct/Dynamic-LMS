@@ -147,7 +147,7 @@ export async function submitAssignment(
         "Storage bucket 'assignment-submissions' not found. Please create it in Supabase Dashboard > Storage. " +
         "The bucket should be named 'assignment-submissions' and set to public."
       );
-      (helpfulError as any).code = uploadError.code;
+      (helpfulError as any).code = (uploadError as any).code;
       (helpfulError as any).originalError = uploadError;
       throw helpfulError;
     }
@@ -225,7 +225,7 @@ export async function uploadAssignmentPDF(file: File, courseId: string, assignme
         "Storage bucket 'assignment-pdfs' not found. Please create it in Supabase Dashboard > Storage. " +
         "The bucket should be named 'assignment-pdfs' and set to public."
       );
-      (helpfulError as any).code = uploadError.code;
+      (helpfulError as any).code = (uploadError as any).code;
       (helpfulError as any).originalError = uploadError;
       throw helpfulError;
     }

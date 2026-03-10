@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
-import type { Database } from "@/types/database.types";
 
 export async function POST(request: NextRequest) {
   try {
@@ -20,7 +19,7 @@ export async function POST(request: NextRequest) {
     }
 
     const cookieStore = await cookies();
-    const supabase = createServerClient<Database>(
+    const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
@@ -125,7 +124,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const adminClient = createClient<Database>(
+    const adminClient = createClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.SUPABASE_SERVICE_ROLE_KEY!,
       {
@@ -178,7 +177,7 @@ export async function POST(request: NextRequest) {
 
     // Create role-specific record using admin client
     if (process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      const adminClient = createClient<Database>(
+      const adminClient = createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         {

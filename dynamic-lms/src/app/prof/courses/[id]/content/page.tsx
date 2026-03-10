@@ -17,6 +17,12 @@ import {
   type StudyAidQuestion,
 } from "@/lib/supabase/queries/study-aid";
 
+type LessonWithUI = Lesson & {
+  pdfUrl?: string;
+  pdfFileName?: string;
+  createdAt?: string;
+};
+
 function EditStudyQuestionForm({
   question,
   onSave,
@@ -216,7 +222,7 @@ export default function ContentPage() {
   const courseId = params.id as string;
 
   const [course, setCourse] = useState<any>(null);
-  const [lessons, setLessons] = useState<Lesson[]>([]);
+  const [lessons, setLessons] = useState<LessonWithUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
   const [formData, setFormData] = useState({
@@ -226,7 +232,7 @@ export default function ContentPage() {
   });
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
-  const [studyAidLesson, setStudyAidLesson] = useState<Lesson | null>(null);
+  const [studyAidLesson, setStudyAidLesson] = useState<LessonWithUI | null>(null);
   const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
   const [generatedForStudy, setGeneratedForStudy] = useState<any[]>([]);
   const [selectedGenerated, setSelectedGenerated] = useState<Set<number>>(new Set());
@@ -246,12 +252,14 @@ export default function ContentPage() {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
         const lessonsData = await getLessons(courseId);
-        setLessons(lessonsData.map((lesson) => ({
-          ...lesson,
-          pdfUrl: lesson.pdf_file_path ? getLessonPDFUrl(lesson.pdf_file_path) : undefined,
-          pdfFileName: lesson.pdf_file_path ? lesson.pdf_file_path.split("/").pop() : undefined,
-          createdAt: lesson.created_at,
-        })));
+        setLessons(
+          lessonsData.map((lesson) => ({
+            ...lesson,
+            pdfUrl: lesson.pdf_file_path ? getLessonPDFUrl(lesson.pdf_file_path) : undefined,
+            pdfFileName: lesson.pdf_file_path ? lesson.pdf_file_path.split("/").pop() : undefined,
+            createdAt: lesson.created_at,
+          }))
+        );
       } catch (err) {
         console.error("Error fetching course:", err);
       } finally {
@@ -527,13 +535,15 @@ export default function ContentPage() {
                                     <span>{lesson.pdfFileName}</span>
                                   </div>
                                 )}
-                                <span>
-                                  Created: {new Date(lesson.createdAt).toLocaleDateString("en-US", {
-                                    year: "numeric",
-                                    month: "short",
-                                    day: "numeric",
-                                  })}
-                                </span>
+                                {lesson.createdAt && (
+                                  <span>
+                                    Created: {new Date(lesson.createdAt).toLocaleDateString("en-US", {
+                                      year: "numeric",
+                                      month: "short",
+                                      day: "numeric",
+                                    })}
+                                  </span>
+                                )}
                               </div>
                             </div>
                           </div>
@@ -989,7 +999,7 @@ export default function ContentPage() {
                                 options: q.options,
                                 correct_answer: q.correct_answer,
                               }));
-                              const { added } = await addLessonStudyQuestions(studyAidLesson.id, payload);
+                              const { added } = await addLessonStudyQuestions(studyAidLesson.id, payload as any);
                               const list = await getLessonStudyQuestions(studyAidLesson.id);
                               setStudyAidQuestions(list);
                               setGeneratedForStudy([]);

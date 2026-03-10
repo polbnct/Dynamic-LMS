@@ -32,7 +32,7 @@ export default function StudentQuizzesPage() {
   const courseId = typeof rawId === "string" && rawId !== "undefined" ? rawId : "";
 
   const [course, setCourse] = useState<any>(null);
-  const [quizzes, setQuizzes] = useState<Quiz[]>([]);
+  const [quizzes, setQuizzes] = useState<QuizWithUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [resultModalLoading, setResultModalLoading] = useState(false);
@@ -389,12 +389,13 @@ export default function StudentQuizzesPage() {
                 <>
                   <div className="text-center mb-6 p-4 bg-indigo-50 rounded-xl">
                     <p className="text-3xl font-bold text-indigo-600">
-                      {resultData.attempt.score} / {resultData.attempt.max_score}
+                      {(resultData.attempt.score ?? 0)} / {resultData.attempt.max_score}
                     </p>
                     <p className="text-gray-600 mt-1">
-                      {resultData.attempt.max_score > 0
-                        ? Math.round((resultData.attempt.score / resultData.attempt.max_score) * 100)
-                        : 0}%
+                      {resultData.attempt.max_score > 0 && resultData.attempt.score != null
+                        ? Math.round(((resultData.attempt.score ?? 0) / resultData.attempt.max_score) * 100)
+                        : 0}
+                      %
                     </p>
                   </div>
                   <h3 className="font-semibold text-gray-800 mb-3">Questions</h3>

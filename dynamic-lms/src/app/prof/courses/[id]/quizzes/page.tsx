@@ -56,13 +56,6 @@ interface Question {
   createdAt: string;
 }
 
-// Mock lessons for reference
-interface Lesson {
-  id: string;
-  title: string;
-  pdfFileName?: string;
-}
-
 // Question type definition
 type QuestionType = "multiple_choice" | "true_false" | "fill_blank";
 
@@ -272,7 +265,7 @@ export default function QuizzesPage() {
       const question = await createQuestion({
         course_id: courseId,
         professor_id: professorId,
-        type: newQuestion.type === "mixed" ? "multiple_choice" : newQuestion.type,
+        type: newQuestion.type,
         question: newQuestion.question.trim(),
         options: newQuestion.type === "multiple_choice" ? newQuestion.options : undefined,
         correct_answer:

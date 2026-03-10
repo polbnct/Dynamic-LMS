@@ -12,7 +12,7 @@ async function ensureProfessorCanEditLesson(
     .single();
 
   if (lessonErr || !lesson) {
-    return { error: NextResponse.json({ error: "Lesson not found" }, { status: 404 }) as const };
+    return { error: NextResponse.json({ error: "Lesson not found" }, { status: 404 }) };
   }
 
   const { data: course } = await supabase
@@ -22,12 +22,12 @@ async function ensureProfessorCanEditLesson(
     .single();
 
   if (!course?.professor_id) {
-    return { error: NextResponse.json({ error: "Course not found" }, { status: 404 }) as const };
+    return { error: NextResponse.json({ error: "Course not found" }, { status: 404 }) };
   }
 
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) {
-    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) as const };
+    return { error: NextResponse.json({ error: "Unauthorized" }, { status: 401 }) };
   }
 
   const { data: prof } = await supabase
@@ -37,7 +37,7 @@ async function ensureProfessorCanEditLesson(
     .maybeSingle();
 
   if (!prof || prof.id !== course.professor_id) {
-    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) as const };
+    return { error: NextResponse.json({ error: "Forbidden" }, { status: 403 }) };
   }
 
   return { lesson, course };
