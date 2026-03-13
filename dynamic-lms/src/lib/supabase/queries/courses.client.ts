@@ -323,6 +323,35 @@ export async function updateCourseInviteCode(
   return newCode;
 }
 
+// Update basic course info (name/code). Professor must own the course via RLS.
+export async function updateCourse(
+  courseId: string,
+  updates: {
+    name?: string;
+    code?: string;
+  }
+): Promise<Course> {
+  const supabase = createClient();
+
+  const payload: Partial<Course> = {};
+  if (updates.name !== undefined) payload.name = updates.name;
+  if (updates.code !== undefined) payload.code = updates.code;
+
+  const { data, error } = await supabase
+    .from("courses")
+    .update(payload)
+    .eq("id", courseId)
+    .select("*")
+    .single();
+
+  if (error) {
+    console.error("Error updating course:", error);
+    throw error;
+  }
+
+  return data as Course;
+}
+
 // Join course by classroom code (client-side)
 export async function joinCourseByCode(classroomCode: string, studentId: string) {
   const supabase = createClient();

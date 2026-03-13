@@ -211,6 +211,54 @@ export async function createQuestion(questionData: {
   };
 }
 
+// Update a question
+export async function updateQuestion(
+  questionId: string,
+  updates: {
+    type?: "multiple_choice" | "true_false" | "fill_blank";
+    question?: string;
+    options?: string[] | null;
+    correct_answer?: string | number | boolean;
+  }
+): Promise<Question> {
+  const supabase = createClient();
+
+  const payload: any = {};
+  if (updates.type !== undefined) payload.type = updates.type;
+  if (updates.question !== undefined) payload.question = updates.question;
+  if (Object.prototype.hasOwnProperty.call(updates, "options")) {
+    payload.options = updates.options ? JSON.stringify(updates.options) : null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "correct_answer")) {
+    payload.correct_answer = JSON.stringify(updates.correct_answer);
+  }
+
+  const { data: question, error } = await supabase
+    .from("questions")
+    .update(payload)
+    .eq("id", questionId)
+    .select()
+    .single();
+
+  if (error) {
+    console.error("Error updating question:", error);
+    throw error;
+  }
+
+  return {
+    ...question,
+    options: question.options
+      ? typeof question.options === "string"
+        ? JSON.parse(question.options)
+        : question.options
+      : undefined,
+    correct_answer:
+      typeof question.correct_answer === "string"
+        ? JSON.parse(question.correct_answer)
+        : question.correct_answer,
+  };
+}
+
 // Create a quiz
 export async function createQuiz(
   courseId: string,

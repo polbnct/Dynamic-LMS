@@ -79,10 +79,35 @@ export default function AssignmentsPage() {
   const [submissionsList, setSubmissionsList] = useState<SubmissionWithStudent[]>([]);
   const [submissionsLoading, setSubmissionsLoading] = useState(false);
   const [selectedSubmission, setSelectedSubmission] = useState<SubmissionWithStudent | null>(null);
+  const [expandedStudents, setExpandedStudents] = useState<Set<string>>(new Set());
   const [gradeForm, setGradeForm] = useState({ score: "", max_score: "", feedback: "" });
   const [savingGrade, setSavingGrade] = useState(false);
   const [gradeSuccess, setGradeSuccess] = useState("");
   const { handledCourses, createCourse } = useProfessorCourses();
+
+  const submissionsGroupedByStudent = React.useMemo(() => {
+    const map = new Map<
+      string,
+      { studentName: string; studentEmail: string; submissions: SubmissionWithStudent[] }
+    >();
+    for (const sub of submissionsList) {
+      const key = sub.student_id;
+      const existing = map.get(key);
+      if (!existing) {
+        map.set(key, {
+          studentName: sub.studentName ?? "Unknown Student",
+          studentEmail: sub.studentEmail ?? "",
+          submissions: [sub],
+        });
+      } else {
+        existing.submissions.push(sub);
+      }
+    }
+    return Array.from(map.entries()).map(([studentId, v]) => ({
+      studentId,
+      ...v,
+    }));
+  }, [submissionsList]);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -870,6 +895,7 @@ export default function AssignmentsPage() {
                   setAssignmentForSubmissions(null);
                   setSubmissionsList([]);
                   setSelectedSubmission(null);
+                  setExpandedStudents(new Set());
                 }}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
               >
@@ -890,58 +916,107 @@ export default function AssignmentsPage() {
                 </div>
               ) : (
                 <>
-                  {/* Left: list of submissions */}
+                  {/* Left: students + submissions dropdown */}
                   <div className="w-72 shrink-0 border-r border-gray-200 overflow-y-auto bg-gray-50/50">
                     <div className="p-3 space-y-2">
-                      {submissionsList.map((sub) => {
-                        const isSelected = selectedSubmission?.id === sub.id;
-                        const isGraded = sub.graded_at != null;
-                        const maxScore = sub.max_score ?? 100;
-                        const score = sub.score ?? 0;
-                        const passed = isGraded && maxScore > 0 && score / maxScore >= 0.6;
+                      {submissionsGroupedByStudent.map((student) => {
+                        const isExpanded = expandedStudents.has(student.studentId);
                         return (
-                          <button
-                            key={sub.id}
-                            type="button"
-                            onClick={() => {
-                              setSelectedSubmission(sub);
-                              setGradeForm({
-                                score: sub.score != null ? String(sub.score) : "",
-                                max_score: sub.max_score != null ? String(sub.max_score) : "100",
-                                feedback: sub.feedback ?? "",
-                              });
-                            }}
-                            className={`w-full text-left rounded-xl p-3 border transition-colors ${
-                              isSelected
-                                ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
-                                : "bg-white border-gray-200 hover:bg-gray-50"
-                            }`}
-                          >
-                            <p className="font-semibold text-gray-800 truncate">{sub.studentName}</p>
-                            <p className="text-xs text-gray-500 mt-0.5">
-                              {new Date(sub.submitted_at).toLocaleDateString()}
-                            </p>
-                            <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
-                              {isGraded ? (
-                                <>
-                                  <span
-                                    className={`inline-block px-2 py-0.5 text-xs font-medium rounded ${
-                                      passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
-                                    }`}
-                                  >
-                                    {passed ? "Passed" : "Failed"}
-                                  </span>
-                                  <span className="text-xs text-gray-500">
-                                    {score}/{maxScore}
-                                  </span>
-                                </>
-                              ) : (
-                                <span className="inline-block px-2 py-0.5 bg-gray-100 text-gray-600 text-xs font-medium rounded">
-                                  Not graded
-                                </span>
-                              )}
-                            </div>
-                          </button>
+                          <div key={student.studentId} className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setExpandedStudents((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(student.studentId)) next.delete(student.studentId);
+                                  else next.add(student.studentId);
+                                  return next;
+                                });
+                              }}
+                              className="w-full text-left p-3 hover:bg-gray-50 transition-colors flex items-start gap-2"
+                            >
+                              <div className="flex-1 min-w-0">
+                                <p className="font-semibold text-gray-800 truncate">{student.studentName}</p>
+                                {student.studentEmail && (
+                                  <p className="text-xs text-gray-500 truncate">{student.studentEmail}</p>
+                                )}
+                                <p className="text-xs text-gray-500 mt-1">
+                                  {student.submissions.length} submission{student.submissions.length !== 1 ? "s" : ""}
+                                </p>
+                              </div>
+                              <svg
+                                className={`w-4 h-4 text-gray-400 mt-1 transition-transform ${isExpanded ? "rotate-180" : ""}`}
+                                fill="none"
+                                stroke="currentColor"
+                                viewBox="0 0 24 24"
+                              >
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                              </svg>
+                            </button>
+
+                            {isExpanded && (
+                              <div className="border-t border-gray-200 bg-gray-50/50">
+                                <div className="p-2 space-y-2">
+                                  {student.submissions.map((sub, idx) => {
+                                    const isSelected = selectedSubmission?.id === sub.id;
+                                    const isGraded = sub.graded_at != null;
+                                    const maxScore = sub.max_score ?? 100;
+                                    const score = sub.score ?? 0;
+                                    const passed = isGraded && maxScore > 0 && score / maxScore >= 0.6;
+                                    return (
+                                      <button
+                                        key={sub.id}
+                                        type="button"
+                                        onClick={() => {
+                                          setSelectedSubmission(sub);
+                                          setGradeForm({
+                                            score: sub.score != null ? String(sub.score) : "",
+                                            max_score: sub.max_score != null ? String(sub.max_score) : "100",
+                                            feedback: sub.feedback ?? "",
+                                          });
+                                        }}
+                                        className={`w-full text-left rounded-lg px-3 py-2 border transition-colors ${
+                                          isSelected
+                                            ? "bg-indigo-50 border-indigo-200 ring-1 ring-indigo-200"
+                                            : "bg-white border-gray-200 hover:bg-gray-50"
+                                        }`}
+                                      >
+                                        <div className="flex items-center justify-between gap-2">
+                                          <p className="text-xs text-gray-500">
+                                            #{student.submissions.length - idx} •{" "}
+                                            {new Date(sub.submitted_at).toLocaleString("en-PH", {
+                                              timeZone: "Asia/Manila",
+                                              year: "numeric",
+                                              month: "short",
+                                              day: "numeric",
+                                              hour: "2-digit",
+                                              minute: "2-digit",
+                                            })}
+                                          </p>
+                                          {isGraded ? (
+                                            <span
+                                              className={`inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded ${
+                                                passed ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
+                                              }`}
+                                            >
+                                              {score}/{maxScore}
+                                            </span>
+                                          ) : (
+                                            <span className="inline-flex items-center px-2 py-0.5 text-[11px] font-medium rounded bg-gray-100 text-gray-600">
+                                              Not graded
+                                            </span>
+                                          )}
+                                        </div>
+                                        {sub.fileName && (
+                                          <p className="text-[11px] text-gray-500 mt-1 truncate">{sub.fileName}</p>
+                                        )}
+                                      </button>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
                         );
                       })}
                     </div>

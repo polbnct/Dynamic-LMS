@@ -415,9 +415,7 @@ export default function StudentAssignmentsPage() {
                             </button>
                             <button
                               onClick={() => {
-                                if (assignment.submitted) {
-                                  alert("View submission functionality coming soon");
-                                } else if (canSubmitMore) {
+                                if (canSubmitMore) {
                                   setSelectedAssignment(assignment);
                                   setSubmitModalOpen(true);
                                 } else {
@@ -428,11 +426,11 @@ export default function StudentAssignmentsPage() {
                               }}
                               className="px-6 py-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
                             >
-                              {assignment.submitted
-                                ? "View Submission"
-                                : canSubmitMore
-                                  ? "Submit Assignment"
-                                  : "Submission limit reached"}
+                              {canSubmitMore
+                                ? assignment.submitted
+                                  ? "Submit again"
+                                  : "Submit Assignment"
+                                : "Submission limit reached"}
                             </button>
                           </div>
                         </div>

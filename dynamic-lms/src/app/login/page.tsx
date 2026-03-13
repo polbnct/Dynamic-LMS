@@ -23,7 +23,19 @@ function LoginPageInner() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Check user role and redirect
+        // Prefer admin role first
+        const { data: userData } = await supabase
+          .from("users")
+          .select("role")
+          .eq("id", user.id)
+          .maybeSingle();
+
+        if (userData?.role === "admin") {
+          router.push("/admin");
+          return;
+        }
+
+        // Check user role by profile tables
         const { data: profData } = await supabase
           .from("professors")
           .select("id")
@@ -44,17 +56,6 @@ function LoginPageInner() {
         if (studentData) {
           router.push("/student/dashboard");
           return;
-        }
-
-        // Fallback to users table
-        const { data: userData } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (userData?.role) {
-          router.push(userData.role === "professor" ? "/prof" : "/student");
         }
       }
     }
@@ -93,6 +94,18 @@ function LoginPageInner() {
         return;
       }
 
+      // Prefer admin role first
+      const { data: userData } = await supabase
+        .from("users")
+        .select("role")
+        .eq("id", authData.user.id)
+        .maybeSingle();
+
+      if (userData?.role === "admin") {
+        router.push("/admin");
+        return;
+      }
+
       // Check user role by looking in professors/students tables
       const { data: profData } = await supabase
         .from("professors")
@@ -118,13 +131,6 @@ function LoginPageInner() {
         router.push(redirectUrl && redirectUrl.startsWith("/student") ? redirectUrl : "/student/dashboard");
         return;
       }
-
-      // Try users table as fallback
-      const { data: userData } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", authData.user.id)
-        .maybeSingle();
 
       if (userData && (userData as any).role) {
         const role = (userData as any).role;

@@ -3,27 +3,59 @@
 import React, { useState, useRef } from "react";
 import Link from "next/link";
 import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
-import { getInviteLink, updateCourseInviteCode, getCurrentProfessorId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { updateCourse, deleteCourse, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfessorDashboard() {
   const navbarRef = useRef<ProfessorNavbarRef>(null);
-  const { courses, handledCourses, loading, error: contextError, createCourse: createCourseFromContext, refetch } = useProfessorCourses();
+  const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [inviteCourse, setInviteCourse] = useState<CourseWithStudents | null>(null);
-  const [inviteCodeRegenerating, setInviteCodeRegenerating] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState<"link" | "code" | null>(null);
+  const [editingCourse, setEditingCourse] = useState<CourseWithStudents | null>(null);
+  const [editCourseModalOpen, setEditCourseModalOpen] = useState(false);
+  const [editCourseForm, setEditCourseForm] = useState({ name: "", code: "" });
+  const [savingCourse, setSavingCourse] = useState(false);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
 
-  const handleCreateCourse = async (courseName: string) => {
+  const openEditCourseModal = (course: CourseWithStudents) => {
+    setEditingCourse(course);
+    setEditCourseForm({ name: course.name, code: course.code });
+    setError("");
+    setSuccess("");
+    setEditCourseModalOpen(true);
+  };
+
+  const closeEditCourseModal = () => {
+    setEditCourseModalOpen(false);
+    setEditingCourse(null);
+    setEditCourseForm({ name: "", code: "" });
+    setSavingCourse(false);
+  };
+
+  const handleSaveCourse = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingCourse) return;
+    if (!editCourseForm.name.trim()) {
+      setError("Course name is required.");
+      return;
+    }
+    setSavingCourse(true);
+    setError("");
+    setSuccess("");
     try {
-      await createCourseFromContext(courseName);
-      setSuccess(`Course "${courseName}" created successfully!`);
+      await updateCourse(editingCourse.id, {
+        name: editCourseForm.name.trim(),
+        code: editCourseForm.code.trim() || editingCourse.code,
+      });
+      await refetch();
+      setSuccess("Course updated.");
       setTimeout(() => setSuccess(""), 3000);
-      setError("");
-    } catch (err) {
-      setError("Failed to create course. Please try again.");
-      console.error("Error creating course:", err);
+      closeEditCourseModal();
+    } catch (err: any) {
+      console.error("Error updating course:", err);
+      setError(err?.message || "Failed to update course. Please try again.");
+    } finally {
+      setSavingCourse(false);
     }
   };
 
@@ -33,7 +65,7 @@ export default function ProfessorDashboard() {
       <ProfessorNavbar
         ref={navbarRef}
         currentPage="dashboard"
-        onCreateCourse={handleCreateCourse}
+        canCreateCourse={false}
         handledCourses={handledCourses}
       />
 
@@ -191,27 +223,47 @@ export default function ProfessorDashboard() {
                         </div>
                       </div>
                     </Link>
-                    <div className="mt-4 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setInviteCourse(course);
-                          setInviteCopied(null);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        Invite students
-                      </button>
-                      <Link
-                        href={`/prof/courses/${course.id}`}
-                        className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                      >
-                        Open
-                      </Link>
+                    <div className="mt-4 space-y-2">
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.preventDefault();
+                            openEditCourseModal(course);
+                          }}
+                          className="w-full px-3 py-2.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          disabled={deletingCourseId === course.id}
+                          onClick={async (e) => {
+                            e.preventDefault();
+                            if (
+                              !confirm(
+                                `Delete course "${course.name}"? This will remove assignments, quizzes, lessons, enrollments, and cannot be undone.`
+                              )
+                            ) {
+                              return;
+                            }
+                            setError("");
+                            setDeletingCourseId(course.id);
+                            try {
+                              await deleteCourse(course.id);
+                              await refetch();
+                            } catch (err: any) {
+                              console.error("Error deleting course from dashboard:", err);
+                              setError(err?.message || "Failed to delete course. Please try again.");
+                            } finally {
+                              setDeletingCourseId(null);
+                            }
+                          }}
+                          className="w-full px-3 py-2.5 border border-red-200 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
+                        >
+                          {deletingCourseId === course.id ? "Deleting..." : "Delete"}
+                        </button>
+                      </div>
                     </div>
                   </div>
                 ))}
@@ -220,23 +272,23 @@ export default function ProfessorDashboard() {
           </>
         )}
 
-        {/* Invite students modal */}
-        {inviteCourse && (
+        {/* Edit course modal */}
+        {editCourseModalOpen && editingCourse && (
           <div
             className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => { setInviteCourse(null); setInviteCopied(null); }}
+            onClick={closeEditCourseModal}
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6"
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Invite students to {inviteCourse.name}
+                  Edit course
                 </h2>
                 <button
                   type="button"
-                  onClick={() => { setInviteCourse(null); setInviteCopied(null); }}
+                  onClick={closeEditCourseModal}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -244,82 +296,54 @@ export default function ProfessorDashboard() {
                   </svg>
                 </button>
               </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Share the invite link or code with students. They can join from the &quot;Join with code&quot; page when logged in.
-              </p>
-              <div className="space-y-4">
+              <form onSubmit={handleSaveCourse} className="space-y-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Invite link</label>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={getInviteLink(inviteCourse.classroom_code)}
-                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(getInviteLink(inviteCourse.classroom_code));
-                          setInviteCopied("link");
-                          setTimeout(() => setInviteCopied(null), 2000);
-                        } catch (e) {
-                          console.error("Copy failed", e);
-                        }
-                      }}
-                      className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700"
-                    >
-                      {inviteCopied === "link" ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Course name
+                  </label>
+                  <input
+                    type="text"
+                    value={editCourseForm.name}
+                    onChange={(e) => setEditCourseForm((prev) => ({ ...prev, name: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  />
                 </div>
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Invite code</label>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={inviteCourse.classroom_code}
-                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(inviteCourse.classroom_code);
-                          setInviteCopied("code");
-                          setTimeout(() => setInviteCopied(null), 2000);
-                        } catch (e) {
-                          console.error("Copy failed", e);
-                        }
-                      }}
-                      className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700"
-                    >
-                      {inviteCopied === "code" ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Course code <span className="text-gray-500 text-xs">(optional)</span>
+                  </label>
+                  <input
+                    type="text"
+                    value={editCourseForm.code}
+                    onChange={(e) => setEditCourseForm((prev) => ({ ...prev, code: e.target.value }))}
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">
+                    If left blank, the current course code ({editingCourse.code}) will be kept.
+                  </p>
                 </div>
-                <button
-                  type="button"
-                  disabled={inviteCodeRegenerating}
-                  onClick={async () => {
-                    const professorId = await getCurrentProfessorId(false);
-                    if (!professorId) return;
-                    setInviteCodeRegenerating(true);
-                    try {
-                      const newCode = await updateCourseInviteCode(inviteCourse.id, professorId);
-                      setInviteCourse({ ...inviteCourse, classroom_code: newCode });
-                      await refetch();
-                    } catch (err: any) {
-                      setError(err?.message || "Failed to regenerate code");
-                    } finally {
-                      setInviteCodeRegenerating(false);
-                    }
-                  }}
-                  className="w-full py-2.5 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-xl hover:bg-indigo-50 disabled:opacity-50"
-                >
-                  {inviteCodeRegenerating ? "Regenerating…" : "Regenerate invite code"}
-                </button>
-              </div>
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                    {error}
+                  </div>
+                )}
+                <div className="flex gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeEditCourseModal}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={savingCourse}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {savingCourse ? "Saving..." : "Save changes"}
+                  </button>
+                </div>
+              </form>
             </div>
           </div>
         )}
