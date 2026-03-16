@@ -133,8 +133,12 @@ export async function getCourseById(courseId: string): Promise<CourseWithStudent
 }
 
 // Course creation is now admin-only. Professors cannot create courses from the client.
-// This stub is kept only so existing imports compile; it will always throw at runtime.
-export async function createCourse(): Promise<never> {
+// This stub is kept only so existing imports (including older call sites) compile; it will always throw at runtime.
+export async function createCourse(
+  _courseName: string,
+  _professorId: string,
+  _professorName: string
+): Promise<never> {
   throw new Error("Course creation is admin-only. Please ask an admin to create the course.");
 }
 
