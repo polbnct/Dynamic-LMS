@@ -41,27 +41,31 @@ export async function GET(
       if (userIds.length > 0) {
         const { data: users, error: userErr } = await admin
           .from("users")
-          .select("id, name, email")
+          .select("id, name, email, role")
           .in("id", userIds);
         if (userErr) return jsonError(userErr.message, 500);
         usersById = Object.fromEntries((users ?? []).map((u: any) => [u.id, u]));
       }
 
       studentsById = Object.fromEntries(
-        (students ?? []).map((s: any) => [
-          s.id,
-          {
-            studentDbId: s.id,
-            authUserId: s.user_id,
-            studentId: s.student_id,
-            name: usersById[s.user_id]?.name || "Unknown Student",
-            email: usersById[s.user_id]?.email || "",
-          },
-        ])
+        (students ?? [])
+          .filter((s: any) => usersById[s.user_id]?.role !== "admin")
+          .map((s: any) => [
+            s.id,
+            {
+              studentDbId: s.id,
+              authUserId: s.user_id,
+              studentId: s.student_id,
+              name: usersById[s.user_id]?.name || "Unknown Student",
+              email: usersById[s.user_id]?.email || "",
+            },
+          ])
       );
     }
 
-    const result = (enrollments ?? []).map((e: any) => ({
+    const result = (enrollments ?? [])
+      .filter((e: any) => Boolean(studentsById[e.student_id]))
+      .map((e: any) => ({
       id: e.id,
       enrolled_at: e.enrolled_at,
       course_id: courseId,

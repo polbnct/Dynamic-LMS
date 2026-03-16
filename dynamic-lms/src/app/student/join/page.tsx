@@ -1,32 +1,21 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
-import { getCurrentStudentId, joinCourseByCode } from "@/lib/supabase/queries/courses.client";
+import { getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 
 export default function StudentJoinCoursePage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
-  const codeFromUrl = searchParams.get("code")?.trim() ?? "";
 
   const [code, setCode] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  useEffect(() => {
-    if (codeFromUrl) setCode(codeFromUrl);
-  }, [codeFromUrl]);
-
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
-    const trimmed = code.trim().toUpperCase();
-    if (!trimmed) {
-      setError("Please enter an invite code.");
-      return;
-    }
     setError("");
     setSuccess("");
     setLoading(true);
@@ -38,12 +27,9 @@ export default function StudentJoinCoursePage() {
         setLoading(false);
         return;
       }
-      await joinCourseByCode(trimmed, studentId);
-      setSuccess("You have joined the course!");
-      setCode("");
-      setTimeout(() => router.push("/student/dashboard"), 1500);
+      setError("Joining courses is disabled. Please contact your admin to be enrolled.");
     } catch (err: any) {
-      setError(err?.message || "Failed to join course. Check the code and try again.");
+      setError(err?.message || "Joining courses is disabled.");
     } finally {
       setLoading(false);
     }
@@ -58,7 +44,7 @@ export default function StudentJoinCoursePage() {
             Join a course
           </h1>
           <p className="text-gray-600 text-sm mb-6">
-            Enter the invite code your professor shared, or use a join link they sent.
+            Course enrollment is managed by an admin.
           </p>
 
           <form onSubmit={handleJoin} className="space-y-4">
@@ -71,18 +57,18 @@ export default function StudentJoinCoursePage() {
                 type="text"
                 value={code}
                 onChange={(e) => setCode(e.target.value.toUpperCase())}
-                placeholder="e.g. ABC1234"
+                placeholder="Disabled"
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-rose-500 focus:border-transparent font-mono text-lg tracking-wide"
                 maxLength={20}
-                autoFocus
+                disabled
               />
             </div>
             <button
               type="submit"
-              disabled={loading || !code.trim()}
+              disabled
               className="w-full py-3 bg-gradient-to-r from-red-600 via-rose-600 to-red-500 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              {loading ? "Joining…" : "Join course"}
+              Join course
             </button>
           </form>
 

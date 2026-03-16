@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 
 export async function requireAdmin() {
   const supabase = await createClient();
+  const admin = createAdminClient();
 
   const {
     data: { user },
@@ -16,7 +18,7 @@ export async function requireAdmin() {
     throw new Error("Not authenticated");
   }
 
-  const { data: userRow, error: roleError } = await supabase
+  const { data: userRow, error: roleError } = await admin
     .from("users")
     .select("role")
     .eq("id", user.id)

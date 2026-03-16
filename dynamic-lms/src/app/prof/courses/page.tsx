@@ -3,13 +3,12 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import { deleteCourse, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfCoursesPage() {
-  const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
+  const { courses, handledCourses, loading, error: contextError } = useProfessorCourses();
   const [error, setError] = useState("");
-  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -74,7 +73,9 @@ export default function ProfCoursesPage() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">No courses yet</h3>
-                <p className="text-gray-600">Create your first course to get started</p>
+                <p className="text-gray-600">
+                  Courses are created and managed by your admin. Please contact the admin to create a course for you.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -128,36 +129,6 @@ export default function ProfCoursesPage() {
                         </div>
                       </div>
                     </Link>
-                    <div className="mt-4 flex justify-end">
-                      <button
-                        type="button"
-                        disabled={deletingCourseId === course.id}
-                        onClick={async (e) => {
-                          e.preventDefault();
-                          if (
-                            !confirm(
-                              `Delete course "${course.name}"? This will remove assignments, quizzes, lessons, enrollments, and cannot be undone.`
-                            )
-                          ) {
-                            return;
-                          }
-                          setError("");
-                          setDeletingCourseId(course.id);
-                          try {
-                            await deleteCourse(course.id);
-                            await refetch();
-                          } catch (err: any) {
-                            console.error("Error deleting course:", err);
-                            setError(err?.message || "Failed to delete course. Please try again.");
-                          } finally {
-                            setDeletingCourseId(null);
-                          }
-                        }}
-                        className="px-3 py-2.5 border border-red-200 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
-                      >
-                        Delete
-                      </button>
-                    </div>
                   </div>
                 ))}
               </div>

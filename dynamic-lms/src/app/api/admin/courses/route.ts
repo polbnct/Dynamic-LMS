@@ -90,14 +90,15 @@ export async function POST(request: NextRequest) {
 
     if (!name) return jsonError("name is required", 400);
     if (!code) return jsonError("code is required", 400);
-    if (!classroomCode) return jsonError("classroom_code is required", 400);
+    // Invite codes are not used in the UI anymore, but the DB column is NOT NULL.
+    const finalClassroomCode = classroomCode || `${code}-${Math.floor(Math.random() * 9000 + 1000)}`;
 
     const { data: course, error } = await admin
       .from("courses")
       .insert({
         name,
         code,
-        classroom_code: classroomCode,
+        classroom_code: finalClassroomCode,
         professor_id: professorId,
       })
       .select("id, name, code, classroom_code, professor_id, created_at")

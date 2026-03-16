@@ -5,6 +5,12 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+async function getServerRole(): Promise<string | null> {
+  const res = await fetch("/api/auth/role", { method: "GET" });
+  const data = await res.json().catch(() => ({}));
+  return (data as any)?.role ?? null;
+}
+
 function LoginPageInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -24,13 +30,8 @@ function LoginPageInner() {
 
       if (user) {
         // Prefer admin role first
-        const { data: userData } = await supabase
-          .from("users")
-          .select("role")
-          .eq("id", user.id)
-          .maybeSingle();
-
-        if (userData?.role === "admin") {
+        const role = await getServerRole();
+        if (role === "admin") {
           router.push("/admin");
           return;
         }
@@ -95,13 +96,8 @@ function LoginPageInner() {
       }
 
       // Prefer admin role first
-      const { data: userData } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", authData.user.id)
-        .maybeSingle();
-
-      if (userData?.role === "admin") {
+      const role = await getServerRole();
+      if (role === "admin") {
         router.push("/admin");
         return;
       }
@@ -132,8 +128,7 @@ function LoginPageInner() {
         return;
       }
 
-      if (userData && (userData as any).role) {
-        const role = (userData as any).role;
+      if (role) {
         if (role === "professor" || role === "prof") {
           router.push(redirectUrl && redirectUrl.startsWith("/prof") ? redirectUrl : "/prof");
         } else {

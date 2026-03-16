@@ -24,19 +24,22 @@ export async function GET() {
     if (userIds.length > 0) {
       const { data: users, error: userErr } = await admin
         .from("users")
-        .select("id, name, email")
+        .select("id, name, email, role")
         .in("id", userIds);
       if (userErr) return jsonError(userErr.message, 500);
       usersById = Object.fromEntries((users ?? []).map((u: any) => [u.id, u]));
     }
 
-    const result = (students ?? []).map((s: any) => ({
-      id: s.id,
-      user_id: s.user_id,
-      student_id: s.student_id,
-      name: usersById[s.user_id]?.name || "Unknown",
-      email: usersById[s.user_id]?.email || "",
-    }));
+    // Exclude admin accounts that may still have a students row.
+    const result = (students ?? [])
+      .filter((s: any) => usersById[s.user_id]?.role !== "admin")
+      .map((s: any) => ({
+        id: s.id,
+        user_id: s.user_id,
+        student_id: s.student_id,
+        name: usersById[s.user_id]?.name || "Unknown",
+        email: usersById[s.user_id]?.email || "",
+      }));
 
     return NextResponse.json({ students: result }, { status: 200 });
   } catch (e: any) {

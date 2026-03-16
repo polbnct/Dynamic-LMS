@@ -20,7 +20,6 @@ type AdminProfessor = {
   user_id: string;
   name: string;
   email: string;
-  department: string | null;
 };
 
 type AdminStudent = {
@@ -84,6 +83,9 @@ export default function AdminDashboardPage() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [professors, setProfessors] = useState<AdminProfessor[]>([]);
   const [students, setStudents] = useState<AdminStudent[]>([]);
+  const [deletingProfessorId, setDeletingProfessorId] = useState<string | null>(null);
+  const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
+  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
 
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
   const [creatingCourse, setCreatingCourse] = useState(false);
@@ -97,9 +99,13 @@ export default function AdminDashboardPage() {
   const [manageCourse, setManageCourse] = useState<AdminCourse | null>(null);
   const [manageEnrollments, setManageEnrollments] = useState<AdminEnrollment[]>([]);
   const [loadingEnrollments, setLoadingEnrollments] = useState(false);
-  const [regeneratingInvite, setRegeneratingInvite] = useState(false);
+  const [addingEnrollment, setAddingEnrollment] = useState(false);
+  const [selectedStudentToAdd, setSelectedStudentToAdd] = useState("");
+  const [editCourseForm, setEditCourseForm] = useState({ name: "", code: "" });
+  const [savingCourse, setSavingCourse] = useState(false);
 
   const professorOptions = useMemo(() => professors.slice().sort((a, b) => a.name.localeCompare(b.name)), [professors]);
+  const studentOptions = useMemo(() => students.slice().sort((a, b) => a.name.localeCompare(b.name)), [students]);
 
   const refreshAll = async () => {
     setLoading(true);
@@ -181,6 +187,7 @@ export default function AdminDashboardPage() {
 
   const openManageCourse = async (course: AdminCourse) => {
     setManageCourse(course);
+    setEditCourseForm({ name: course.name, code: course.code });
     setManageEnrollments([]);
     setError("");
     setSuccess("");
@@ -198,9 +205,11 @@ export default function AdminDashboardPage() {
   };
 
   const closeManageCourse = () => {
-    if (loadingEnrollments || regeneratingInvite) return;
+    if (loadingEnrollments || addingEnrollment) return;
     setManageCourse(null);
     setManageEnrollments([]);
+    setSelectedStudentToAdd("");
+    setEditCourseForm({ name: "", code: "" });
   };
 
   const handleAssignProfessor = async (professorId: string) => {
@@ -221,24 +230,66 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleRegenerateInvite = async () => {
+  const handleSaveCourseDetails = async (e: React.FormEvent) => {
+    e.preventDefault();
     if (!manageCourse) return;
+    const name = editCourseForm.name.trim();
+    const code = editCourseForm.code.trim();
+    if (!name) {
+      setError("Course name is required.");
+      return;
+    }
+    if (!code) {
+      setError("Course code is required.");
+      return;
+    }
     setError("");
     setSuccess("");
-    setRegeneratingInvite(true);
+    setSavingCourse(true);
     try {
-      const res = await fetchJson<{ classroom_code: string }>(
-        `/api/admin/courses/${encodeURIComponent(manageCourse.id)}/invite-code`,
-        { method: "POST" }
-      );
-      setSuccess("Invite code regenerated.");
-      const classroom_code = res.classroom_code;
-      setManageCourse((prev) => (prev ? { ...prev, classroom_code } : prev));
-      setCourses((prev) => prev.map((c) => (c.id === manageCourse.id ? { ...c, classroom_code } : c)));
+      const res = await fetchJson<{ course: AdminCourse }>(`/api/admin/courses/${manageCourse.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ name, code }),
+      });
+      setSuccess("Course details updated.");
+      setCourses((prev) => prev.map((c) => (c.id === manageCourse.id ? { ...c, ...res.course } : c)));
+      setManageCourse((prev) => (prev ? { ...prev, ...res.course } : prev));
     } catch (e: any) {
-      setError(e?.message || "Failed to regenerate invite code.");
+      setError(e?.message || "Failed to update course.");
     } finally {
-      setRegeneratingInvite(false);
+      setSavingCourse(false);
+    }
+  };
+
+  const handleAddStudentToCourse = async () => {
+    if (!manageCourse) return;
+    const studentDbId = selectedStudentToAdd.trim();
+    if (!studentDbId) return;
+
+    setError("");
+    setSuccess("");
+    setAddingEnrollment(true);
+    try {
+      await fetchJson<{ enrollment: { id: string } }>(
+        `/api/admin/courses/${encodeURIComponent(manageCourse.id)}/enrollments/add`,
+        {
+          method: "POST",
+          body: JSON.stringify({ studentDbId }),
+        }
+      );
+
+      // reload enrollments to get student info
+      const res = await fetchJson<{ enrollments: AdminEnrollment[] }>(
+        `/api/admin/courses/${encodeURIComponent(manageCourse.id)}/enrollments`
+      );
+      setManageEnrollments(res.enrollments || []);
+      setSelectedStudentToAdd("");
+      setSuccess("Student added to course.");
+      setCourses((prev) => prev.map((c) => (c.id === manageCourse.id ? { ...c, studentsCount: (c.studentsCount || 0) + 1 } : c)));
+    } catch (e: any) {
+      setError(e?.message || "Failed to add student.");
+    } finally {
+      setAddingEnrollment(false);
     }
   };
 
@@ -267,6 +318,91 @@ export default function AdminDashboardPage() {
       }
     } finally {
       router.push("/login");
+    }
+  };
+
+  const handleDeleteCourse = async (courseId: string) => {
+    if (!courseId) return;
+    const course = courses.find((c) => c.id === courseId);
+    if (
+      !course ||
+      !confirm(
+        `Delete course "${course.name}"? This will remove lessons, assignments, quizzes, enrollments, and cannot be undone.`
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setSuccess("");
+    setDeletingCourseId(courseId);
+    try {
+      await fetchJson<{ ok: true }>(`/api/admin/courses/${encodeURIComponent(courseId)}`, {
+        method: "DELETE",
+      });
+      setCourses((prev) => prev.filter((c) => c.id !== courseId));
+      setSuccess("Course deleted.");
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete course.");
+    } finally {
+      setDeletingCourseId(null);
+    }
+  };
+
+  const handleDeleteProfessor = async (professorId: string) => {
+    if (!professorId) return;
+    const prof = professors.find((p) => p.id === professorId);
+    if (
+      !prof ||
+      !confirm(
+        `Delete professor account "${prof.name}" (${prof.email})? This will remove their auth account and related data.`
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setSuccess("");
+    setDeletingProfessorId(professorId);
+    try {
+      await fetchJson<{ ok: true }>(`/api/admin/professors/${encodeURIComponent(professorId)}`, {
+        method: "DELETE",
+      });
+      setProfessors((prev) => prev.filter((p) => p.id !== professorId));
+      setCourses((prev) =>
+        prev.map((c) => (c.professor_id === professorId ? { ...c, professor_id: null, professorName: null } : c))
+      );
+      setSuccess("Professor account deleted.");
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete professor account.");
+    } finally {
+      setDeletingProfessorId(null);
+    }
+  };
+
+  const handleDeleteStudent = async (studentId: string) => {
+    if (!studentId) return;
+    const s = students.find((st) => st.id === studentId);
+    if (
+      !s ||
+      !confirm(
+        `Delete student account "${s.name}" (${s.email})? This will remove their auth account and related data.`
+      )
+    ) {
+      return;
+    }
+    setError("");
+    setSuccess("");
+    setDeletingStudentId(studentId);
+    try {
+      await fetchJson<{ ok: true }>(`/api/admin/students/${encodeURIComponent(studentId)}`, {
+        method: "DELETE",
+      });
+      setStudents((prev) => prev.filter((st) => st.id !== studentId));
+      // Enrollments in courses are cascaded by FK; we don't reload all courses here.
+      setSuccess("Student account deleted.");
+    } catch (e: any) {
+      setError(e?.message || "Failed to delete student account.");
+    } finally {
+      setDeletingStudentId(null);
     }
   };
 
@@ -350,29 +486,41 @@ export default function AdminDashboardPage() {
           ) : activeTab === "courses" ? (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {courses.map((c) => (
-                <button
+                <div
                   key={c.id}
-                  type="button"
-                  onClick={() => openManageCourse(c)}
-                  className="text-left rounded-3xl border border-rose-100 bg-white hover:bg-rose-50/70 p-5 transition shadow-sm hover:shadow-md"
+                  className="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm hover:shadow-md transition"
                 >
                   <div className="flex items-start justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="text-lg font-extrabold truncate text-gray-900">{c.name}</div>
-                      <div className="mt-1 text-sm text-gray-600">
-                        <span className="font-mono text-gray-800">{c.code}</span>
-                        <span className="mx-2 text-gray-300">•</span>
-                        <span className="font-mono text-rose-600">Invite: {c.classroom_code}</span>
+                    <button
+                      type="button"
+                      onClick={() => openManageCourse(c)}
+                      className="text-left flex-1"
+                    >
+                      <div className="min-w-0">
+                        <div className="text-lg font-extrabold truncate text-gray-900">{c.name}</div>
+                        <div className="mt-1 text-sm text-gray-600">
+                          <span className="font-mono text-gray-800">{c.code}</span>
+                        </div>
+                        <div className="mt-2 text-xs text-gray-500">
+                          Owner: {c.professorName || "Unassigned"} {c.professor_id ? "" : "(no professor)"}
+                        </div>
                       </div>
-                      <div className="mt-2 text-xs text-gray-500">
-                        Owner: {c.professorName || "Unassigned"} {c.professor_id ? "" : "(no professor)"}
+                    </button>
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="shrink-0 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
+                        {c.studentsCount} student{c.studentsCount !== 1 ? "s" : ""}
                       </div>
-                    </div>
-                    <div className="shrink-0 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                      {c.studentsCount} student{c.studentsCount !== 1 ? "s" : ""}
+                      <button
+                        type="button"
+                        disabled={deletingCourseId === c.id}
+                        onClick={() => handleDeleteCourse(c.id)}
+                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {deletingCourseId === c.id ? "Deleting…" : "Delete"}
+                      </button>
                     </div>
                   </div>
-                </button>
+                </div>
               ))}
 
               {courses.length === 0 && (
@@ -393,8 +541,15 @@ export default function AdminDashboardPage() {
                       <div className="font-extrabold truncate text-gray-900">{p.name}</div>
                       <div className="text-sm text-gray-600 truncate">{p.email}</div>
                     </div>
-                    <div className="text-xs text-gray-500">
-                      {p.department ? `Dept: ${p.department}` : "No department"}
+                    <div className="flex items-center gap-3">
+                      <button
+                        type="button"
+                        disabled={deletingProfessorId === p.id}
+                        onClick={() => handleDeleteProfessor(p.id)}
+                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {deletingProfessorId === p.id ? "Deleting…" : "Delete"}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -415,8 +570,18 @@ export default function AdminDashboardPage() {
                       <div className="font-extrabold truncate text-gray-900">{s.name}</div>
                       <div className="text-sm text-gray-600 truncate">{s.email}</div>
                     </div>
-                    <div className="text-xs text-gray-500 font-mono">
-                      {s.student_id}
+                    <div className="flex items-center gap-3">
+                      <div className="text-xs text-gray-500 font-mono">
+                        {s.student_id}
+                      </div>
+                      <button
+                        type="button"
+                        disabled={deletingStudentId === s.id}
+                        onClick={() => handleDeleteStudent(s.id)}
+                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                      >
+                        {deletingStudentId === s.id ? "Deleting…" : "Delete"}
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -436,26 +601,30 @@ export default function AdminDashboardPage() {
           onClick={closeCreateCourse}
         >
           <div
-            className="w-full max-w-lg rounded-3xl border border-rose-100 bg-white p-6 shadow-2xl"
+            className="w-full max-w-lg rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <div className="text-xl font-black text-gray-900">Create course</div>
-                <div className="mt-1 text-sm text-gray-500">Admin-only course provisioning.</div>
+            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-xl font-black text-gray-900">Create course</div>
+                  <div className="mt-1 text-sm text-gray-600">
+                    Create a new course, assign a professor, then enroll students manually.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeCreateCourse}
+                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700"
+                >
+                  Close
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={closeCreateCourse}
-                className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700"
-              >
-                Close
-              </button>
             </div>
 
-            <form onSubmit={handleCreateCourse} className="mt-5 space-y-4">
+            <form onSubmit={handleCreateCourse} className="p-6 space-y-5">
               <div>
-                <label className="text-xs font-bold text-gray-700">Course name</label>
+                <label className="text-sm font-semibold text-gray-700">Course name</label>
                 <input
                   value={createCourseForm.name}
                   onChange={(e) => setCreateCourseForm((p) => ({ ...p, name: e.target.value }))}
@@ -465,27 +634,22 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
-                  <label className="text-xs font-bold text-gray-700">Course code</label>
+                  <label className="text-sm font-semibold text-gray-700">Course code</label>
                   <input
                     value={createCourseForm.code}
                     onChange={(e) => setCreateCourseForm((p) => ({ ...p, code: e.target.value }))}
                     className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-mono outline-none focus:border-red-400 focus:bg-white"
                   />
                 </div>
-                <div>
-                  <label className="text-xs font-bold text-gray-700">Invite code</label>
-                  <input
-                    value={createCourseForm.classroom_code}
-                    onChange={(e) => setCreateCourseForm((p) => ({ ...p, classroom_code: e.target.value }))}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-mono outline-none focus:border-red-400 focus:bg-white"
-                  />
+                <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-gray-600 flex items-center">
+                  Invite codes are disabled.
                 </div>
               </div>
 
               <div>
-                <label className="text-xs font-bold text-gray-700">Assign professor (optional)</label>
+                <label className="text-sm font-semibold text-gray-700">Assign professor (optional)</label>
                 <select
                   value={createCourseForm.professor_id}
                   onChange={(e) => setCreateCourseForm((p) => ({ ...p, professor_id: e.target.value }))}
@@ -500,19 +664,18 @@ export default function AdminDashboardPage() {
                 </select>
               </div>
 
-              <div className="flex items-center justify-between gap-3 pt-2">
+              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
                 <button
                   type="button"
                   onClick={() => {
                     setCreateCourseForm((p) => ({
                       ...p,
                       code: generateCourseCode(),
-                      classroom_code: generateInviteCode(),
                     }));
                   }}
                   className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700"
                 >
-                  Regenerate codes
+                  Regenerate code
                 </button>
                 <button
                   type="submit"
@@ -530,100 +693,156 @@ export default function AdminDashboardPage() {
       {/* Manage course modal */}
       {manageCourse && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify_center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
           onClick={closeManageCourse}
         >
           <div
-            className="w-full max-w-3xl rounded-3xl border border-rose-100 bg-white p-6 shadow-2xl"
+            className="w-full max-w-4xl rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-              <div className="min-w-0">
-                <div className="text-xl font-black truncate text-gray-900">{manageCourse.name}</div>
-                <div className="mt-1 text-sm text-gray-600 font-mono">
-                  {manageCourse.code} • Invite: {manageCourse.classroom_code}
+            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-xl font-black truncate text-gray-900">{manageCourse.name}</div>
+                  <div className="mt-1 text-sm text-gray-600 font-mono">
+                    {manageCourse.code}
+                  </div>
                 </div>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={handleRegenerateInvite}
-                  disabled={regeneratingInvite}
-                  className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-60"
-                >
-                  {regeneratingInvite ? "Regenerating…" : "Regenerate invite"}
-                </button>
-                <button
-                  type="button"
-                  onClick={closeManageCourse}
-                  className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
-                >
-                  Close
-                </button>
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={closeManageCourse}
+                    className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
+                  >
+                    Close
+                  </button>
+                </div>
               </div>
             </div>
 
-            <div className="mt-5 grid grid-cols-1 lg:grid-cols-3 gap-4">
-              <div className="rounded-3xl border border-rose-100 bg-rose-50 p-4">
-                <div className="text-xs font-bold text-gray-800">Course owner</div>
-                <select
-                  value={manageCourse.professor_id || ""}
-                  onChange={(e) => handleAssignProfessor(e.target.value)}
-                  className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
-                >
-                  <option value="">Unassigned</option>
-                  {professorOptions.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} ({p.email})
-                    </option>
-                  ))}
-                </select>
-                <div className="mt-3 text-xs text-gray-600">
-                  Current: {manageCourse.professorName || "Unassigned"}
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="space-y-4">
+                <div className="rounded-3xl border border-rose-100 bg-rose-50 p-5">
+                  <div className="text-sm font-bold text-gray-800">Course details</div>
+                  <form onSubmit={handleSaveCourseDetails} className="mt-3 space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Name</label>
+                      <input
+                        value={editCourseForm.name}
+                        onChange={(e) => setEditCourseForm((p) => ({ ...p, name: e.target.value }))}
+                        className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-400"
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-gray-700 mb-1">Code</label>
+                      <input
+                        value={editCourseForm.code}
+                        onChange={(e) => setEditCourseForm((p) => ({ ...p, code: e.target.value }))}
+                        className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-red-400"
+                      />
+                    </div>
+                    <button
+                      type="submit"
+                      disabled={savingCourse}
+                      className="mt-1 w-full rounded-2xl bg-red-600 hover:bg-red-700 px-3 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                    >
+                      {savingCourse ? "Saving…" : "Save changes"}
+                    </button>
+                  </form>
+                </div>
+
+                <div className="rounded-3xl border border-rose-100 bg-rose-50 p-5">
+                  <div className="text-sm font-bold text-gray-800">Course owner</div>
+                  <select
+                    value={manageCourse.professor_id || ""}
+                    onChange={(e) => handleAssignProfessor(e.target.value)}
+                    className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                  >
+                    <option value="">Unassigned</option>
+                    {professorOptions.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} ({p.email})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="mt-3 text-xs text-gray-600">
+                    Current: {manageCourse.professorName || "Unassigned"}
+                  </div>
                 </div>
               </div>
 
-              <div className="lg:col-span-2 rounded-3xl border border-rose-100 bg-white p-4">
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-bold text-gray-800">Enrolled students</div>
-                  <div className="text-xs text-gray-500">
-                    {manageCourse.studentsCount} total
+              <div className="lg:col-span-2 rounded-3xl border border-rose-100 bg-white">
+                <div className="p-5 border-b border-rose-50">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-bold text-gray-800">Enrolled students</div>
+                      <div className="text-xs text-gray-500 mt-1">
+                        {manageCourse.studentsCount} total
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                      <select
+                        value={selectedStudentToAdd}
+                        onChange={(e) => setSelectedStudentToAdd(e.target.value)}
+                        className="sm:w-80 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
+                      >
+                        <option value="">Select student to add…</option>
+                        {studentOptions
+                          .filter((s) => !manageEnrollments.some((e) => e.student?.studentDbId === s.id))
+                          .map((s) => (
+                            <option key={s.id} value={s.id}>
+                              {s.name} ({s.email}) • {s.student_id}
+                            </option>
+                          ))}
+                      </select>
+                      <button
+                        type="button"
+                        disabled={!selectedStudentToAdd || addingEnrollment}
+                        onClick={handleAddStudentToCourse}
+                        className="rounded-2xl bg-red-600 hover:bg-red-700 px-4 py-3 text-sm font-semibold text-white disabled:opacity-60 whitespace-nowrap"
+                      >
+                        {addingEnrollment ? "Adding…" : "Add student"}
+                      </button>
+                    </div>
                   </div>
                 </div>
 
-                {loadingEnrollments ? (
-                  <div className="py-8 text-center text-gray-500 text-sm">Loading enrollments…</div>
-                ) : manageEnrollments.length === 0 ? (
-                  <div className="py-8 text-center text-gray-500 text-sm">No students enrolled.</div>
-                ) : (
-                  <div className="mt-3 divide-y divide-rose-50">
-                    {manageEnrollments.map((en) => (
-                      <div key={en.id} className="py-3 flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                          <div className="font-extrabold truncate text-gray-900">
-                            {en.student?.name || "Unknown Student"}
+                <div className="max-h-[55vh] overflow-y-auto">
+                  {loadingEnrollments ? (
+                    <div className="py-10 text-center text-gray-500 text-sm">Loading enrollments…</div>
+                  ) : manageEnrollments.length === 0 ? (
+                    <div className="py-10 text-center text-gray-500 text-sm">No students enrolled.</div>
+                  ) : (
+                    <div className="divide-y divide-rose-50">
+                      {manageEnrollments.map((en) => (
+                        <div key={en.id} className="px-5 py-4 flex items-center justify-between gap-3">
+                          <div className="min-w-0">
+                            <div className="font-extrabold truncate text-gray-900">
+                              {en.student?.name || "Unknown Student"}
+                            </div>
+                            <div className="text-sm text-gray-600 truncate">
+                              {en.student?.email || ""}{" "}
+                              {en.student?.studentId ? (
+                                <span className="text-gray-400 font-mono">• {en.student.studentId}</span>
+                              ) : null}
+                            </div>
                           </div>
-                          <div className="text-sm text-gray-600 truncate">
-                            {en.student?.email || ""}{" "}
-                            {en.student?.studentId ? (
-                              <span className="text-gray-400 font-mono">• {en.student.studentId}</span>
-                            ) : null}
-                          </div>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (!confirm(`Remove ${en.student?.name || "this student"} from the course?`)) return;
+                              handleRemoveEnrollment(en.id);
+                            }}
+                            className="shrink-0 rounded-2xl bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+                          >
+                            Remove
+                          </button>
                         </div>
-                        <button
-                          type="button"
-                          onClick={() => {
-                            if (!confirm(`Remove ${en.student?.name || "this student"} from the course?`)) return;
-                            handleRemoveEnrollment(en.id);
-                          }}
-                          className="shrink-0 rounded-2xl bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white"
-                        >
-                          Remove
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                )}
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
             </div>
           </div>

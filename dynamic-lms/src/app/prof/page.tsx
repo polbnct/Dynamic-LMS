@@ -3,7 +3,7 @@
 import React, { useState, useRef } from "react";
 import Link from "next/link";
 import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
-import { updateCourse, deleteCourse, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfessorDashboard() {
@@ -11,53 +11,7 @@ export default function ProfessorDashboard() {
   const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [editingCourse, setEditingCourse] = useState<CourseWithStudents | null>(null);
-  const [editCourseModalOpen, setEditCourseModalOpen] = useState(false);
-  const [editCourseForm, setEditCourseForm] = useState({ name: "", code: "" });
-  const [savingCourse, setSavingCourse] = useState(false);
-  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
-
-  const openEditCourseModal = (course: CourseWithStudents) => {
-    setEditingCourse(course);
-    setEditCourseForm({ name: course.name, code: course.code });
-    setError("");
-    setSuccess("");
-    setEditCourseModalOpen(true);
-  };
-
-  const closeEditCourseModal = () => {
-    setEditCourseModalOpen(false);
-    setEditingCourse(null);
-    setEditCourseForm({ name: "", code: "" });
-    setSavingCourse(false);
-  };
-
-  const handleSaveCourse = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingCourse) return;
-    if (!editCourseForm.name.trim()) {
-      setError("Course name is required.");
-      return;
-    }
-    setSavingCourse(true);
-    setError("");
-    setSuccess("");
-    try {
-      await updateCourse(editingCourse.id, {
-        name: editCourseForm.name.trim(),
-        code: editCourseForm.code.trim() || editingCourse.code,
-      });
-      await refetch();
-      setSuccess("Course updated.");
-      setTimeout(() => setSuccess(""), 3000);
-      closeEditCourseModal();
-    } catch (err: any) {
-      console.error("Error updating course:", err);
-      setError(err?.message || "Failed to update course. Please try again.");
-    } finally {
-      setSavingCourse(false);
-    }
-  };
+  // Professors can no longer edit or delete courses; this is admin-only now.
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -147,29 +101,9 @@ export default function ProfessorDashboard() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">No courses yet</h3>
-                <p className="text-gray-600 mb-6">Create your first course to get started</p>
-                <button
-                  onClick={() => {
-                    // Trigger the navbar's create course modal
-                    navbarRef.current?.openCreateModal();
-                  }}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Create Course
-                </button>
+                <p className="text-gray-600 mb-6">
+                  Courses are created and managed by your admin. Please contact the admin to create a course for you.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -223,48 +157,6 @@ export default function ProfessorDashboard() {
                         </div>
                       </div>
                     </Link>
-                    <div className="mt-4 space-y-2">
-                      <div className="grid grid-cols-2 gap-2">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.preventDefault();
-                            openEditCourseModal(course);
-                          }}
-                          className="w-full px-3 py-2.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                        >
-                          Edit
-                        </button>
-                        <button
-                          type="button"
-                          disabled={deletingCourseId === course.id}
-                          onClick={async (e) => {
-                            e.preventDefault();
-                            if (
-                              !confirm(
-                                `Delete course "${course.name}"? This will remove assignments, quizzes, lessons, enrollments, and cannot be undone.`
-                              )
-                            ) {
-                              return;
-                            }
-                            setError("");
-                            setDeletingCourseId(course.id);
-                            try {
-                              await deleteCourse(course.id);
-                              await refetch();
-                            } catch (err: any) {
-                              console.error("Error deleting course from dashboard:", err);
-                              setError(err?.message || "Failed to delete course. Please try again.");
-                            } finally {
-                              setDeletingCourseId(null);
-                            }
-                          }}
-                          className="w-full px-3 py-2.5 border border-red-200 text-red-600 text-sm font-semibold rounded-xl hover:bg-red-50 transition-colors disabled:opacity-50"
-                        >
-                          {deletingCourseId === course.id ? "Deleting..." : "Delete"}
-                        </button>
-                      </div>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -272,81 +164,7 @@ export default function ProfessorDashboard() {
           </>
         )}
 
-        {/* Edit course modal */}
-        {editCourseModalOpen && editingCourse && (
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={closeEditCourseModal}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Edit course
-                </h2>
-                <button
-                  type="button"
-                  onClick={closeEditCourseModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <form onSubmit={handleSaveCourse} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Course name
-                  </label>
-                  <input
-                    type="text"
-                    value={editCourseForm.name}
-                    onChange={(e) => setEditCourseForm((prev) => ({ ...prev, name: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">
-                    Course code <span className="text-gray-500 text-xs">(optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    value={editCourseForm.code}
-                    onChange={(e) => setEditCourseForm((prev) => ({ ...prev, code: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
-                  />
-                  <p className="mt-1 text-xs text-gray-500">
-                    If left blank, the current course code ({editingCourse.code}) will be kept.
-                  </p>
-                </div>
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-                    {error}
-                  </div>
-                )}
-                <div className="flex gap-3 pt-2">
-                  <button
-                    type="button"
-                    onClick={closeEditCourseModal}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={savingCourse}
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {savingCourse ? "Saving..." : "Save changes"}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        )}
+        {/* Professors can no longer edit or delete courses here; course management is admin-only. */}
       </main>
     </div>
   );

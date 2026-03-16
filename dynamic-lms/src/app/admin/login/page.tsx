@@ -4,6 +4,12 @@ import React, { Suspense, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
+async function getServerRole(): Promise<string | null> {
+  const res = await fetch("/api/auth/role", { method: "GET" });
+  const data = await res.json().catch(() => ({}));
+  return (data as any)?.role ?? null;
+}
+
 function AdminLoginInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -19,13 +25,8 @@ function AdminLoginInner() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", user.id)
-        .maybeSingle();
-
-      if (userRow?.role === "admin") {
+      const role = await getServerRole();
+      if (role === "admin") {
         router.push("/admin");
       }
     }
@@ -56,13 +57,13 @@ function AdminLoginInner() {
         return;
       }
 
-      const { data: userRow } = await supabase
-        .from("users")
-        .select("role")
-        .eq("id", authData.user.id)
-        .maybeSingle();
-
-      if (userRow?.role !== "admin") {
+      const role = await getServerRole();
+      if (role !== "admin") {
+        try {
+          await supabase.auth.signOut();
+        } catch {
+          // ignore
+        }
         setError("This account is not an admin. Please use an admin account.");
         setLoading(false);
         return;

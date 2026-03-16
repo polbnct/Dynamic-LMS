@@ -15,7 +15,7 @@ export async function GET() {
 
     const { data: professors, error } = await admin
       .from("professors")
-      .select("id, user_id, department")
+      .select("id, user_id")
       .order("id", { ascending: true });
     if (error) return jsonError(error.message, 500);
 
@@ -24,19 +24,21 @@ export async function GET() {
     if (userIds.length > 0) {
       const { data: users, error: userErr } = await admin
         .from("users")
-        .select("id, name, email")
+        .select("id, name, email, role")
         .in("id", userIds);
       if (userErr) return jsonError(userErr.message, 500);
       usersById = Object.fromEntries((users ?? []).map((u: any) => [u.id, u]));
     }
 
-    const result = (professors ?? []).map((p: any) => ({
-      id: p.id,
-      department: p.department,
-      user_id: p.user_id,
-      name: usersById[p.user_id]?.name || "Unknown",
-      email: usersById[p.user_id]?.email || "",
-    }));
+    // Exclude admin accounts that may still have a professors row.
+    const result = (professors ?? [])
+      .filter((p: any) => usersById[p.user_id]?.role !== "admin")
+      .map((p: any) => ({
+        id: p.id,
+        user_id: p.user_id,
+        name: usersById[p.user_id]?.name || "Unknown",
+        email: usersById[p.user_id]?.email || "",
+      }));
 
     return NextResponse.json({ professors: result }, { status: 200 });
   } catch (e: any) {
