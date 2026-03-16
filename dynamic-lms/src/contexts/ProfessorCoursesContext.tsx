@@ -2,12 +2,7 @@
 
 import React, { createContext, useContext, useEffect, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
-import {
-  getProfessorCourses,
-  getCurrentProfessorId,
-  createCourse as createCourseApi,
-  type CourseWithStudents,
-} from "@/lib/supabase/queries/courses.client";
+import { getProfessorCourses, getCurrentProfessorId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 
 export interface HandledCourse {
   id: string;
@@ -62,27 +57,10 @@ export function ProfessorCoursesProvider({ children }: { children: React.ReactNo
     fetchCourses();
   }, [fetchCourses]);
 
-  const handleCreateCourse = useCallback(async (courseName: string) => {
-    const professorId = await getCurrentProfessorId(true);
-    if (!professorId) {
-      throw new Error("Unable to access professor account.");
-    }
-    const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
-    let professorName = "Professor";
-    if (user?.id) {
-      const { data: userData } = await supabase
-        .from("users")
-        .select("name")
-        .eq("id", user.id)
-        .maybeSingle();
-      professorName = userData?.name || "Professor";
-    }
-    await createCourseApi(courseName, professorId, professorName);
-    await fetchCourses();
-  }, [fetchCourses]);
+  const handleCreateCourse = useCallback(async () => {
+    // Course creation is now admin-only.
+    throw new Error("Course creation is admin-only. Please contact your admin to create a course.");
+  }, []);
 
   const value: ProfessorCoursesContextValue = {
     courses,
