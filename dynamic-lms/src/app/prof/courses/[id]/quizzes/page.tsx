@@ -7,7 +7,7 @@ import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
-import { getQuizzes, getQuestions, createQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, getQuestions, createQuestion, updateQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
@@ -75,6 +75,7 @@ export default function QuizzesPage() {
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingForSourceId, setGeneratingForSourceId] = useState<string | null>(null);
   const [createQuestionModalOpen, setCreateQuestionModalOpen] = useState(false);
+  const [editingBankQuestion, setEditingBankQuestion] = useState<Question | null>(null);
   const [monitoringQuizId, setMonitoringQuizId] = useState<string | null>(null);
   const [monitoringQuizName, setMonitoringQuizName] = useState<string>("");
 
@@ -262,21 +263,34 @@ export default function QuizzesPage() {
         throw new Error("Professor not found");
       }
 
-      const question = await createQuestion({
-        course_id: courseId,
-        professor_id: professorId,
-        type: newQuestion.type,
-        question: newQuestion.question.trim(),
-        options: newQuestion.type === "multiple_choice" ? newQuestion.options : undefined,
-        correct_answer:
-          newQuestion.type === "multiple_choice"
-            ? newQuestion.correctAnswer
-            : newQuestion.type === "true_false"
-            ? newQuestion.trueFalseAnswer
-            : newQuestion.fillBlankAnswer,
-        source_lesson_id: newQuestion.source || undefined,
-        source_type: newQuestion.sourceType,
-      });
+      const question =
+        editingBankQuestion
+          ? await updateQuestion(editingBankQuestion.id, {
+              type: newQuestion.type,
+              question: newQuestion.question.trim(),
+              options: newQuestion.type === "multiple_choice" ? newQuestion.options : null,
+              correct_answer:
+                newQuestion.type === "multiple_choice"
+                  ? newQuestion.correctAnswer
+                  : newQuestion.type === "true_false"
+                    ? newQuestion.trueFalseAnswer
+                    : newQuestion.fillBlankAnswer,
+            })
+          : await createQuestion({
+              course_id: courseId,
+              professor_id: professorId,
+              type: newQuestion.type,
+              question: newQuestion.question.trim(),
+              options: newQuestion.type === "multiple_choice" ? newQuestion.options : undefined,
+              correct_answer:
+                newQuestion.type === "multiple_choice"
+                  ? newQuestion.correctAnswer
+                  : newQuestion.type === "true_false"
+                    ? newQuestion.trueFalseAnswer
+                    : newQuestion.fillBlankAnswer,
+              source_lesson_id: newQuestion.source || undefined,
+              source_type: newQuestion.sourceType,
+            });
 
       // Transform and add to quiz bank
       const transformedQuestion = {
@@ -290,12 +304,19 @@ export default function QuizzesPage() {
         createdAt: question.created_at,
       };
 
-      setQuizBank([...quizBank, transformedQuestion]);
-      setFilteredBank([...filteredBank, transformedQuestion]);
-      setSelectedQuestions([...selectedQuestions, transformedQuestion]);
+      if (editingBankQuestion) {
+        setQuizBank((prev) => prev.map((q) => (q.id === transformedQuestion.id ? transformedQuestion : q)));
+        setFilteredBank((prev) => prev.map((q) => (q.id === transformedQuestion.id ? transformedQuestion : q)));
+        setSelectedQuestions((prev) => prev.map((q) => (q.id === transformedQuestion.id ? transformedQuestion : q)));
+      } else {
+        setQuizBank([...quizBank, transformedQuestion]);
+        setFilteredBank([...filteredBank, transformedQuestion]);
+        setSelectedQuestions([...selectedQuestions, transformedQuestion]);
+      }
       setCreateQuestionModalOpen(false);
-      setSuccess("Question created and added to quiz!");
+      setSuccess(editingBankQuestion ? "Question updated." : "Question created and added to quiz!");
       setTimeout(() => setSuccess(""), 3000);
+      setEditingBankQuestion(null);
 
       // Reset form
       setNewQuestion({
@@ -408,6 +429,7 @@ export default function QuizzesPage() {
     setEditingQuiz(null);
     setGenerateModalOpen(false);
     setCreateQuestionModalOpen(false);
+    setEditingBankQuestion(null);
     setQuizName("");
     setQuizType("mixed");
     setQuizDueDate("");
@@ -1005,6 +1027,49 @@ export default function QuizzesPage() {
                                 Selected
                               </span>
                             )}
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setEditingBankQuestion(question);
+                                setNewQuestion({
+                                  type: question.type as QuestionType,
+                                  question: question.question,
+                                  options:
+                                    question.type === "multiple_choice"
+                                      ? (question.options?.length ? question.options : ["", "", "", ""])
+                                      : ["", "", "", ""],
+                                  correctAnswer:
+                                    question.type === "multiple_choice"
+                                      ? (typeof question.correctAnswer === "number"
+                                          ? question.correctAnswer
+                                          : Number(question.correctAnswer) || 0)
+                                      : 0,
+                                  trueFalseAnswer:
+                                    question.type === "true_false"
+                                      ? Boolean(question.correctAnswer)
+                                      : true,
+                                  fillBlankAnswer:
+                                    question.type === "fill_blank"
+                                      ? String(question.correctAnswer ?? "")
+                                      : "",
+                                  source: question.source || "",
+                                  sourceType: question.sourceType || "lesson",
+                                });
+                                setCreateQuestionModalOpen(true);
+                              }}
+                              className="ml-auto p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              title="Edit question"
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                                />
+                              </svg>
+                            </button>
                           </div>
                           <p className="text-sm font-medium text-gray-800 mb-2">{question.question}</p>
                           {question.type === "multiple_choice" && question.options && (
@@ -1193,7 +1258,7 @@ export default function QuizzesPage() {
             >
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Create New Question
+                  {editingBankQuestion ? "Edit Question" : "Create New Question"}
                 </h2>
                 <button onClick={() => setCreateQuestionModalOpen(false)} className="text-gray-400 hover:text-gray-600">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1357,7 +1422,7 @@ export default function QuizzesPage() {
                     type="submit"
                     className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                   >
-                    Create & Add to Quiz
+                    {editingBankQuestion ? "Save changes" : "Create & Add to Quiz"}
                   </button>
                 </div>
               </form>

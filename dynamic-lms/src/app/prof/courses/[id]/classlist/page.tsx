@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import { getCourseById, getCourseStudents, removeStudentFromCourse, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { getCourseById, getCourseStudents, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { getStudentGrades } from "@/lib/supabase/queries/grades";
 import type { Grade } from "@/lib/supabase/queries/grades";
@@ -37,7 +37,7 @@ export default function ClasslistPage() {
   const [profileMissedQuizzes, setProfileMissedQuizzes] = useState<{ id: string; name: string }[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const { handledCourses, createCourse } = useProfessorCourses();
-  const [removingStudentId, setRemovingStudentId] = useState<string | null>(null);
+  const enrollmentManagedByAdmin = true;
 
   useEffect(() => {
     async function fetchCourseData() {
@@ -285,40 +285,10 @@ export default function ClasslistPage() {
                           </button>
                           <button
                             type="button"
-                            disabled={removingStudentId === student.studentDbId}
-                            onClick={async () => {
-                              if (!student.studentDbId) return;
-                              if (
-                                !confirm(
-                                  `Remove ${student.name} from this course? They will be unenrolled but their past records will remain.`
-                                )
-                              ) {
-                                return;
-                              }
-                              setRemovingStudentId(student.studentDbId);
-                              try {
-                                await removeStudentFromCourse(courseId, student.studentDbId);
-                                setStudents((prev) =>
-                                  prev.filter((s) => s.studentDbId !== student.studentDbId)
-                                );
-                                setCourse((prev) =>
-                                  prev
-                                    ? {
-                                        ...prev,
-                                        studentsCount: Math.max((prev.studentsCount ?? 1) - 1, 0),
-                                      }
-                                    : prev
-                                );
-                              } catch (err: any) {
-                                console.error("Error removing student from course:", err);
-                                setError(err?.message || "Failed to remove student from course.");
-                              } finally {
-                                setRemovingStudentId(null);
-                              }
-                            }}
-                            className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors disabled:opacity-50"
+                            disabled
+                            className="text-gray-400 font-medium text-sm cursor-not-allowed"
                           >
-                            Remove
+                            {enrollmentManagedByAdmin ? "Admin-managed" : "Remove"}
                           </button>
                         </div>
                       </td>

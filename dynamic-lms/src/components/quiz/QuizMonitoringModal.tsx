@@ -111,6 +111,42 @@ export default function QuizMonitoringModal({
   const formatTime = (dateString: string) => new Date(dateString).toLocaleTimeString();
   const formatDate = (dateString: string) => new Date(dateString).toLocaleString();
 
+  const formatMcAnswer = (
+    value: unknown,
+    options?: string[]
+  ): string => {
+    if (!options || options.length === 0) return String(value ?? "");
+    const idx =
+      typeof value === "number"
+        ? value
+        : typeof value === "string" && value.trim() !== "" && !Number.isNaN(Number(value))
+          ? Number(value)
+          : null;
+    if (idx == null || !Number.isFinite(idx)) return String(value ?? "");
+    const letter = String.fromCharCode(65 + idx);
+    const opt = options[idx];
+    return opt != null ? `${letter}. ${opt}` : `${letter}.`;
+  };
+
+  const formatAnswer = (a: QuizResultWithAnswers["answers"][number]) => {
+    if (a.questionType === "multiple_choice") {
+      return {
+        user: formatMcAnswer(a.userAnswer, a.options),
+        correct: formatMcAnswer(a.correctAnswer, a.options),
+      };
+    }
+    if (a.questionType === "true_false") {
+      return {
+        user: typeof a.userAnswer === "boolean" ? (a.userAnswer ? "True" : "False") : String(a.userAnswer ?? ""),
+        correct: typeof a.correctAnswer === "boolean" ? (a.correctAnswer ? "True" : "False") : String(a.correctAnswer ?? ""),
+      };
+    }
+    return {
+      user: String(a.userAnswer ?? ""),
+      correct: String(a.correctAnswer ?? ""),
+    };
+  };
+
   const getTimeSince = (dateString: string | null) => {
     if (!dateString) return "Just now";
     const seconds = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 1000);
@@ -343,8 +379,10 @@ export default function QuizMonitoringModal({
                       <p className="text-gray-600 text-sm">No answers recorded.</p>
                     ) : (
                       <div className="space-y-3">
-                        {resultsData.answers.map((a, i) => (
-                          <div
+                        {resultsData.answers.map((a, i) => {
+                          const formatted = formatAnswer(a);
+                          return (
+                            <div
                             key={`${a.questionId}-${i}`}
                             className={`rounded-xl border p-4 ${
                               a.isCorrect ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"
@@ -368,15 +406,16 @@ export default function QuizMonitoringModal({
                             <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                               <div>
                                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Student answer</p>
-                                <p className="text-gray-800 mt-1 break-words">{String(a.userAnswer)}</p>
+                                <p className="text-gray-800 mt-1 break-words">{formatted.user}</p>
                               </div>
                               <div>
                                 <p className="text-xs font-semibold text-gray-600 uppercase tracking-wide">Correct answer</p>
-                                <p className="text-gray-800 mt-1 break-words">{String(a.correctAnswer)}</p>
+                                <p className="text-gray-800 mt-1 break-words">{formatted.correct}</p>
                               </div>
                             </div>
                           </div>
-                        ))}
+                          );
+                        })}
                       </div>
                     )}
                   </div>

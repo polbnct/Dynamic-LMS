@@ -225,6 +225,14 @@ export default function ContentPage() {
   const [lessons, setLessons] = useState<LessonWithUI[]>([]);
   const [loading, setLoading] = useState(true);
   const [addLessonModalOpen, setAddLessonModalOpen] = useState(false);
+  const [editLessonModalOpen, setEditLessonModalOpen] = useState(false);
+  const [editingLesson, setEditingLesson] = useState<LessonWithUI | null>(null);
+  const [editLessonForm, setEditLessonForm] = useState({
+    title: "",
+    category: "prelim" as "prelim" | "midterm" | "finals",
+    pdfFile: null as File | null,
+  });
+  const [updatingLesson, setUpdatingLesson] = useState(false);
   const [formData, setFormData] = useState({
     title: "",
     category: "prelim" as "prelim" | "midterm" | "finals",
@@ -278,6 +286,111 @@ export default function ContentPage() {
       }
       setFormData({ ...formData, pdfFile: file });
       setError("");
+    }
+  };
+
+  const handleEditLessonFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type !== "application/pdf") {
+        setError("Please upload a PDF file.");
+        return;
+      }
+      setEditLessonForm((prev) => ({ ...prev, pdfFile: file }));
+      setError("");
+    }
+  };
+
+  const openEditLessonModal = (lesson: LessonWithUI) => {
+    setEditingLesson(lesson);
+    setEditLessonForm({
+      title: lesson.title,
+      category: lesson.category,
+      pdfFile: null,
+    });
+    setError("");
+    setSuccess("");
+    setEditLessonModalOpen(true);
+  };
+
+  const closeEditLessonModal = () => {
+    setEditLessonModalOpen(false);
+    setEditingLesson(null);
+    setEditLessonForm({ title: "", category: "prelim", pdfFile: null });
+    setUpdatingLesson(false);
+  };
+
+  const handleUpdateLesson = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingLesson) return;
+    if (!editLessonForm.title.trim()) {
+      setError("Please enter a lesson name.");
+      return;
+    }
+    if (updatingLesson) return;
+
+    setUpdatingLesson(true);
+    setError("");
+    setSuccess("");
+    try {
+      const originalCategory = editingLesson.category;
+      const nextCategory = editLessonForm.category;
+
+      const updates: Partial<Lesson> = {
+        title: editLessonForm.title.trim(),
+        category: nextCategory,
+      };
+
+      if (originalCategory !== nextCategory) {
+        const nextOrder =
+          lessons.filter((l) => l.id !== editingLesson.id && l.category === nextCategory).length + 1;
+        updates.order = nextOrder;
+      }
+
+      let pdfPath: string | undefined;
+      if (editLessonForm.pdfFile) {
+        pdfPath = await uploadLessonPDF(editLessonForm.pdfFile, courseId, editingLesson.id);
+        updates.pdf_file_path = pdfPath;
+      }
+
+      const updated = await updateLesson(editingLesson.id, updates);
+
+      setLessons((prev) =>
+        prev.map((l) =>
+          l.id === updated.id
+            ? {
+                ...l,
+                ...updated,
+                pdfUrl: updated.pdf_file_path ? getLessonPDFUrl(updated.pdf_file_path) : l.pdfUrl,
+                pdfFileName: updated.pdf_file_path ? updated.pdf_file_path.split("/").pop() : l.pdfFileName,
+                createdAt: updated.created_at,
+              }
+            : l
+        )
+      );
+
+      if (studyAidLesson?.id === updated.id) {
+        setStudyAidLesson((prev) =>
+          prev
+            ? {
+                ...prev,
+                ...updated,
+                pdfUrl: updated.pdf_file_path ? getLessonPDFUrl(updated.pdf_file_path) : prev.pdfUrl,
+                pdfFileName: updated.pdf_file_path ? updated.pdf_file_path.split("/").pop() : prev.pdfFileName,
+                createdAt: updated.created_at,
+              }
+            : prev
+        );
+      }
+
+      setSuccess("Lesson updated.");
+      setTimeout(() => setSuccess(""), 2500);
+      closeEditLessonModal();
+    } catch (err: any) {
+      console.error("Error updating lesson:", err);
+      setError(err?.message || "Failed to update lesson.");
+    } finally {
+      setUpdatingLesson(false);
     }
   };
 
@@ -576,7 +689,12 @@ export default function ContentPage() {
                                 </svg>
                               </button>
                             )}
-                            <button className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors">
+                            <button
+                              type="button"
+                              onClick={() => openEditLessonModal(lesson)}
+                              className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              title="Edit lesson"
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -586,7 +704,32 @@ export default function ContentPage() {
                                 />
                               </svg>
                             </button>
-                            <button className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors">
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                if (!confirm(`Delete lesson "${lesson.title}"? This cannot be undone.`)) return;
+                                setError("");
+                                setSuccess("");
+                                try {
+                                  await deleteLesson(lesson.id);
+                                  setLessons((prev) => prev.filter((l) => l.id !== lesson.id));
+                                  if (studyAidLesson?.id === lesson.id) {
+                                    setStudyAidLesson(null);
+                                    setStudyAidQuestions([]);
+                                    setEditingStudyQuestion(null);
+                                    setGeneratedForStudy([]);
+                                    setSelectedGenerated(new Set());
+                                  }
+                                  setSuccess("Lesson deleted.");
+                                  setTimeout(() => setSuccess(""), 2500);
+                                } catch (err: any) {
+                                  console.error("Error deleting lesson:", err);
+                                  setError(err?.message || "Failed to delete lesson.");
+                                }
+                              }}
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              title="Delete lesson"
+                            >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -1232,6 +1375,108 @@ export default function ContentPage() {
             </div>
           </div>
         </>
+      )}
+
+      {/* Edit Lesson Modal */}
+      {editLessonModalOpen && editingLesson && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={closeEditLessonModal}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                Edit Lesson
+              </h2>
+              <button
+                onClick={closeEditLessonModal}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            <form onSubmit={handleUpdateLesson} className="space-y-4">
+              <div>
+                <label htmlFor="editLessonName" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Lesson Name
+                </label>
+                <input
+                  id="editLessonName"
+                  type="text"
+                  value={editLessonForm.title}
+                  onChange={(e) => setEditLessonForm((p) => ({ ...p, title: e.target.value }))}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  autoFocus
+                />
+              </div>
+
+              <div>
+                <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Category
+                </label>
+                <select
+                  id="editLessonCategory"
+                  value={editLessonForm.category}
+                  onChange={(e) =>
+                    setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
+                  }
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                >
+                  <option value="prelim">Prelim</option>
+                  <option value="midterm">Midterm</option>
+                  <option value="finals">Finals</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Replace PDF <span className="text-gray-500 text-xs">(Optional)</span>
+                </label>
+                <input
+                  id="editLessonPdf"
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleEditLessonFileChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                />
+                {editingLesson.pdfFileName && (
+                  <p className="mt-2 text-xs text-gray-500">
+                    Current PDF: <span className="font-medium">{editingLesson.pdfFileName}</span>
+                  </p>
+                )}
+              </div>
+
+              {error && (
+                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={closeEditLessonModal}
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={updatingLesson}
+                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {updatingLesson ? "Saving..." : "Save changes"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   );

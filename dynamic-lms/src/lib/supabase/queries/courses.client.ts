@@ -132,40 +132,10 @@ export async function getCourseById(courseId: string): Promise<CourseWithStudent
   };
 }
 
-// Create new course (client-side)
-export async function createCourse(
-  courseName: string,
-  professorId: string,
-  professorName: string
-): Promise<CourseWithStudents> {
-  const supabase = createClient();
-
-  // Generate course code (simple implementation)
-  const code = `CS${Math.floor(Math.random() * 900) + 100}`;
-  const classroomCode = courseName.substring(0, 3).toUpperCase() + String(Math.floor(Math.random() * 1000));
-
-  const { data: course, error } = await supabase
-    .from("courses")
-    .insert({
-      name: courseName,
-      code,
-      classroom_code: classroomCode,
-      professor_id: professorId,
-    })
-    .select()
-    .single();
-
-  if (error) {
-    console.error("Error creating course:", error);
-    throw error;
-  }
-
-  return {
-    ...course,
-    students: [],
-    studentsCount: 0,
-    professorName,
-  };
+// Course creation is now admin-only. Professors cannot create courses from the client.
+// This stub is kept only so existing imports compile; it will always throw at runtime.
+export async function createCourse(): Promise<never> {
+  throw new Error("Course creation is admin-only. Please ask an admin to create the course.");
 }
 
 // Get student's enrolled courses (client-side)
@@ -293,75 +263,13 @@ export function getInviteLink(classroomCode: string): string {
   return `${window.location.origin}/student/join?code=${encodeURIComponent(classroomCode)}`;
 }
 
-// Update course invite code (regenerate). Returns new code. Professor must own the course.
-export async function updateCourseInviteCode(
-  courseId: string,
-  professorId: string
-): Promise<string> {
-  const supabase = createClient();
-  const { data: course } = await supabase
-    .from("courses")
-    .select("id, professor_id")
-    .eq("id", courseId)
-    .eq("professor_id", professorId)
-    .single();
-
-  if (!course) {
-    throw new Error("Course not found or you do not have permission to update it");
-  }
-
-  const newCode = generateInviteCode();
-  const { error } = await supabase
-    .from("courses")
-    .update({ classroom_code: newCode })
-    .eq("id", courseId);
-
-  if (error) {
-    console.error("Error updating invite code:", error);
-    throw error;
-  }
-  return newCode;
-}
+// Course updates (name/code, invite code) are now admin-only and handled via admin APIs.
 
 // Join course by classroom code (client-side)
 export async function joinCourseByCode(classroomCode: string, studentId: string) {
-  const supabase = createClient();
+  // Enrollment is admin-managed; students cannot self-enroll.
+  throw new Error("Joining courses is disabled. Please contact your admin to be enrolled.");
 
-  // Find course by classroom code
-  const { data: course, error: courseError } = await supabase
-    .from("courses")
-    .select("id")
-    .eq("classroom_code", classroomCode)
-    .single();
-
-  if (courseError || !course) {
-    throw new Error("Invalid classroom code");
-  }
-
-  // Check if already enrolled
-  const { data: existing } = await supabase
-    .from("enrollments")
-    .select("id")
-    .eq("course_id", course.id)
-    .eq("student_id", studentId)
-    .single();
-
-  if (existing) {
-    throw new Error("Already enrolled in this course");
-  }
-
-  // Create enrollment
-  const { error: enrollError } = await supabase.from("enrollments").insert({
-    course_id: course.id,
-    student_id: studentId,
-  });
-
-  if (enrollError) {
-    console.error("Error joining course:", enrollError);
-    throw enrollError;
-  }
-
-  return course;
 }
 
 // Remove a single student from a course (unenroll).
@@ -381,92 +289,7 @@ export async function removeStudentFromCourse(courseId: string, studentDbId: str
   }
 }
 
-// Delete a course and related data owned by the professor.
-// This removes enrollments, assignments + submissions, quizzes + attempts/answers/questions,
-// lessons, and finally the course row itself.
-export async function deleteCourse(courseId: string): Promise<void> {
-  const supabase = createClient();
-
-  // Enrollments
-  const { error: enrollError } = await supabase
-    .from("enrollments")
-    .delete()
-    .eq("course_id", courseId);
-  if (enrollError) {
-    console.error("Error deleting enrollments for course:", enrollError);
-    throw enrollError;
-  }
-
-  // Assignments and submissions
-  const { data: assignments, error: assignmentsError } = await supabase
-    .from("assignments")
-    .select("id")
-    .eq("course_id", courseId);
-  if (assignmentsError) {
-    console.error("Error fetching assignments before course delete:", assignmentsError);
-    throw assignmentsError;
-  }
-
-  const assignmentIds = (assignments ?? []).map((a: any) => a.id);
-  if (assignmentIds.length > 0) {
-    const { error: subError } = await supabase
-      .from("assignment_submissions")
-      .delete()
-      .in("assignment_id", assignmentIds);
-    if (subError) {
-      console.error("Error deleting assignment submissions:", subError);
-      throw subError;
-    }
-
-    const { error: assnDelError } = await supabase
-      .from("assignments")
-      .delete()
-      .in("id", assignmentIds);
-    if (assnDelError) {
-      console.error("Error deleting assignments:", assnDelError);
-      throw assnDelError;
-    }
-  }
-
-  // Quizzes and related data via helper
-  const { data: quizzes, error: quizzesError } = await supabase
-    .from("quizzes")
-    .select("id")
-    .eq("course_id", courseId);
-  if (quizzesError) {
-    console.error("Error fetching quizzes before course delete:", quizzesError);
-    throw quizzesError;
-  }
-
-  for (const quiz of quizzes ?? []) {
-    try {
-      await deleteQuiz(quiz.id);
-    } catch (err) {
-      console.error("Error deleting quiz while deleting course:", err);
-      throw err;
-    }
-  }
-
-  // Lessons
-  const { error: lessonsError } = await supabase
-    .from("lessons")
-    .delete()
-    .eq("course_id", courseId);
-  if (lessonsError) {
-    console.error("Error deleting lessons for course:", lessonsError);
-    throw lessonsError;
-  }
-
-  // Course row
-  const { error: courseError } = await supabase
-    .from("courses")
-    .delete()
-    .eq("id", courseId);
-  if (courseError) {
-    console.error("Error deleting course:", courseError);
-    throw courseError;
-  }
-}
+// Course deletion and cascading cleanup are now admin-only and handled via admin APIs.
 
 // Get current user ID from auth (client-side)
 export async function getCurrentUserId(): Promise<string | null> {

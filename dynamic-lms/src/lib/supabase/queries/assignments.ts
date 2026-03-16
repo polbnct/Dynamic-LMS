@@ -1,5 +1,19 @@
 import { createClient } from "../client";
 
+function toDebugError(err: unknown) {
+  if (!err || typeof err !== "object") return { value: err };
+  const anyErr = err as any;
+  return {
+    name: anyErr?.name,
+    message: anyErr?.message,
+    code: anyErr?.code,
+    details: anyErr?.details,
+    hint: anyErr?.hint,
+    status: anyErr?.status,
+    statusCode: anyErr?.statusCode,
+  };
+}
+
 export interface Assignment {
   id: string;
   course_id: string;
@@ -67,8 +81,9 @@ export async function createAssignment(
     .single();
 
   if (error) {
-    console.error("Error creating assignment:", error);
-    throw error;
+    const debug = toDebugError(error);
+    console.error("Error creating assignment:", debug, error);
+    throw new Error(debug.message || "Failed to create assignment (database error).");
   }
 
   return assignment;

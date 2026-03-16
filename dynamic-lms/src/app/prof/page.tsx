@@ -3,29 +3,15 @@
 import React, { useState, useRef } from "react";
 import Link from "next/link";
 import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
-import { getInviteLink, updateCourseInviteCode, getCurrentProfessorId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfessorDashboard() {
   const navbarRef = useRef<ProfessorNavbarRef>(null);
-  const { courses, handledCourses, loading, error: contextError, createCourse: createCourseFromContext, refetch } = useProfessorCourses();
+  const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  const [inviteCourse, setInviteCourse] = useState<CourseWithStudents | null>(null);
-  const [inviteCodeRegenerating, setInviteCodeRegenerating] = useState(false);
-  const [inviteCopied, setInviteCopied] = useState<"link" | "code" | null>(null);
-
-  const handleCreateCourse = async (courseName: string) => {
-    try {
-      await createCourseFromContext(courseName);
-      setSuccess(`Course "${courseName}" created successfully!`);
-      setTimeout(() => setSuccess(""), 3000);
-      setError("");
-    } catch (err) {
-      setError("Failed to create course. Please try again.");
-      console.error("Error creating course:", err);
-    }
-  };
+  // Professors can no longer edit or delete courses; this is admin-only now.
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
@@ -33,7 +19,7 @@ export default function ProfessorDashboard() {
       <ProfessorNavbar
         ref={navbarRef}
         currentPage="dashboard"
-        onCreateCourse={handleCreateCourse}
+        canCreateCourse={false}
         handledCourses={handledCourses}
       />
 
@@ -115,29 +101,9 @@ export default function ProfessorDashboard() {
                   </svg>
                 </div>
                 <h3 className="text-xl font-semibold text-gray-800 mb-2">No courses yet</h3>
-                <p className="text-gray-600 mb-6">Create your first course to get started</p>
-                <button
-                  onClick={() => {
-                    // Trigger the navbar's create course modal
-                    navbarRef.current?.openCreateModal();
-                  }}
-                  className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
-                >
-                  <svg
-                    className="w-5 h-5"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 4v16m8-8H4"
-                    />
-                  </svg>
-                  Create Course
-                </button>
+                <p className="text-gray-600 mb-6">
+                  Courses are created and managed by your admin. Please contact the admin to create a course for you.
+                </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -191,28 +157,6 @@ export default function ProfessorDashboard() {
                         </div>
                       </div>
                     </Link>
-                    <div className="mt-4 flex gap-2">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.preventDefault();
-                          setInviteCourse(course);
-                          setInviteCopied(null);
-                        }}
-                        className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700 transition-colors"
-                      >
-                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
-                        </svg>
-                        Invite students
-                      </button>
-                      <Link
-                        href={`/prof/courses/${course.id}`}
-                        className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors"
-                      >
-                        Open
-                      </Link>
-                    </div>
                   </div>
                 ))}
               </div>
@@ -220,109 +164,7 @@ export default function ProfessorDashboard() {
           </>
         )}
 
-        {/* Invite students modal */}
-        {inviteCourse && (
-          <div
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-            onClick={() => { setInviteCourse(null); setInviteCopied(null); }}
-          >
-            <div
-              className="bg-white rounded-2xl shadow-2xl max-w-lg w-full p-6"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
-                  Invite students to {inviteCourse.name}
-                </h2>
-                <button
-                  type="button"
-                  onClick={() => { setInviteCourse(null); setInviteCopied(null); }}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <p className="text-sm text-gray-600 mb-4">
-                Share the invite link or code with students. They can join from the &quot;Join with code&quot; page when logged in.
-              </p>
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Invite link</label>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={getInviteLink(inviteCourse.classroom_code)}
-                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(getInviteLink(inviteCourse.classroom_code));
-                          setInviteCopied("link");
-                          setTimeout(() => setInviteCopied(null), 2000);
-                        } catch (e) {
-                          console.error("Copy failed", e);
-                        }
-                      }}
-                      className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700"
-                    >
-                      {inviteCopied === "link" ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Invite code</label>
-                  <div className="flex gap-2">
-                    <input
-                      readOnly
-                      value={inviteCourse.classroom_code}
-                      className="flex-1 px-3 py-2.5 border border-gray-200 rounded-xl bg-gray-50 text-sm font-mono"
-                    />
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        try {
-                          await navigator.clipboard.writeText(inviteCourse.classroom_code);
-                          setInviteCopied("code");
-                          setTimeout(() => setInviteCopied(null), 2000);
-                        } catch (e) {
-                          console.error("Copy failed", e);
-                        }
-                      }}
-                      className="px-4 py-2.5 bg-indigo-600 text-white text-sm font-semibold rounded-xl hover:bg-indigo-700"
-                    >
-                      {inviteCopied === "code" ? "Copied!" : "Copy"}
-                    </button>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={inviteCodeRegenerating}
-                  onClick={async () => {
-                    const professorId = await getCurrentProfessorId(false);
-                    if (!professorId) return;
-                    setInviteCodeRegenerating(true);
-                    try {
-                      const newCode = await updateCourseInviteCode(inviteCourse.id, professorId);
-                      setInviteCourse({ ...inviteCourse, classroom_code: newCode });
-                      await refetch();
-                    } catch (err: any) {
-                      setError(err?.message || "Failed to regenerate code");
-                    } finally {
-                      setInviteCodeRegenerating(false);
-                    }
-                  }}
-                  className="w-full py-2.5 text-sm font-semibold text-indigo-600 border border-indigo-200 rounded-xl hover:bg-indigo-50 disabled:opacity-50"
-                >
-                  {inviteCodeRegenerating ? "Regenerating…" : "Regenerate invite code"}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Professors can no longer edit or delete courses here; course management is admin-only. */}
       </main>
     </div>
   );
