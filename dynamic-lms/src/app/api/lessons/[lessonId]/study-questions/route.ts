@@ -80,7 +80,7 @@ export async function POST(
     const body = await request.json();
     const { questions: questionsToAdd } = body as {
       questions: Array<{
-        type: "multiple_choice" | "true_false" | "fill_blank";
+        type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
         question: string;
         options?: string[];
         correct_answer: number | boolean | string;

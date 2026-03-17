@@ -97,15 +97,16 @@ function EditStudyQuestionForm({
       <div>
         <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Question type</label>
           <select
-            value={type === "summary" ? "fill_blank" : type}
+            value={type}
             onChange={(e) =>
-              setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank")
+              setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank" | "summary")
             }
             className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
           >
             <option value="multiple_choice">Multiple choice</option>
             <option value="true_false">Flashcard</option>
-            <option value="fill_blank">Summary</option>
+            <option value="fill_blank">Fill in the blank</option>
+            <option value="summary">Summary</option>
           </select>
       </div>
       {type === "multiple_choice" && (
@@ -251,7 +252,7 @@ export default function ContentPage() {
   const [studyAidAdding, setStudyAidAdding] = useState(false);
   const [editingStudyQuestion, setEditingStudyQuestion] = useState<StudyAidQuestion | null>(null);
   const [studyAidSaving, setStudyAidSaving] = useState(false);
-  const { handledCourses, createCourse } = useProfessorCourses();
+  const { handledCourses } = useProfessorCourses();
   const [creatingLesson, setCreatingLesson] = useState(false);
 
   useEffect(() => {
@@ -492,7 +493,7 @@ export default function ContentPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -508,7 +509,7 @@ export default function ContentPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Course Navbar */}
       <CourseNavbar

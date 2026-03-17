@@ -105,12 +105,6 @@ export default function StudentDashboard() {
           {courses.length === 0 ? (
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-12 text-center">
               <p className="text-gray-600">No courses enrolled yet</p>
-              <Link
-                href="/student/dashboard"
-                className="mt-4 inline-block text-red-600 hover:text-red-700 font-semibold"
-              >
-                Browse Courses
-              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

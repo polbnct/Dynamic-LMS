@@ -74,6 +74,7 @@ export default function AssignmentsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
+  const [creatingAssignment, setCreatingAssignment] = useState(false);
   const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false);
   const [assignmentForSubmissions, setAssignmentForSubmissions] = useState<AssignmentWithUI | null>(null);
   const [submissionsList, setSubmissionsList] = useState<SubmissionWithStudent[]>([]);
@@ -83,7 +84,7 @@ export default function AssignmentsPage() {
   const [gradeForm, setGradeForm] = useState({ score: "", max_score: "", feedback: "" });
   const [savingGrade, setSavingGrade] = useState(false);
   const [gradeSuccess, setGradeSuccess] = useState("");
-  const { handledCourses, createCourse } = useProfessorCourses();
+  const { handledCourses } = useProfessorCourses();
 
   const submissionsGroupedByStudent = React.useMemo(() => {
     const map = new Map<
@@ -147,6 +148,7 @@ export default function AssignmentsPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (creatingAssignment) return;
     setError("");
     setSuccess("");
 
@@ -156,6 +158,7 @@ export default function AssignmentsPage() {
     }
 
     try {
+      setCreatingAssignment(true);
       // Create assignment in database first so we have a real ID for the PDF path
       const maxSubmissionsValue =
         formData.maxSubmissions === "unlimited" ? null : Number(formData.maxSubmissions) || null;
@@ -213,6 +216,8 @@ export default function AssignmentsPage() {
     } catch (err: any) {
       console.error("Error creating assignment:", err);
       setError(err.message || "Failed to create assignment. Please try again.");
+    } finally {
+      setCreatingAssignment(false);
     }
   };
 
@@ -287,7 +292,7 @@ export default function AssignmentsPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="assignments" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -303,7 +308,7 @@ export default function AssignmentsPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -749,15 +754,17 @@ export default function AssignmentsPage() {
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                    disabled={creatingAssignment}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                    disabled={creatingAssignment}
+                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
                   >
-                    Create Assignment
+                    {creatingAssignment ? "Creating..." : "Create Assignment"}
                   </button>
                 </div>
               </form>

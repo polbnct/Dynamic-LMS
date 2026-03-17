@@ -36,7 +36,7 @@ export default function ClasslistPage() {
   const [profileMissedAssignments, setProfileMissedAssignments] = useState<{ id: string; title: string; category: string }[]>([]);
   const [profileMissedQuizzes, setProfileMissedQuizzes] = useState<{ id: string; name: string }[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
-  const { handledCourses, createCourse } = useProfessorCourses();
+  const { handledCourses } = useProfessorCourses();
   const enrollmentManagedByAdmin = true;
 
   useEffect(() => {
@@ -83,7 +83,7 @@ export default function ClasslistPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -97,7 +97,7 @@ export default function ClasslistPage() {
   if (error || !course) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
@@ -124,7 +124,7 @@ export default function ClasslistPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Course Navbar */}
       <CourseNavbar

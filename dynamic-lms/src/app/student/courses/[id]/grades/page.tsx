@@ -213,34 +213,43 @@ export default function StudentGradesPage() {
                           {item.attempts.map((attempt, idx) => (
                             <div
                               key={attempt.id}
-                              className="flex items-center justify-between py-2 px-3 rounded-xl bg-gray-50 border border-gray-100"
+                              className="py-2 px-3 rounded-xl bg-gray-50 border border-gray-100"
                             >
-                              <div className="flex items-center gap-3">
-                                <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
-                                  #{idx + 1}
-                                </span>
-                                <div className="flex flex-col">
-                                  {attempt.submittedAt && (
-                                    <span className="text-xs text-gray-600">
-                                      Submitted:{" "}
-                                      {new Date(attempt.submittedAt).toLocaleDateString()}
-                                    </span>
-                                  )}
-                                  {attempt.gradedAt && (
-                                    <span className="text-xs text-gray-500">
-                                      Graded: {new Date(attempt.gradedAt).toLocaleDateString()}
-                                    </span>
-                                  )}
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="flex items-center gap-3">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                                    #{idx + 1}
+                                  </span>
+                                  <div className="flex flex-col">
+                                    {attempt.submittedAt && (
+                                      <span className="text-xs text-gray-600">
+                                        Submitted:{" "}
+                                        {new Date(attempt.submittedAt).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                    {attempt.gradedAt && (
+                                      <span className="text-xs text-gray-500">
+                                        Graded: {new Date(attempt.gradedAt).toLocaleDateString()}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <span className="text-sm text-gray-700">
+                                    {attempt.score}/{attempt.maxScore}
+                                  </span>
+                                  <span className="text-sm font-semibold text-indigo-600">
+                                    {attempt.percentage.toFixed(0)}%
+                                  </span>
                                 </div>
                               </div>
-                              <div className="flex items-center gap-2">
-                                <span className="text-sm text-gray-700">
-                                  {attempt.score}/{attempt.maxScore}
-                                </span>
-                                <span className="text-sm font-semibold text-indigo-600">
-                                  {attempt.percentage.toFixed(0)}%
-                                </span>
-                              </div>
+
+                              {attempt.feedback && attempt.feedback.trim() && (
+                                <div className="mt-2 rounded-xl border border-indigo-100 bg-white px-3 py-2 text-sm text-gray-700">
+                                  <div className="text-xs font-semibold text-indigo-700 mb-1">Feedback</div>
+                                  <div className="whitespace-pre-wrap">{attempt.feedback}</div>
+                                </div>
+                              )}
                             </div>
                           ))}
                         </div>

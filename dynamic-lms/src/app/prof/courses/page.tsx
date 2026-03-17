@@ -13,7 +13,7 @@ export default function ProfCoursesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar - same courses as dashboard */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} canCreateCourse={false} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

@@ -1,13 +1,12 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
+import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfessorDashboard() {
-  const navbarRef = useRef<ProfessorNavbarRef>(null);
   const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
@@ -17,9 +16,7 @@ export default function ProfessorDashboard() {
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar - same courses as dashboard, create works from anywhere */}
       <ProfessorNavbar
-        ref={navbarRef}
         currentPage="dashboard"
-        canCreateCourse={false}
         handledCourses={handledCourses}
       />
 

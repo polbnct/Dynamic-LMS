@@ -37,6 +37,7 @@ export default function StudentQuizzesPage() {
   const [resultModalOpen, setResultModalOpen] = useState(false);
   const [resultModalLoading, setResultModalLoading] = useState(false);
   const [resultModalQuizName, setResultModalQuizName] = useState("");
+  const [resultModalRevealCorrect, setResultModalRevealCorrect] = useState(false);
   const [resultData, setResultData] = useState<QuizResultWithAnswers | null>(null);
 
   useEffect(() => {
@@ -91,7 +92,11 @@ export default function StudentQuizzesPage() {
               questionsCount: quiz.questions?.length || 0,
               taken: !!result,
               score: result?.score != null ? Number(result.score) : undefined,
-              maxScore: result?.max_score != null ? Number(result.max_score) : (quiz.questions?.length ?? 0) * 10 || 100,
+              maxScore:
+                result?.max_score != null
+                  ? Number(result.max_score)
+                  : (quiz.questions?.length ?? 0) *
+                    (quiz.points_per_question != null ? Number(quiz.points_per_question) : 10),
               attemptsUsed: status.attemptsUsed ?? 0,
               remainingAttempts: status.remainingAttempts ?? null,
               isLocked: status.isLocked ?? false,
@@ -309,6 +314,8 @@ export default function StudentQuizzesPage() {
                               <button
                                 onClick={async () => {
                                   setResultModalQuizName(quiz.name);
+                                  const revealCorrect = Boolean((quiz as any).reveal_correct_answers);
+                                  setResultModalRevealCorrect(revealCorrect);
                                   setResultModalOpen(true);
                                   setResultModalLoading(true);
                                   setResultData(null);
@@ -317,7 +324,9 @@ export default function StudentQuizzesPage() {
                                     if (!studentId) return;
                                     const attempt = await getQuizResults(quiz.id, studentId);
                                     if (!attempt) return;
-                                    const withAnswers = await getQuizAttemptWithAnswers(attempt.id);
+                                    const withAnswers = await getQuizAttemptWithAnswers(attempt.id, {
+                                      includeCorrectAnswers: revealCorrect,
+                                    });
                                     setResultData(withAnswers ?? null);
                                   } catch (err) {
                                     console.error(err);
@@ -402,13 +411,15 @@ export default function StudentQuizzesPage() {
                   <ul className="space-y-4">
                     {resultData.answers.map((a, idx) => {
                       const correctDisplay =
-                        a.questionType === "multiple_choice" && a.options
-                          ? a.options[Number(a.correctAnswer)] ?? String(a.correctAnswer)
-                          : typeof a.correctAnswer === "boolean"
-                            ? a.correctAnswer
-                              ? "True"
-                              : "False"
-                            : String(a.correctAnswer);
+                        a.correctAnswer === undefined
+                          ? ""
+                          : a.questionType === "multiple_choice" && a.options
+                            ? a.options[Number(a.correctAnswer)] ?? String(a.correctAnswer)
+                            : typeof a.correctAnswer === "boolean"
+                              ? a.correctAnswer
+                                ? "True"
+                                : "False"
+                              : String(a.correctAnswer);
                       const userDisplay =
                         a.questionType === "multiple_choice" && a.options && typeof a.userAnswer === "number"
                           ? a.options[a.userAnswer] ?? String(a.userAnswer)
@@ -439,7 +450,7 @@ export default function StudentQuizzesPage() {
                               <p className="text-sm text-gray-600 mt-1">
                                 Your answer: <span className="font-medium">{userDisplay}</span>
                               </p>
-                              {!a.isCorrect && (
+                              {!a.isCorrect && resultModalRevealCorrect && a.correctAnswer !== undefined && (
                                 <p className="text-sm text-green-700 mt-0.5">
                                   Correct answer: <span className="font-medium">{correctDisplay}</span>
                                 </p>

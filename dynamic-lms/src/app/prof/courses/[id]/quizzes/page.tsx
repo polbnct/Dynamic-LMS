@@ -7,7 +7,7 @@ import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
-import { getQuizzes, getQuestions, createQuestion, updateQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, getQuestions, createQuestion, updateQuestion, deleteQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
@@ -85,10 +85,12 @@ export default function QuizzesPage() {
   const [quizDueDate, setQuizDueDate] = useState("");
   const [quizMaxAttempts, setQuizMaxAttempts] = useState<string>("1");
   const [quizPointsPerQuestion, setQuizPointsPerQuestion] = useState<string>("10");
+  const [quizRevealCorrectAnswers, setQuizRevealCorrectAnswers] = useState<boolean>(false);
   const [generateQuestionType, setGenerateQuestionType] = useState<"multiple_choice" | "true_false" | "fill_blank">("multiple_choice");
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [quizBank, setQuizBank] = useState<Question[]>([]);
   const [filteredBank, setFilteredBank] = useState<Question[]>([]);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
 
   // Create question form
   const [newQuestion, setNewQuestion] = useState({
@@ -107,7 +109,7 @@ export default function QuizzesPage() {
   // Retake management state (now shown inside the Edit Quiz modal)
   const [retakeRows, setRetakeRows] = useState<any[]>([]);
   const [retakeLoading, setRetakeLoading] = useState(false);
-  const { handledCourses, createCourse } = useProfessorCourses();
+  const { handledCourses } = useProfessorCourses();
 
   useEffect(() => {
     async function fetchCourse() {
@@ -365,6 +367,7 @@ export default function QuizzesPage() {
           points_per_question: quizPointsPerQuestion.trim()
             ? Number(quizPointsPerQuestion)
             : 10,
+          reveal_correct_answers: quizRevealCorrectAnswers,
         });
         await setQuizQuestions(editingQuiz.id, questionIds);
         const updatedQuizzes = await getQuizzes(courseId);
@@ -393,6 +396,7 @@ export default function QuizzesPage() {
           points_per_question: quizPointsPerQuestion.trim()
             ? Number(quizPointsPerQuestion)
             : 10,
+          reveal_correct_answers: quizRevealCorrectAnswers,
         },
         questionIds
       );
@@ -434,6 +438,8 @@ export default function QuizzesPage() {
     setQuizType("mixed");
     setQuizDueDate("");
     setQuizMaxAttempts("1");
+    setQuizPointsPerQuestion("10");
+    setQuizRevealCorrectAnswers(false);
     setSelectedQuestions([]);
     setRetakeRows([]);
     setRetakeLoading(false);
@@ -445,7 +451,7 @@ export default function QuizzesPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -461,7 +467,7 @@ export default function QuizzesPage() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -506,6 +512,7 @@ export default function QuizzesPage() {
                 setQuizDueDate("");
                 setQuizMaxAttempts("1");
                 setQuizPointsPerQuestion("10");
+                setQuizRevealCorrectAnswers(false);
                 setSelectedQuestions([]);
                 setCreateQuizModalOpen(true);
               }}
@@ -593,6 +600,7 @@ export default function QuizzesPage() {
                             ? String((quiz as any).points_per_question)
                             : "10"
                         );
+                        setQuizRevealCorrectAnswers(Boolean((quiz as any).reveal_correct_answers));
                         setSelectedQuestions(
                           quiz.questions?.map((q: any) => ({
                             id: q.id,
@@ -745,6 +753,24 @@ export default function QuizzesPage() {
                     <p className="text-xs text-gray-500 mt-1">
                       Used to compute total quiz score (points × number of items).
                     </p>
+                  </div>
+
+                  <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
+                    <input
+                      id="quizRevealCorrectAnswers"
+                      type="checkbox"
+                      checked={quizRevealCorrectAnswers}
+                      onChange={(e) => setQuizRevealCorrectAnswers(e.target.checked)}
+                      className="mt-1 h-4 w-4 accent-indigo-600"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="quizRevealCorrectAnswers" className="block text-sm font-semibold text-gray-800">
+                        Show correct answers in student results
+                      </label>
+                      <p className="text-xs text-gray-600 mt-1">
+                        If unchecked, students will still see whether they were correct, but not the correct answer.
+                      </p>
+                    </div>
                   </div>
 
                   <div>
@@ -1029,8 +1055,43 @@ export default function QuizzesPage() {
                             )}
                             <button
                               type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (deletingQuestionId) return;
+                                if (!confirm("Delete this question? This cannot be undone.")) return;
+                                try {
+                                  setDeletingQuestionId(question.id);
+                                  await deleteQuestion(question.id);
+                                  setQuizBank((prev) => prev.filter((q) => q.id !== question.id));
+                                  setFilteredBank((prev) => prev.filter((q) => q.id !== question.id));
+                                  setSelectedQuestions((prev) => prev.filter((q) => q.id !== question.id));
+                                  setSuccess("Question deleted.");
+                                  setTimeout(() => setSuccess(""), 2500);
+                                } catch (err: any) {
+                                  console.error("Error deleting question:", err);
+                                  setError(err?.message || "Failed to delete question.");
+                                } finally {
+                                  setDeletingQuestionId(null);
+                                }
+                              }}
+                              className="ml-auto p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete question"
+                              disabled={deletingQuestionId === question.id}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (deletingQuestionId === question.id) return;
                                 setEditingBankQuestion(question);
                                 setNewQuestion({
                                   type: question.type as QuestionType,
@@ -1058,7 +1119,7 @@ export default function QuizzesPage() {
                                 });
                                 setCreateQuestionModalOpen(true);
                               }}
-                              className="ml-auto p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
                               title="Edit question"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

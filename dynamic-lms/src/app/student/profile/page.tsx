@@ -5,12 +5,12 @@ import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 
 export default function StudentProfile() {
+  const [loadingProfile, setLoadingProfile] = useState(true);
   const [formData, setFormData] = useState({
-    name: "John Doe",
-    email: "john.doe@student.edu",
-    studentId: "STU2024001",
+    name: "",
+    email: "",
+    studentId: "",
     phone: "",
-    department: "",
     year: "",
   });
 
@@ -46,18 +46,22 @@ export default function StudentProfile() {
 
         const { data: studentRow } = await supabase
           .from("students")
-          .select("student_id")
+          .select("student_id, phone, graduation_year")
           .eq("user_id", user.id)
           .maybeSingle();
 
         setFormData((prev) => ({
           ...prev,
-          name: userRow?.name || user.user_metadata?.name || prev.name,
-          email: userRow?.email || user.email || prev.email,
-          studentId: studentRow?.student_id || prev.studentId,
+          name: userRow?.name || user.user_metadata?.name || "",
+          email: userRow?.email || user.email || "",
+          studentId: studentRow?.student_id || "",
+          phone: (studentRow as any)?.phone || "",
+          year: (studentRow as any)?.graduation_year || "",
         }));
       } catch (err) {
         console.error("Failed to load profile:", err);
+      } finally {
+        setLoadingProfile(false);
       }
     };
 
@@ -175,6 +179,20 @@ export default function StudentProfile() {
         }
       }
 
+      // Update student profile fields (students table)
+      const studentUpdates: Record<string, any> = {
+        student_id: formData.studentId.trim(),
+        phone: formData.phone.trim(),
+        graduation_year: formData.year.trim(),
+      };
+      const { error: studentError } = await supabase
+        .from("students")
+        .update(studentUpdates)
+        .eq("user_id", user.id);
+      if (studentError) {
+        throw studentError;
+      }
+
       // Optionally sync auth profile name/email (email change may require confirmation)
       await supabase.auth.updateUser({
         email: updates.email,
@@ -195,7 +213,7 @@ export default function StudentProfile() {
     }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess("");
 
@@ -203,15 +221,48 @@ export default function StudentProfile() {
       return;
     }
 
-    // TODO: Add real password change logic here
-    setSuccess("Password changed successfully!");
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: "",
-    });
-    setShowPasswordSection(false);
-    setTimeout(() => setSuccess(""), 3000);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      const email = user?.email;
+      if (!email) {
+        throw new Error("Not authenticated");
+      }
+
+      // Re-authenticate using current password to ensure it's correct
+      const { error: signInErr } = await supabase.auth.signInWithPassword({
+        email,
+        password: passwordData.currentPassword,
+      });
+      if (signInErr) {
+        setErrors((prev) => ({ ...prev, currentPassword: "Current password is incorrect." }));
+        return;
+      }
+
+      const { error: updateErr } = await supabase.auth.updateUser({
+        password: passwordData.newPassword,
+      });
+      if (updateErr) {
+        throw updateErr;
+      }
+
+      setSuccess("Password changed successfully!");
+      setPasswordData({
+        currentPassword: "",
+        newPassword: "",
+        confirmPassword: "",
+      });
+      setShowPasswordSection(false);
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      console.error("Failed to change password:", err);
+      setErrors((prev) => ({
+        ...prev,
+        form: err?.message || "Failed to change password.",
+      }));
+    }
   };
 
   const handleCancel = () => {
@@ -287,6 +338,15 @@ export default function StudentProfile() {
 
       {/* Main Content */}
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {loadingProfile && (
+          <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
+            <div className="flex items-center gap-3 text-gray-600">
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+              <span className="text-sm font-semibold">Loading profile…</span>
+            </div>
+          </div>
+        )}
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
@@ -502,43 +562,6 @@ export default function StudentProfile() {
                 {errors.phone && (
                   <p className="mt-1 text-sm text-red-600">{errors.phone}</p>
                 )}
-              </div>
-
-              {/* Department */}
-              <div>
-                <label htmlFor="department" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Department
-                </label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <svg
-                      className="h-5 w-5 text-gray-400"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4"
-                      />
-                    </svg>
-                  </div>
-                  <input
-                    id="department"
-                    name="department"
-                    type="text"
-                    value={formData.department}
-                    onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
-                      isEditing
-                        ? "border-gray-300 bg-gray-50/50 focus:bg-white"
-                        : "border-gray-200 bg-gray-100 cursor-not-allowed"
-                    }`}
-                  />
-                </div>
               </div>
 
               {/* Year */}

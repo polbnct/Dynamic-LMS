@@ -43,7 +43,9 @@ export default function StudentContentPage() {
   const [studyAidScoreSubmitted, setStudyAidScoreSubmitted] = useState(false);
   const [studyAidSubmitting, setStudyAidSubmitting] = useState(false);
   const [studyAidSubmitError, setStudyAidSubmitError] = useState<string | null>(null);
-  const [studyAidAttempts, setStudyAidAttempts] = useState<{ lesson_id: string; score: number; max_score: number }[]>([]);
+  const [studyAidAttempts, setStudyAidAttempts] = useState<
+    { lesson_id: string; question_type: string; score: number; max_score: number }[]
+  >([]);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -135,7 +137,15 @@ export default function StudentContentPage() {
       await submitStudyAidAttempt(selectedLesson.id, studyAidType as "multiple_choice" | "fill_blank", score, maxScore);
       setStudyAidScoreSubmitted(true);
       setStudyAidReveal(true);
-      setStudyAidAttempts((prev) => [...prev, { lesson_id: selectedLesson.id, score, max_score: maxScore }]);
+      setStudyAidAttempts((prev) => [
+        ...prev,
+        {
+          lesson_id: selectedLesson.id,
+          question_type: studyAidType,
+          score,
+          max_score: maxScore,
+        },
+      ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save attempt";
       setStudyAidSubmitError(message);
@@ -155,18 +165,51 @@ export default function StudentContentPage() {
   };
 
   const PASSING_PERCENT = 70;
-  const orderedLessons = [...lessons].sort((a, b) => a.order - b.order);
-  const bestPctByLesson: Record<string, number> = {};
-  studyAidAttempts.forEach((a) => {
-    const pct = a.max_score > 0 ? (a.score / a.max_score) * 100 : 0;
-    if (bestPctByLesson[a.lesson_id] == null || pct > bestPctByLesson[a.lesson_id]) {
-      bestPctByLesson[a.lesson_id] = pct;
+
+  // Unlocking is sequential across categories: Prelim -> Midterm -> Finals
+  const orderedLessons = [
+    ...lessons.filter((l) => l.category === "prelim"),
+    ...lessons.filter((l) => l.category === "midterm"),
+    ...lessons.filter((l) => l.category === "finals"),
+  ].sort((a, b) => {
+    if (a.category !== b.category) {
+      const rank: Record<string, number> = { prelim: 0, midterm: 1, finals: 2 };
+      return (rank[a.category] ?? 999) - (rank[b.category] ?? 999);
     }
+    return a.order - b.order;
   });
+
+  // Combined mastery: based on MC + Fill-in-the-Blank together (must have both).
+  // We take best attempt per type (by pct), then combine scores/max_score.
+  const bestByLessonAndType: Record<string, { score: number; max: number; pct: number }> = {};
+  for (const a of studyAidAttempts) {
+    const type = a.question_type;
+    if (type !== "multiple_choice" && type !== "fill_blank") continue;
+    const key = `${a.lesson_id}:${type}`;
+    const pct = a.max_score > 0 ? (a.score / a.max_score) * 100 : 0;
+    const existing = bestByLessonAndType[key];
+    if (!existing || pct > existing.pct) {
+      bestByLessonAndType[key] = { score: a.score, max: a.max_score, pct };
+    }
+  }
+
+  const combinedPctByLesson: Record<string, number> = {};
+  for (const lesson of orderedLessons) {
+    const mc = bestByLessonAndType[`${lesson.id}:multiple_choice`];
+    const fib = bestByLessonAndType[`${lesson.id}:fill_blank`];
+    if (!mc || !fib) {
+      combinedPctByLesson[lesson.id] = 0;
+      continue;
+    }
+    const totalMax = (mc.max || 0) + (fib.max || 0);
+    const totalScore = (mc.score || 0) + (fib.score || 0);
+    combinedPctByLesson[lesson.id] = totalMax > 0 ? (totalScore / totalMax) * 100 : 0;
+  }
+
   const unlockedLessonIds = new Set<string>();
   orderedLessons.forEach((lesson, i) => {
     if (i === 0) unlockedLessonIds.add(lesson.id);
-    else if (bestPctByLesson[orderedLessons[i - 1].id] >= PASSING_PERCENT) unlockedLessonIds.add(lesson.id);
+    else if (combinedPctByLesson[orderedLessons[i - 1].id] >= PASSING_PERCENT) unlockedLessonIds.add(lesson.id);
   });
 
   // Group lessons by category
