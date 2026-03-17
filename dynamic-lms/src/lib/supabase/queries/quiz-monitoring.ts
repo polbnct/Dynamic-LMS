@@ -70,6 +70,7 @@ export async function getQuizAttemptsGroupedByStudent(quizId: string): Promise<S
 
     const studentIds = [...new Set(attempts.map((a: any) => a.student_id).filter(Boolean))];
     let studentInfoMap: Record<string, { name: string; email: string }> = {};
+    const excludedStudentIds = new Set<string>();
 
     if (studentIds.length > 0) {
       try {
@@ -78,13 +79,18 @@ export async function getQuizAttemptsGroupedByStudent(quizId: string): Promise<S
           .select(`
             id,
             user_id,
-            users ( id, name, email )
+            users ( id, name, email, role )
           `)
           .in("id", studentIds);
 
         if (studentsData) {
           studentsData.forEach((student: any) => {
             const user = Array.isArray(student.users) ? student.users[0] : student.users || {};
+            if (user?.role === "admin") {
+              // Exclude admin accounts that may still have a students row.
+              excludedStudentIds.add(student.id);
+              return;
+            }
             studentInfoMap[student.id] = {
               name: (user && user.name) ? user.name : "Unknown Student",
               email: (user && user.email) ? user.email : "",
@@ -96,7 +102,15 @@ export async function getQuizAttemptsGroupedByStudent(quizId: string): Promise<S
       }
     }
 
-    const attemptLogs: StudentQuizStatus[] = attempts.map((attempt: any) => {
+    const attemptLogs: StudentQuizStatus[] = attempts
+      .filter((attempt: any) => {
+        // Only include attempts we can attribute to a non-admin student.
+        if (!attempt?.student_id) return false;
+        if (excludedStudentIds.has(attempt.student_id)) return false;
+        if (!studentInfoMap[attempt.student_id]) return false;
+        return true;
+      })
+      .map((attempt: any) => {
       const studentInfo = studentInfoMap[attempt.student_id] || { name: "Unknown Student", email: "" };
       const activity = activityData[attempt.id] || {};
       const lastActivityAt = activity.last_activity_at ?? null;

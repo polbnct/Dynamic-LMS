@@ -21,6 +21,19 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
+    // Require actual student role. Prevent admins/professors (even with stale students rows) from writing activity.
+    const { data: roleRow, error: roleErr } = await admin
+      .from("users")
+      .select("role")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (roleErr) {
+      return NextResponse.json({ error: roleErr.message }, { status: 500 });
+    }
+    if (!roleRow?.role || roleRow.role !== "student") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+    }
+
     const { data: student } = await supabase
       .from("students")
       .select("id")
