@@ -80,7 +80,7 @@ export default function StudentDashboard() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50">
+      <div className="min-h-screen bg-white">
         <StudentNavbar currentPage="dashboard" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -92,7 +92,7 @@ export default function StudentDashboard() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50">
+    <div className="min-h-screen bg-white">
       <StudentNavbar currentPage="dashboard" />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <h1 className="text-4xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-8">
@@ -105,12 +105,6 @@ export default function StudentDashboard() {
           {courses.length === 0 ? (
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-12 text-center">
               <p className="text-gray-600">No courses enrolled yet</p>
-              <Link
-                href="/student/dashboard"
-                className="mt-4 inline-block text-red-600 hover:text-red-700 font-semibold"
-              >
-                Browse Courses
-              </Link>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">

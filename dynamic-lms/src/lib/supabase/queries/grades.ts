@@ -12,6 +12,7 @@ export interface Grade {
   percentage: number;
   submittedAt?: string;
   gradedAt?: string;
+  feedback?: string;
 }
 
 // Get grades for a student in a course
@@ -69,6 +70,7 @@ export async function getStudentGrades(courseId: string, studentId: string): Pro
           percentage: submission.max_score > 0 ? ((submission.score || 0) / submission.max_score) * 100 : 0,
           submittedAt: submission.submitted_at,
           gradedAt: submission.graded_at,
+          feedback: submission.feedback ?? "",
         });
       }
     }

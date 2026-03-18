@@ -11,7 +11,7 @@ export default async function AdminLayout({
   try {
     await requireAdmin();
   } catch {
-    redirect("/admin/login");
+    redirect("/login?redirect=/admin");
   }
 
   return <>{children}</>;

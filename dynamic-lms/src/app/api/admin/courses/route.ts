@@ -15,7 +15,7 @@ export async function GET() {
 
     const { data: courses, error } = await admin
       .from("courses")
-      .select("id, name, code, classroom_code, professor_id, created_at")
+      .select("id, name, code, professor_id, created_at")
       .order("created_at", { ascending: false });
 
     if (error) return jsonError(error.message, 500);
@@ -85,23 +85,18 @@ export async function POST(request: NextRequest) {
     const body = await request.json();
     const name = String(body?.name ?? "").trim();
     const code = String(body?.code ?? "").trim();
-    const classroomCode = String(body?.classroom_code ?? "").trim();
     const professorId = body?.professor_id ? String(body.professor_id) : null;
 
     if (!name) return jsonError("name is required", 400);
     if (!code) return jsonError("code is required", 400);
-    // Invite codes are not used in the UI anymore, but the DB column is NOT NULL.
-    const finalClassroomCode = classroomCode || `${code}-${Math.floor(Math.random() * 9000 + 1000)}`;
-
     const { data: course, error } = await admin
       .from("courses")
       .insert({
         name,
         code,
-        classroom_code: finalClassroomCode,
         professor_id: professorId,
       })
-      .select("id, name, code, classroom_code, professor_id, created_at")
+      .select("id, name, code, professor_id, created_at")
       .single();
 
     if (error) return jsonError(error.message, 500);

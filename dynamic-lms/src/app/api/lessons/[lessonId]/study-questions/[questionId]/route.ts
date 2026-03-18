@@ -63,7 +63,7 @@ export async function PATCH(
       options,
       correct_answer: correctAnswer,
     } = body as {
-      type?: "multiple_choice" | "true_false" | "fill_blank";
+      type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
       question?: string;
       options?: string[];
       correct_answer?: number | boolean | string;

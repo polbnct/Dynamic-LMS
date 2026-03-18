@@ -36,7 +36,7 @@ export default function ClasslistPage() {
   const [profileMissedAssignments, setProfileMissedAssignments] = useState<{ id: string; title: string; category: string }[]>([]);
   const [profileMissedQuizzes, setProfileMissedQuizzes] = useState<{ id: string; name: string }[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
-  const { handledCourses, createCourse } = useProfessorCourses();
+  const { handledCourses } = useProfessorCourses();
   const enrollmentManagedByAdmin = true;
 
   useEffect(() => {
@@ -82,12 +82,12 @@ export default function ClasslistPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <div className="min-h-screen bg-white">
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
           </div>
         </main>
       </div>
@@ -96,8 +96,8 @@ export default function ClasslistPage() {
 
   if (error || !course) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <div className="min-h-screen bg-white">
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
@@ -122,9 +122,9 @@ export default function ClasslistPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-white">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -140,7 +140,7 @@ export default function ClasslistPage() {
         <div className="mb-8">
           <Link
             href="/prof/courses"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-red-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -154,14 +154,14 @@ export default function ClasslistPage() {
           </Link>
           <div className="flex items-start justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl font-bold text-red-700 mb-2">
                 Classlist
               </h1>
               <p className="text-gray-600">{course.name} ({course.code})</p>
             </div>
             <div className="text-right">
               <div className="text-sm text-gray-600">Total Students</div>
-              <div className="text-3xl font-bold text-indigo-600">{course.studentsCount}</div>
+              <div className="text-3xl font-bold text-red-600">{course.studentsCount}</div>
             </div>
           </div>
         </div>
@@ -196,8 +196,8 @@ export default function ClasslistPage() {
           {/* Students Table */}
           {filteredStudents.length === 0 ? (
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -224,11 +224,11 @@ export default function ClasslistPage() {
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredStudents.map((student) => (
-                    <tr key={student.id} className="hover:bg-indigo-50/50 transition-colors">
+                    <tr key={student.id} className="hover:bg-red-50/50 transition-colors">
                       <td className="py-4 px-4">
                         <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full flex items-center justify-center">
-                            <span className="text-indigo-600 font-semibold">
+                          <div className="w-10 h-10 bg-red-50 rounded-full flex items-center justify-center">
+                            <span className="text-red-600 font-semibold">
                               {student.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
@@ -279,7 +279,7 @@ export default function ClasslistPage() {
                                 setProfileLoading(false);
                               }
                             }}
-                            className="text-indigo-600 hover:text-indigo-700 font-medium text-sm transition-colors"
+                            className="text-red-600 hover:text-red-700 font-medium text-sm transition-colors"
                           >
                             View Profile
                           </button>
@@ -304,10 +304,10 @@ export default function ClasslistPage() {
             <span>
               Showing {filteredStudents.length} of {students.length} student{students.length !== 1 ? "s" : ""}
             </span>
-            {searchQuery && (
+              {searchQuery && (
               <button
                 onClick={() => setSearchQuery("")}
-                className="text-indigo-600 hover:text-indigo-700 font-medium"
+                className="text-red-600 hover:text-red-700 font-medium"
               >
                 Clear Search
               </button>
@@ -346,7 +346,7 @@ export default function ClasslistPage() {
             <div className="flex-1 overflow-y-auto p-6">
               {profileLoading ? (
                 <div className="flex justify-center py-12">
-                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
                 </div>
               ) : (
                 <div className="space-y-6">
@@ -372,7 +372,7 @@ export default function ClasslistPage() {
                               <span className="text-sm text-gray-600">
                                 {g.score}/{g.maxScore}
                               </span>
-                              <span className="text-sm font-medium text-indigo-600">{Math.round(g.percentage)}%</span>
+                              <span className="text-sm font-medium text-red-600">{Math.round(g.percentage)}%</span>
                             </div>
                           </li>
                         ))}

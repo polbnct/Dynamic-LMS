@@ -40,28 +40,44 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    // Sign up with Supabase Auth
-    // Note: In Supabase Dashboard → Authentication → Providers → Email,
-    // turn OFF "Confirm email" so new users are not required to confirm and no confirmation email is sent.
-    console.log("Attempting Supabase auth signup...");
     const userRole = role === "prof" ? "professor" : "student";
-    
-    const { data: authData, error: authError } = await supabase.auth.signUp({
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+      return NextResponse.json(
+        {
+          error: "SUPABASE_SERVICE_ROLE_KEY is required. Please add it to your environment variables.",
+        },
+        { status: 500 }
+      );
+    }
+
+    // Create the auth user using service role.
+    // This avoids triggering any email confirmation flows tied to `auth.signUp`.
+    console.log("Creating auth user via service role...");
+    const adminClient = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      {
+        auth: {
+          autoRefreshToken: false,
+          persistSession: false,
+        },
+      }
+    );
+
+    const { data: authData, error: authError } = await adminClient.auth.admin.createUser({
       email,
       password,
-      options: {
-        data: {
-          name: name,
-          role: userRole,
-        },
+      email_confirm: true,
+      user_metadata: {
+        name,
+        role: userRole,
       },
-    });
+    } as any);
 
-    console.log("Auth signup result:", { 
-      hasUser: !!authData?.user, 
-      hasSession: !!authData?.session, 
+    console.log("Auth signup result:", {
+      hasUser: !!(authData as any)?.user,
       hasError: !!authError,
-      errorMessage: authError?.message 
+      errorMessage: authError?.message,
     });
 
     if (authError) {
@@ -114,36 +130,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Create user record manually (trigger is disabled to avoid blocking signup)
-    if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-      return NextResponse.json(
-        {
-          error: "SUPABASE_SERVICE_ROLE_KEY is required. Please add it to your environment variables.",
-        },
-        { status: 500 }
-      );
-    }
-
-    const adminClient = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.SUPABASE_SERVICE_ROLE_KEY!,
-      {
-        auth: {
-          autoRefreshToken: false,
-          persistSession: false,
-        },
-      }
-    );
-
-    // Silently confirm email in background (no user interaction needed)
-    adminClient.auth.admin.updateUserById(authData.user.id, {
-      email_confirm: true,
-    }).catch(() => {
-      // Ignore errors - email might already be confirmed or confirmation disabled
-    });
-
-    // Wait for auth user to be fully committed
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Ensure email is confirmed for this user as well (no-op if already confirmed).
+    await adminClient.auth.admin
+      .updateUserById(authData.user.id, { email_confirm: true })
+      .catch(() => {
+        // Ignore errors - email might already be confirmed or confirmation disabled.
+      });
 
     // Check if user record already exists
     const { data: existingUser } = await adminClient
@@ -276,15 +268,6 @@ export async function POST(request: NextRequest) {
     }
 
     // Check if we already have a session from signup
-    if (authData.session) {
-      return NextResponse.json({
-        success: true,
-        user: authData.user,
-        role: userRole,
-        session: authData.session,
-      });
-    }
-
     // Sign in to get a session (email is now confirmed)
     console.log("Signing in to get session...");
     const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({

@@ -1,25 +1,22 @@
 "use client";
 
-import React, { useState, useRef } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
-import ProfessorNavbar, { type ProfessorNavbarRef } from "@/utils/ProfessorNavbar";
+import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 
 export default function ProfessorDashboard() {
-  const navbarRef = useRef<ProfessorNavbarRef>(null);
   const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   // Professors can no longer edit or delete courses; this is admin-only now.
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-white">
       {/* Professor Navbar - same courses as dashboard, create works from anywhere */}
       <ProfessorNavbar
-        ref={navbarRef}
         currentPage="dashboard"
-        canCreateCourse={false}
         handledCourses={handledCourses}
       />
 
@@ -27,10 +24,10 @@ export default function ProfessorDashboard() {
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold text-red-700 mb-2">
             Welcome Back, Professor!
           </h1>
-          <p className="text-gray-600">Manage your courses and students</p>
+          <p className="text-gray-900">Manage your courses and students</p>
         </div>
 
         {/* Success Message */}
@@ -76,7 +73,7 @@ export default function ProfessorDashboard() {
         {/* Loading State */}
         {loading && (
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
           </div>
         )}
 
@@ -85,9 +82,9 @@ export default function ProfessorDashboard() {
           <>
             {courses.length === 0 ? (
               <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
+                <div className="inline-flex items-center justify-center w-24 h-24 bg-red-50 rounded-full mb-4">
                   <svg
-                    className="w-12 h-12 text-indigo-600"
+                    className="w-12 h-12 text-red-600"
                     fill="none"
                     stroke="currentColor"
                     viewBox="0 0 24 24"
@@ -114,16 +111,16 @@ export default function ProfessorDashboard() {
                   >
                     <Link href={`/prof/courses/${course.id}`} className="block">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-800 group-hover:text-indigo-600 transition-colors">
+                  <div className="flex-1">
+                          <h3 className="text-xl font-bold text-gray-800 group-hover:text-red-600 transition-colors">
                             {course.name}
                           </h3>
                           <p className="text-sm text-gray-500 mt-1">{course.code}</p>
-                          <p className="text-xs text-gray-400 mt-1">Invite code: {course.classroom_code}</p>
+                          <p className="text-xs text-gray-400 mt-1">Course code: {course.code}</p>
                         </div>
-                        <div className="w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-16 h-16 bg-red-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                           <svg
-                            className="w-8 h-8 text-indigo-600"
+                            className="w-8 h-8 text-red-600"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"
@@ -140,7 +137,7 @@ export default function ProfessorDashboard() {
                       <div className="mt-4 pt-4 border-t border-gray-200">
                         <div className="flex items-center gap-2 text-sm text-gray-600">
                           <svg
-                            className="w-5 h-5 text-indigo-600"
+                            className="w-5 h-5 text-red-600"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 24 24"

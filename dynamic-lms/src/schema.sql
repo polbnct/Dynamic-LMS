@@ -1,7 +1,7 @@
 -- Create custom types (Enums)
 CREATE TYPE user_role AS ENUM ('professor', 'student');
 CREATE TYPE content_category AS ENUM ('prelim', 'midterm', 'finals');
-CREATE TYPE question_type AS ENUM ('multiple_choice', 'true_false', 'fill_blank');
+CREATE TYPE question_type AS ENUM ('multiple_choice', 'true_false', 'fill_blank', 'summary');
 CREATE TYPE source_origin AS ENUM ('lesson', 'pdf');
 
 -- 1. Users table (Extends Supabase Auth)
@@ -36,7 +36,7 @@ CREATE TABLE public.courses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   code TEXT NOT NULL,
-  classroom_code TEXT UNIQUE NOT NULL,
+  -- Invite codes removed (no classroom_code).
   professor_id UUID REFERENCES public.professors(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -110,6 +110,9 @@ CREATE TABLE public.quizzes (
   type question_type, -- or 'mixed' if you add that to the enum
   time_limit INTEGER, -- in minutes
   due_date TIMESTAMPTZ,
+  max_attempts INTEGER,
+  points_per_question INTEGER NOT NULL DEFAULT 10,
+  reveal_correct_answers BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 

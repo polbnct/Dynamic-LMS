@@ -39,7 +39,7 @@ export async function POST(request: NextRequest) {
     // Load quiz config (max attempts and lock time)
     const { data: quiz, error: quizErr } = await admin
       .from("quizzes")
-      .select("id, max_attempts, due_date")
+      .select("id, max_attempts, due_date, points_per_question")
       .eq("id", quizId)
       .single();
     if (quizErr || !quiz) return NextResponse.json({ error: "Quiz not found" }, { status: 404 });
@@ -84,11 +84,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "No remaining attempts for this quiz." }, { status: 403 });
     }
 
-    // Max score based on number of questions (10 points per question as before)
+    // Max score based on number of questions and configured points per question
     const { count: questionCount } = await admin
       .from("quiz_questions")
       .select("*", { count: "exact", head: true })
       .eq("quiz_id", quizId);
+
+    const pointsPerQuestion =
+      quiz.points_per_question != null ? Number(quiz.points_per_question) : 10;
+    const finalPointsPerQuestion = Number.isFinite(pointsPerQuestion) && pointsPerQuestion > 0 ? pointsPerQuestion : 10;
 
     const { data: attempt, error: insertErr } = await admin
       .from("quiz_attempts")
@@ -96,7 +100,7 @@ export async function POST(request: NextRequest) {
         quiz_id: quizId,
         student_id: student.id,
         started_at: new Date().toISOString(),
-        max_score: (questionCount || 0) * 10,
+        max_score: (questionCount || 0) * finalPointsPerQuestion,
       })
       .select()
       .single();

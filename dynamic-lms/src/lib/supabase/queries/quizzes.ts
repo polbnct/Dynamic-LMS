@@ -21,6 +21,8 @@ export interface Quiz {
   time_limit?: number;
   due_date?: string;
   max_attempts?: number | null;
+  points_per_question?: number;
+  reveal_correct_answers?: boolean;
   created_at: string;
 }
 
@@ -259,6 +261,36 @@ export async function updateQuestion(
   };
 }
 
+export async function deleteQuestion(questionId: string): Promise<void> {
+  const supabase = createClient();
+
+  // Ensure the question is not linked to any quizzes.
+  const { error: qqError } = await supabase
+    .from("quiz_questions")
+    .delete()
+    .eq("question_id", questionId);
+  if (qqError) {
+    console.error("Error unlinking quiz question:", qqError);
+    throw qqError;
+  }
+
+  // Delete any study-aid associations (if present).
+  const { error: saError } = await supabase
+    .from("lesson_study_questions")
+    .delete()
+    .eq("question_id", questionId);
+  if (saError) {
+    console.error("Error removing study-aid question link:", saError);
+    throw saError;
+  }
+
+  const { error } = await supabase.from("questions").delete().eq("id", questionId);
+  if (error) {
+    console.error("Error deleting question:", error);
+    throw error;
+  }
+}
+
 // Create a quiz
 export async function createQuiz(
   courseId: string,
@@ -269,6 +301,7 @@ export async function createQuiz(
     due_date?: string;
     max_attempts?: number | null;
     points_per_question?: number | null;
+    reveal_correct_answers?: boolean;
   },
   questionIds: string[]
 ): Promise<Quiz> {
@@ -304,6 +337,12 @@ export async function createQuiz(
         ? Number(quizData.points_per_question)
         : 10,
   };
+
+  // Only include the reveal setting if the caller explicitly provided it.
+  // This prevents runtime failures if the DB migration hasn't been applied yet.
+  if (quizData.reveal_correct_answers !== undefined) {
+    insertData.reveal_correct_answers = Boolean(quizData.reveal_correct_answers);
+  }
 
   // Only set type if it's not "mixed" (mixed quizzes have null type)
   if (quizData.type !== "mixed") {
@@ -419,6 +458,7 @@ export async function updateQuiz(
     due_date?: string | null;
     max_attempts?: number | null;
     points_per_question?: number | null;
+    reveal_correct_answers?: boolean;
   }
 ): Promise<Quiz> {
   const supabase = createClient();
@@ -438,6 +478,9 @@ export async function updateQuiz(
           updates.points_per_question != null && !Number.isNaN(updates.points_per_question)
             ? Number(updates.points_per_question)
             : 10,
+      }),
+      ...(Object.prototype.hasOwnProperty.call(updates, "reveal_correct_answers") && {
+        reveal_correct_answers: Boolean(updates.reveal_correct_answers),
       }),
     })
     .eq("id", quizId)
@@ -570,7 +613,7 @@ export interface QuizResultAnswer {
   questionText: string;
   questionType: string;
   options?: string[];
-  correctAnswer: number | boolean | string;
+  correctAnswer?: number | boolean | string;
   userAnswer: string | number | boolean;
   isCorrect: boolean;
 }
@@ -581,8 +624,12 @@ export interface QuizResultWithAnswers {
 }
 
 // Get attempt with answers and question details for showing results
-export async function getQuizAttemptWithAnswers(attemptId: string): Promise<QuizResultWithAnswers | null> {
+export async function getQuizAttemptWithAnswers(
+  attemptId: string,
+  options?: { includeCorrectAnswers?: boolean }
+): Promise<QuizResultWithAnswers | null> {
   const supabase = createClient();
+  const includeCorrectAnswers = Boolean(options?.includeCorrectAnswers);
 
   const { data: attempt, error: attemptErr } = await supabase
     .from("quiz_attempts")
@@ -592,9 +639,12 @@ export async function getQuizAttemptWithAnswers(attemptId: string): Promise<Quiz
 
   if (attemptErr || !attempt) return null;
 
+  const questionFields = includeCorrectAnswers
+    ? "id, question, type, options, correct_answer"
+    : "id, question, type, options";
   const { data: answersRows, error: answersErr } = await supabase
     .from("quiz_answers")
-    .select("*, questions(*)")
+    .select(`id, attempt_id, question_id, answer, is_correct, questions(${questionFields})`)
     .eq("attempt_id", attemptId);
 
   if (answersErr || !answersRows?.length) {
@@ -643,7 +693,11 @@ export async function getQuizAttemptWithAnswers(attemptId: string): Promise<Quiz
   const answers: QuizResultAnswer[] = sorted.map((row: any) => {
     const q = row.questions || {};
     const correctRaw =
-      typeof q.correct_answer === "string" ? JSON.parse(q.correct_answer || "null") : q.correct_answer;
+      q.correct_answer == null
+        ? undefined
+        : typeof q.correct_answer === "string"
+          ? JSON.parse(q.correct_answer || "null")
+          : q.correct_answer;
     const options =
       q.options != null
         ? Array.isArray(q.options)
@@ -661,7 +715,7 @@ export async function getQuizAttemptWithAnswers(attemptId: string): Promise<Quiz
       questionText: q.question || "",
       questionType: q.type || "multiple_choice",
       options,
-      correctAnswer: correctRaw,
+      ...(includeCorrectAnswers ? { correctAnswer: correctRaw } : {}),
       userAnswer: parseAnswer(row.answer),
       isCorrect: Boolean(row.is_correct),
     };

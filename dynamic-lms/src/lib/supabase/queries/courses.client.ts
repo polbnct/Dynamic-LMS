@@ -6,7 +6,6 @@ export interface Course {
   id: string;
   name: string;
   code: string;
-  classroom_code: string;
   professor_id: string;
   created_at: string;
   studentsCount?: number;

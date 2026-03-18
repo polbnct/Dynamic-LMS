@@ -7,7 +7,7 @@ import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
-import { getQuizzes, getQuestions, createQuestion, updateQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, getQuestions, createQuestion, updateQuestion, deleteQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
@@ -85,10 +85,12 @@ export default function QuizzesPage() {
   const [quizDueDate, setQuizDueDate] = useState("");
   const [quizMaxAttempts, setQuizMaxAttempts] = useState<string>("1");
   const [quizPointsPerQuestion, setQuizPointsPerQuestion] = useState<string>("10");
+  const [quizRevealCorrectAnswers, setQuizRevealCorrectAnswers] = useState<boolean>(false);
   const [generateQuestionType, setGenerateQuestionType] = useState<"multiple_choice" | "true_false" | "fill_blank">("multiple_choice");
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [quizBank, setQuizBank] = useState<Question[]>([]);
   const [filteredBank, setFilteredBank] = useState<Question[]>([]);
+  const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
 
   // Create question form
   const [newQuestion, setNewQuestion] = useState({
@@ -107,7 +109,7 @@ export default function QuizzesPage() {
   // Retake management state (now shown inside the Edit Quiz modal)
   const [retakeRows, setRetakeRows] = useState<any[]>([]);
   const [retakeLoading, setRetakeLoading] = useState(false);
-  const { handledCourses, createCourse } = useProfessorCourses();
+  const { handledCourses } = useProfessorCourses();
 
   useEffect(() => {
     async function fetchCourse() {
@@ -365,6 +367,8 @@ export default function QuizzesPage() {
           points_per_question: quizPointsPerQuestion.trim()
             ? Number(quizPointsPerQuestion)
             : 10,
+          // Only send if true, so we don't break quiz creation if the DB migration isn't applied yet.
+          reveal_correct_answers: quizRevealCorrectAnswers ? true : undefined,
         });
         await setQuizQuestions(editingQuiz.id, questionIds);
         const updatedQuizzes = await getQuizzes(courseId);
@@ -393,6 +397,8 @@ export default function QuizzesPage() {
           points_per_question: quizPointsPerQuestion.trim()
             ? Number(quizPointsPerQuestion)
             : 10,
+          // Only include when enabled (prevents PGRST204 if column missing).
+          reveal_correct_answers: quizRevealCorrectAnswers ? true : undefined,
         },
         questionIds
       );
@@ -434,6 +440,8 @@ export default function QuizzesPage() {
     setQuizType("mixed");
     setQuizDueDate("");
     setQuizMaxAttempts("1");
+    setQuizPointsPerQuestion("10");
+    setQuizRevealCorrectAnswers(false);
     setSelectedQuestions([]);
     setRetakeRows([]);
     setRetakeLoading(false);
@@ -444,12 +452,12 @@ export default function QuizzesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
-        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <div className="min-h-screen bg-white">
+        <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
           </div>
         </main>
       </div>
@@ -459,9 +467,9 @@ export default function QuizzesPage() {
   const totalQuizzes = quizzes.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-white">
       {/* Professor Navbar */}
-      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} onCreateCourse={createCourse} />
+      <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Course Navbar */}
       <CourseNavbar
@@ -477,7 +485,7 @@ export default function QuizzesPage() {
         <div className="mb-8">
           <Link
             href="/prof/courses"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-red-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -491,7 +499,7 @@ export default function QuizzesPage() {
           </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl font-bold text-red-700 mb-2">
                 Quizzes
               </h1>
               <p className="text-gray-600">
@@ -506,10 +514,11 @@ export default function QuizzesPage() {
                 setQuizDueDate("");
                 setQuizMaxAttempts("1");
                 setQuizPointsPerQuestion("10");
+                setQuizRevealCorrectAnswers(false);
                 setSelectedQuestions([]);
                 setCreateQuizModalOpen(true);
               }}
-              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -525,11 +534,11 @@ export default function QuizzesPage() {
         </div>
 
         {/* Quizzes List */}
-        {totalQuizzes === 0 ? (
+            {totalQuizzes === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -562,7 +571,7 @@ export default function QuizzesPage() {
                         setMonitoringQuizId(quiz.id);
                         setMonitoringQuizName(quiz.name);
                       }}
-                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="View attempts & logs"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -593,6 +602,7 @@ export default function QuizzesPage() {
                             ? String((quiz as any).points_per_question)
                             : "10"
                         );
+                        setQuizRevealCorrectAnswers(Boolean((quiz as any).reveal_correct_answers));
                         setSelectedQuestions(
                           quiz.questions?.map((q: any) => ({
                             id: q.id,
@@ -628,7 +638,7 @@ export default function QuizzesPage() {
                           setRetakeLoading(false);
                         }
                       }}
-                      className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                       title="Edit quiz"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -681,7 +691,7 @@ export default function QuizzesPage() {
           >
             {/* Modal Header */}
             <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold text-black">
                 {editingQuiz ? "Edit Quiz" : "Create Quiz"}
               </h2>
               <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
@@ -698,7 +708,7 @@ export default function QuizzesPage() {
                 {/* Quiz Name and Type */}
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label htmlFor="quizName" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label htmlFor="quizName" className="block text-sm font-semibold text-black mb-2">
                       Quiz Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -707,20 +717,20 @@ export default function QuizzesPage() {
                       value={quizName}
                       onChange={(e) => setQuizName(e.target.value)}
                       placeholder="Enter quiz name"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                       autoFocus
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="quizType" className="block text-sm font-semibold text-gray-700 mb-2">
+                    <label htmlFor="quizType" className="block text-sm font-semibold text-black mb-2">
                       Quiz Type <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="quizType"
                       value={quizType}
                       onChange={(e) => setQuizType(e.target.value as QuestionType)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white appearance-none cursor-pointer"
                     >
                       <option value="mixed">Mixed (Any Type)</option>
                       <option value="multiple_choice">Multiple Choice</option>
@@ -730,8 +740,8 @@ export default function QuizzesPage() {
                   </div>
 
                   <div>
-                    <label htmlFor="quizPointsPerQuestion" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Points per question <span className="text-gray-500 text-xs">(Required)</span>
+                    <label htmlFor="quizPointsPerQuestion" className="block text-sm font-semibold text-black mb-2">
+                      Points per question <span className="text-gray-700 text-xs">(Required)</span>
                     </label>
                     <input
                       id="quizPointsPerQuestion"
@@ -740,32 +750,50 @@ export default function QuizzesPage() {
                       value={quizPointsPerQuestion}
                       onChange={(e) => setQuizPointsPerQuestion(e.target.value)}
                       placeholder="10"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                     />
-                    <p className="text-xs text-gray-500 mt-1">
+                    <p className="text-xs text-black mt-1">
                       Used to compute total quiz score (points × number of items).
                     </p>
                   </div>
 
+                  <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
+                    <input
+                      id="quizRevealCorrectAnswers"
+                      type="checkbox"
+                      checked={quizRevealCorrectAnswers}
+                      onChange={(e) => setQuizRevealCorrectAnswers(e.target.checked)}
+                      className="mt-1 h-4 w-4 accent-red-600"
+                    />
+                    <div className="flex-1">
+                      <label htmlFor="quizRevealCorrectAnswers" className="block text-sm font-semibold text-black">
+                        Show correct answers in student results
+                      </label>
+                      <p className="text-xs text-black mt-1">
+                        If unchecked, students will still see whether they were correct, but not the correct answer.
+                      </p>
+                    </div>
+                  </div>
+
                   <div>
-                    <label htmlFor="quizDueDate" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Lock date &amp; time <span className="text-gray-500 text-xs">(Optional)</span>
+                    <label htmlFor="quizDueDate" className="block text-sm font-semibold text-black mb-2">
+                      Lock date &amp; time <span className="text-gray-700 text-xs">(Optional)</span>
                     </label>
                     <input
                       id="quizDueDate"
                       type="datetime-local"
                       value={quizDueDate}
                       onChange={(e) => setQuizDueDate(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                     />
-                    <p className="mt-1 text-xs text-gray-500">
+                    <p className="mt-1 text-xs text-black">
                       After this time, students will no longer be able to start this quiz.
                     </p>
                   </div>
 
                   <div>
-                    <label htmlFor="quizMaxAttempts" className="block text-sm font-semibold text-gray-700 mb-2">
-                      Max takes per student <span className="text-gray-500 text-xs">(Optional)</span>
+                    <label htmlFor="quizMaxAttempts" className="block text-sm font-semibold text-black mb-2">
+                      Max takes per student <span className="text-gray-700 text-xs">(Optional)</span>
                     </label>
                     <input
                       id="quizMaxAttempts"
@@ -774,9 +802,9 @@ export default function QuizzesPage() {
                       value={quizMaxAttempts}
                       onChange={(e) => setQuizMaxAttempts(e.target.value)}
                       placeholder="1"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                     />
-                    <p className="text-xs text-gray-500 mt-1">Set to blank for unlimited attempts.</p>
+                    <p className="text-xs text-black mt-1">Set to blank for unlimited attempts.</p>
                   </div>
                 </div>
 
@@ -803,14 +831,14 @@ export default function QuizzesPage() {
                       {selectedQuestions.map((question, index) => (
                         <div
                           key={question.id}
-                          className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 flex items-start justify-between"
+                          className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start justify-between"
                         >
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">
+                              <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded">
                                 {index + 1}
                               </span>
-                              <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">
+                              <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded">
                                 {question.type.replace("_", " ")}
                               </span>
                             </div>
@@ -852,7 +880,7 @@ export default function QuizzesPage() {
                     {retakeLoading ? (
                       <div className="bg-gray-50 rounded-xl p-4 text-center text-gray-500">
                         <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-indigo-600 border-t-transparent" />
+                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-red-600 border-t-transparent" />
                           <span>Loading retake data…</span>
                         </div>
                       </div>
@@ -970,14 +998,14 @@ export default function QuizzesPage() {
                     <h3 className="text-lg font-bold text-gray-800">Quiz Bank</h3>
                     <button
                       onClick={() => setCreateQuestionModalOpen(true)}
-                      className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+                      className="text-sm text-red-600 hover:text-red-700 font-medium"
                     >
                       + Create
                     </button>
                   </div>
                   <button
                     onClick={handleGenerateQuiz}
-                    className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-2.5 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2"
+                    className="w-full bg-red-600 hover:bg-red-700 text-white text-white py-2.5 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -1000,7 +1028,7 @@ export default function QuizzesPage() {
                       <p>No questions in quiz bank for this type.</p>
                       <button
                         onClick={() => setCreateQuestionModalOpen(true)}
-                        className="mt-4 text-indigo-600 hover:text-indigo-700 font-medium text-sm"
+                        className="mt-4 text-red-600 hover:text-red-700 font-medium text-sm"
                       >
                         Create one now
                       </button>
@@ -1013,13 +1041,13 @@ export default function QuizzesPage() {
                           key={question.id}
                           className={`border rounded-xl p-4 cursor-pointer transition-all ${
                             isSelected
-                              ? "bg-indigo-100 border-indigo-300"
-                              : "bg-white border-gray-200 hover:border-indigo-300 hover:shadow-md"
+                              ? "bg-red-100 border-red-300"
+                              : "bg-white border-gray-200 hover:border-red-300 hover:shadow-md"
                           }`}
                           onClick={() => !isSelected && handleQuestionSelect(question)}
                         >
                           <div className="flex items-center gap-2 mb-2">
-                            <span className="text-xs font-semibold text-indigo-700 bg-indigo-100 px-2 py-1 rounded">
+                            <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded">
                               {question.type.replace("_", " ")}
                             </span>
                             {isSelected && (
@@ -1029,8 +1057,43 @@ export default function QuizzesPage() {
                             )}
                             <button
                               type="button"
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                if (deletingQuestionId) return;
+                                if (!confirm("Delete this question? This cannot be undone.")) return;
+                                try {
+                                  setDeletingQuestionId(question.id);
+                                  await deleteQuestion(question.id);
+                                  setQuizBank((prev) => prev.filter((q) => q.id !== question.id));
+                                  setFilteredBank((prev) => prev.filter((q) => q.id !== question.id));
+                                  setSelectedQuestions((prev) => prev.filter((q) => q.id !== question.id));
+                                  setSuccess("Question deleted.");
+                                  setTimeout(() => setSuccess(""), 2500);
+                                } catch (err: any) {
+                                  console.error("Error deleting question:", err);
+                                  setError(err?.message || "Failed to delete question.");
+                                } finally {
+                                  setDeletingQuestionId(null);
+                                }
+                              }}
+                              className="ml-auto p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                              title="Delete question"
+                              disabled={deletingQuestionId === question.id}
+                            >
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path
+                                  strokeLinecap="round"
+                                  strokeLinejoin="round"
+                                  strokeWidth={2}
+                                  d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                                />
+                              </svg>
+                            </button>
+                            <button
+                              type="button"
                               onClick={(e) => {
                                 e.stopPropagation();
+                                if (deletingQuestionId === question.id) return;
                                 setEditingBankQuestion(question);
                                 setNewQuestion({
                                   type: question.type as QuestionType,
@@ -1058,7 +1121,7 @@ export default function QuizzesPage() {
                                 });
                                 setCreateQuestionModalOpen(true);
                               }}
-                              className="ml-auto p-1.5 rounded-lg text-gray-500 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              className="p-1.5 rounded-lg text-gray-500 hover:text-red-600 hover:bg-red-50 transition-colors"
                               title="Edit question"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1117,7 +1180,7 @@ export default function QuizzesPage() {
                                 e.stopPropagation();
                                 handleQuestionSelect(question);
                               }}
-                              className="mt-3 w-full text-xs bg-indigo-600 text-white py-1.5 px-3 rounded-lg hover:bg-indigo-700 transition-colors"
+                              className="mt-3 w-full text-xs bg-red-600 text-white py-1.5 px-3 rounded-lg hover:bg-red-700 transition-colors"
                             >
                               Add to Quiz
                             </button>
@@ -1142,7 +1205,7 @@ export default function QuizzesPage() {
                 </button>
                 <button
                   onClick={handleCreateQuiz}
-                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                 >
                   {editingQuiz ? "Save changes" : "Create Quiz"}
                 </button>
@@ -1160,7 +1223,7 @@ export default function QuizzesPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold bg-red-600 hover:bg-red-700 text-white bg-clip-text text-transparent">
                   Generate Questions
                 </h2>
                 <button onClick={() => setGenerateModalOpen(false)} className="text-gray-400 hover:text-gray-600">
@@ -1191,8 +1254,8 @@ export default function QuizzesPage() {
               </div>
 
               {generatingQuestions && (
-                <div className="mb-4 p-4 rounded-xl bg-indigo-50 border border-indigo-200 flex items-center gap-3">
-                  <svg className="animate-spin h-5 w-5 text-indigo-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
+                <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 flex items-center gap-3">
+                  <svg className="animate-spin h-5 w-5 text-red-600 shrink-0" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" aria-hidden="true">
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
@@ -1220,12 +1283,12 @@ export default function QuizzesPage() {
                         key={lesson.id}
                         onClick={() => !generatingQuestions && handleGenerateFromSource(lesson.id, "lesson")}
                         disabled={generatingQuestions}
-                        className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-indigo-300 hover:bg-indigo-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-gray-200"
+                        className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-gray-200"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-semibold text-gray-800">{lesson.title}</div>
                           {isGenerating && (
-                            <span className="shrink-0 flex items-center gap-1.5 text-indigo-600 text-sm font-medium">
+                            <span className="shrink-0 flex items-center gap-1.5 text-red-600 text-sm font-medium">
                               <svg className="animate-spin h-4 w-4" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
                                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
@@ -1257,7 +1320,7 @@ export default function QuizzesPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold text-black">
                   {editingBankQuestion ? "Edit Question" : "Create New Question"}
                 </h2>
                 <button onClick={() => setCreateQuestionModalOpen(false)} className="text-gray-400 hover:text-gray-600">
@@ -1275,13 +1338,13 @@ export default function QuizzesPage() {
                 className="space-y-4"
               >
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Question Type</label>
+                  <label className="block text-sm font-semibold text-black mb-2">Question Type</label>
                   <select
                     value={newQuestion.type}
                     onChange={(e) =>
                       setNewQuestion({ ...newQuestion, type: e.target.value as QuestionType })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                   >
                     <option value="multiple_choice">Multiple Choice</option>
                     <option value="true_false">True or False</option>
@@ -1290,24 +1353,24 @@ export default function QuizzesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700 mb-2">Question <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-black mb-2">Question <span className="text-red-500">*</span></label>
                   <textarea
                     value={newQuestion.question}
                     onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
                     placeholder="Enter your question"
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white resize-none"
                   />
                 </div>
 
                 {newQuestion.type === "multiple_choice" && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Options</label>
+                    <label className="block text-sm font-semibold text-black mb-2">Options</label>
                     <div className="space-y-2">
                       {newQuestion.options.map((opt, idx) => (
                         <div key={idx} className="flex items-center gap-2">
-                          <span className="w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 flex items-center justify-center text-xs font-semibold">
-                            {String.fromCharCode(65 + idx)}
+                          <span className="text-sm font-semibold text-red-700">
+                            {String.fromCharCode(65 + idx)}.
                           </span>
                           <input
                             type="text"
@@ -1318,7 +1381,7 @@ export default function QuizzesPage() {
                               setNewQuestion({ ...newQuestion, options: newOptions });
                             }}
                             placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                           />
                           <button
                             type="button"
@@ -1341,13 +1404,13 @@ export default function QuizzesPage() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-gray-500 mt-2">Click the checkmark to mark the correct answer</p>
+                    <p className="text-xs text-black mt-2">Click the checkmark to mark the correct answer</p>
                   </div>
                 )}
 
                 {newQuestion.type === "true_false" && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Correct Answer</label>
+                    <label className="block text-sm font-semibold text-black mb-2">Correct Answer</label>
                     <div className="flex gap-3">
                       <button
                         type="button"
@@ -1377,13 +1440,13 @@ export default function QuizzesPage() {
 
                 {newQuestion.type === "fill_blank" && (
                   <div>
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">Correct Answer</label>
+                    <label className="block text-sm font-semibold text-black mb-2">Correct Answer</label>
                     <input
                       type="text"
                       value={newQuestion.fillBlankAnswer}
                       onChange={(e) => setNewQuestion({ ...newQuestion, fillBlankAnswer: e.target.value })}
                       placeholder="Enter the correct answer"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                     />
                   </div>
                 )}
@@ -1420,7 +1483,7 @@ export default function QuizzesPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                   >
                     {editingBankQuestion ? "Save changes" : "Create & Add to Quiz"}
                   </button>
