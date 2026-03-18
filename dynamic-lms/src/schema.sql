@@ -36,7 +36,7 @@ CREATE TABLE public.courses (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   name TEXT NOT NULL,
   code TEXT NOT NULL,
-  classroom_code TEXT UNIQUE NOT NULL,
+  -- Invite codes removed (no classroom_code).
   professor_id UUID REFERENCES public.professors(id) ON DELETE SET NULL,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );

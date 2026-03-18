@@ -80,8 +80,8 @@ function EditStudyQuestionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
-          <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">
+          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           Question text
@@ -89,19 +89,19 @@ function EditStudyQuestionForm({
         <textarea
           value={questionText}
           onChange={(e) => setQuestionText(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm min-h-[88px] focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 transition-shadow"
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm min-h-[88px] text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-shadow bg-white"
           placeholder="Enter the question..."
           required
         />
       </div>
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Question type</label>
+        <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Question type</label>
           <select
             value={type}
             onChange={(e) =>
               setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank" | "summary")
             }
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
           >
             <option value="multiple_choice">Multiple choice</option>
             <option value="true_false">Flashcard</option>
@@ -112,12 +112,12 @@ function EditStudyQuestionForm({
       {type === "multiple_choice" && (
         <>
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Answer options</label>
+            <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Answer options</label>
             <div className="space-y-2">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-indigo-100 text-indigo-700 text-xs font-bold">
-                    {String.fromCharCode(65 + i)}
+                  <span className="text-sm font-semibold text-red-700">
+                    {String.fromCharCode(65 + i)}.
                   </span>
                   <input
                     value={options[i] ?? ""}
@@ -128,7 +128,7 @@ function EditStudyQuestionForm({
                         return next;
                       })
                     }
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                     placeholder={`Option ${String.fromCharCode(65 + i)}`}
                   />
                 </div>
@@ -136,11 +136,11 @@ function EditStudyQuestionForm({
             </div>
           </div>
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
-            <select
+            <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Correct answer</label>
+          <select
               value={correctAnswerMc}
               onChange={(e) => setCorrectAnswerMc(parseInt(e.target.value, 10))}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
             >
               {options.map((opt, i) => (
                 <option key={i} value={i}>
@@ -153,7 +153,7 @@ function EditStudyQuestionForm({
       )}
       {type === "true_false" && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
+          <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Correct answer</label>
           <div className="flex gap-3">
             <button
               type="button"
@@ -178,12 +178,12 @@ function EditStudyQuestionForm({
       )}
       {type === "fill_blank" && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
+          <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Correct answer</label>
           <input
             type="text"
             value={correctAnswerFill}
             onChange={(e) => setCorrectAnswerFill(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
             placeholder="Answer that fills the blank"
           />
         </div>
@@ -192,7 +192,7 @@ function EditStudyQuestionForm({
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-indigo-600 to-purple-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:from-indigo-700 hover:to-purple-700 disabled:opacity-50 transition-all"
+          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-all"
         >
           {saving ? (
             <>
@@ -492,12 +492,12 @@ export default function ContentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <div className="min-h-screen bg-white">
         <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
           </div>
         </main>
       </div>
@@ -507,7 +507,7 @@ export default function ContentPage() {
   const totalLessons = lessons.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-white">
       {/* Professor Navbar */}
       <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
@@ -525,7 +525,7 @@ export default function ContentPage() {
         <div className="mb-8">
           <Link
             href="/prof/courses"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-red-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -539,7 +539,7 @@ export default function ContentPage() {
           </Link>
           <div className="flex items-center justify-between">
             <div>
-              <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <h1 className="text-4xl font-bold text-red-700 mb-2">
                 Course Content
               </h1>
               <p className="text-gray-600">
@@ -548,7 +548,7 @@ export default function ContentPage() {
             </div>
             <button
               onClick={() => setAddLessonModalOpen(true)}
-              className="flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -567,8 +567,8 @@ export default function ContentPage() {
         {totalLessons === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -581,7 +581,7 @@ export default function ContentPage() {
               <p className="text-gray-600 mb-6">Add your first lesson to get started</p>
               <button
                 onClick={() => setAddLessonModalOpen(true)}
-                className="inline-flex items-center gap-2 bg-gradient-to-r from-indigo-600 to-purple-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -606,7 +606,7 @@ export default function ContentPage() {
                   {/* Category Header */}
                   <div className="mb-4 flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
-                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
+                    <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
                       {categoryLessons.length} lesson{categoryLessons.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -620,8 +620,8 @@ export default function ContentPage() {
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex items-start gap-4 flex-1">
-                            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-xl flex items-center justify-center">
-                              <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <div className="flex-shrink-0 w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+                              <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
                                   strokeLinejoin="round"
@@ -638,7 +638,7 @@ export default function ContentPage() {
                               <div className="flex items-center gap-4 text-sm text-gray-500">
                                 {lesson.pdfFileName && (
                                   <div className="flex items-center gap-2">
-                                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -682,7 +682,7 @@ export default function ContentPage() {
                                     setStudyAidLoading(false);
                                   }
                                 }}
-                                className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                                 title="Manage study aid questions"
                               >
                                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -693,7 +693,7 @@ export default function ContentPage() {
                             <button
                               type="button"
                               onClick={() => openEditLessonModal(lesson)}
-                              className="p-2 text-gray-600 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
                               title="Edit lesson"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -763,7 +763,7 @@ export default function ContentPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal header with gradient */}
-            <div className="bg-gradient-to-r from-indigo-600 via-purple-600 to-indigo-700 px-6 py-5 text-white">
+            <div className="bg-red-600 hover:bg-red-700 text-white px-6 py-5 text-white">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-3">
                   <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
@@ -773,7 +773,7 @@ export default function ContentPage() {
                   </div>
                   <div>
                     <h2 className="text-xl font-bold">Study aid</h2>
-                    <p className="text-indigo-100 text-sm mt-0.5">{studyAidLesson.title}</p>
+                    <p className="text-red-100 text-sm mt-0.5">{studyAidLesson.title}</p>
                   </div>
                 </div>
                 <button
@@ -810,14 +810,14 @@ export default function ContentPage() {
               {/* Current study aid — card */}
               <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
                   </div>
                   <h3 className="font-semibold text-gray-800">Your study aid questions</h3>
                   {studyAidQuestions.length > 0 && (
-                    <span className="ml-auto text-sm font-medium text-indigo-600 bg-indigo-100 px-2.5 py-0.5 rounded-full">
+                    <span className="ml-auto text-sm font-medium text-red-600 bg-red-100 px-2.5 py-0.5 rounded-full">
                       {studyAidQuestions.length} question{studyAidQuestions.length !== 1 ? "s" : ""}
                     </span>
                   )}
@@ -825,7 +825,7 @@ export default function ContentPage() {
                 <div className="p-5">
                   {studyAidLoading ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
-                      <svg className="animate-spin w-5 h-5 text-indigo-600" fill="none" viewBox="0 0 24 24">
+                      <svg className="animate-spin w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                       </svg>
@@ -846,7 +846,7 @@ export default function ContentPage() {
                       {studyAidQuestions.map((q) => (
                         <li
                           key={q.id}
-                          className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-indigo-200 hover:shadow-sm transition-all"
+                          className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-red-200 hover:shadow-sm transition-all"
                         >
                           <span className="flex-1 text-sm text-gray-800 line-clamp-2 pr-2">{q.question}</span>
                           <span className="flex-shrink-0 text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
@@ -862,7 +862,7 @@ export default function ContentPage() {
                             <button
                               type="button"
                               onClick={() => setEditingStudyQuestion(q)}
-                              className="p-2 rounded-lg text-indigo-600 hover:bg-indigo-50 transition-colors"
+                              className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                               title="Edit"
                             >
                               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -894,9 +894,9 @@ export default function ContentPage() {
                   )}
 
                   {editingStudyQuestion && studyAidLesson && (
-                    <div className="mt-5 rounded-2xl border-2 border-indigo-200 bg-white p-5 shadow-sm">
+                    <div className="mt-5 rounded-2xl border-2 border-red-200 bg-white p-5 shadow-sm">
                       <h4 className="flex items-center gap-2 font-semibold text-gray-800 mb-4">
-                        <svg className="w-5 h-5 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                         </svg>
                         Edit question
@@ -936,8 +936,8 @@ export default function ContentPage() {
               {/* Generate with AI — card */}
               <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
                 <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                   </div>
@@ -946,7 +946,7 @@ export default function ContentPage() {
                 <div className="p-5 space-y-4">
                   <div className="flex flex-wrap gap-4 items-end">
                     <div className="flex-1 min-w-[140px]">
-                      <label className="block text-xs font-medium text-gray-500 mb-1.5">Question type</label>
+                      <label className="block text-xs font-medium text-gray-900 mb-1.5">Question type</label>
                       <select
                         value={studyAidGenerateType}
                         onChange={(e) => {
@@ -954,7 +954,7 @@ export default function ContentPage() {
                           if (e.target.value === "summary") setStudyAidGenerateCount(1);
                           if (e.target.value === "fill_blank") setStudyAidGenerateCount(5);
                         }}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 bg-white"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                       >
                         <option value="summary">Summary (1 per lesson)</option>
                         <option value="flashcard">Flashcard</option>
@@ -964,21 +964,21 @@ export default function ContentPage() {
                     </div>
                     {studyAidGenerateType !== "summary" && (
                       <div className="w-24">
-                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
+                        <label className="block text-xs font-medium text-gray-900 mb-1.5">Count</label>
                         <input
                           type="number"
                           min={1}
                           max={10}
                           value={studyAidGenerateCount}
                           onChange={(e) => setStudyAidGenerateCount(parseInt(e.target.value, 10) || 5)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                         />
                       </div>
                     )}
                     {studyAidGenerateType === "summary" && (
                       <div className="w-24">
-                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
-                        <div className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-gray-50 text-gray-500">
+                        <label className="block text-xs font-medium text-gray-900 mb-1.5">Count</label>
+                        <div className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-gray-50 text-gray-900">
                           1 (Summary only)
                         </div>
                       </div>
@@ -1049,7 +1049,7 @@ export default function ContentPage() {
                           setStudyAidGenerating(false);
                         }
                       }}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-purple-600 to-indigo-600 text-white text-sm font-semibold rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all"
+                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-white text-sm font-semibold rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all"
                     >
                       {studyAidGenerating ? (
                         <>
@@ -1081,7 +1081,7 @@ export default function ContentPage() {
                           <li
                             key={idx}
                             className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                              selectedGenerated.has(idx) ? "bg-indigo-50/80" : "hover:bg-gray-50"
+                              selectedGenerated.has(idx) ? "bg-red-50/80" : "hover:bg-gray-50"
                             }`}
                             onClick={() => {
                               setSelectedGenerated((prev) => {
@@ -1096,7 +1096,7 @@ export default function ContentPage() {
                               type="checkbox"
                               checked={selectedGenerated.has(idx)}
                               onChange={() => {}}
-                              className="mt-1 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                              className="mt-1 rounded border-gray-300 text-red-600 focus:ring-red-500"
                             />
                             <span className="text-sm text-gray-800 flex-1">{q.question}</span>
                           </li>
@@ -1197,7 +1197,7 @@ export default function ContentPage() {
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                <h2 className="text-2xl font-bold text-black">
                   Add New Lesson
                 </h2>
                 <button
@@ -1218,7 +1218,7 @@ export default function ContentPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Lesson Name */}
                 <div>
-                  <label htmlFor="lessonName" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label htmlFor="lessonName" className="block text-sm font-semibold text-black mb-2">
                     Lesson Name
                   </label>
                   <div className="relative">
@@ -1238,7 +1238,7 @@ export default function ContentPage() {
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Enter lesson name"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                       autoFocus
                     />
                   </div>
@@ -1246,7 +1246,7 @@ export default function ContentPage() {
 
                 {/* Category */}
                 <div>
-                  <label htmlFor="category" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label htmlFor="category" className="block text-sm font-semibold text-black mb-2">
                     Category
                   </label>
                   <div className="relative">
@@ -1266,7 +1266,7 @@ export default function ContentPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, category: e.target.value as "prelim" | "midterm" | "finals" })
                       }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white appearance-none cursor-pointer"
                     >
                       <option value="prelim">Prelim</option>
                       <option value="midterm">Midterm</option>
@@ -1287,7 +1287,7 @@ export default function ContentPage() {
 
                 {/* PDF Upload */}
                 <div>
-                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-black mb-2">
                     PDF File
                   </label>
                   <div className="relative">
@@ -1296,12 +1296,12 @@ export default function ContentPage() {
                       type="file"
                       accept="application/pdf"
                       onChange={handleFileChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                     />
                   </div>
                   {formData.pdfFile && (
-                    <p className="mt-2 text-sm text-gray-600 flex items-center gap-2">
-                      <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <p className="mt-2 text-sm text-black flex items-center gap-2">
+                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
                           strokeLinejoin="round"
@@ -1312,7 +1312,7 @@ export default function ContentPage() {
                       {formData.pdfFile.name}
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-gray-500">Upload a PDF file for this lesson</p>
+                  <p className="mt-1 text-xs text-black">Upload a PDF file for this lesson</p>
                 </div>
 
                 {/* Error Message */}
@@ -1367,7 +1367,7 @@ export default function ContentPage() {
                   <button
                     type="submit"
                     disabled={creatingLesson}
-                    className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     {creatingLesson ? "Adding..." : "Add Lesson"}
                   </button>
@@ -1389,7 +1389,7 @@ export default function ContentPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <h2 className="text-2xl font-bold text-black">
                 Edit Lesson
               </h2>
               <button
@@ -1404,7 +1404,7 @@ export default function ContentPage() {
 
             <form onSubmit={handleUpdateLesson} className="space-y-4">
               <div>
-                <label htmlFor="editLessonName" className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="editLessonName" className="block text-sm font-semibold text-black mb-2">
                   Lesson Name
                 </label>
                 <input
@@ -1412,13 +1412,13 @@ export default function ContentPage() {
                   type="text"
                   value={editLessonForm.title}
                   onChange={(e) => setEditLessonForm((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-gray-700 mb-2">
+                <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-black mb-2">
                   Category
                 </label>
                 <select
@@ -1427,7 +1427,7 @@ export default function ContentPage() {
                   onChange={(e) =>
                     setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
                 >
                   <option value="prelim">Prelim</option>
                   <option value="midterm">Midterm</option>
@@ -1436,18 +1436,18 @@ export default function ContentPage() {
               </div>
 
               <div>
-                <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Replace PDF <span className="text-gray-500 text-xs">(Optional)</span>
+                <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-black mb-2">
+                  Replace PDF <span className="text-gray-700 text-xs">(Optional)</span>
                 </label>
                 <input
                   id="editLessonPdf"
                   type="file"
                   accept="application/pdf"
                   onChange={handleEditLessonFileChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                 />
                 {editingLesson.pdfFileName && (
-                  <p className="mt-2 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-black">
                     Current PDF: <span className="font-medium">{editingLesson.pdfFileName}</span>
                   </p>
                 )}
@@ -1470,7 +1470,7 @@ export default function ContentPage() {
                 <button
                   type="submit"
                   disabled={updatingLesson}
-                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updatingLesson ? "Saving..." : "Save changes"}
                 </button>

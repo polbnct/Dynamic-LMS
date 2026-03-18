@@ -216,7 +216,7 @@ export default function SignupPage() {
                 />
               </svg>
             </div>
-            <h1 className="text-3xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold bg-red-600 hover:bg-red-700 text-white bg-clip-text text-transparent mb-2">
               Create Account
             </h1>
             <p className="text-gray-500 text-sm">Join our learning community today</p>
@@ -434,7 +434,7 @@ export default function SignupPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300 mt-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-300 mt-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {loading ? "Creating account..." : "Create Account"}
             </button>
@@ -450,7 +450,7 @@ export default function SignupPage() {
           {/* Sign in link */}
           <p className="text-center text-sm text-gray-600">
             Already have an account?{" "}
-            <Link href="/login" className="font-semibold text-indigo-600 hover:text-indigo-700 transition-colors">
+            <Link href="/login" className="font-semibold text-red-600 hover:text-red-700 transition-colors">
               Sign in
             </Link>
           </p>

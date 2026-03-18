@@ -169,10 +169,10 @@ export default function QuizMonitoringModal({
       >
         <div className="flex items-center justify-between p-6 border-b border-gray-200">
           <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+            <h2 className="text-2xl font-bold text-black">
               Quiz attempts & activity logs
             </h2>
-            <p className="text-gray-600 text-sm mt-1">{quizName}</p>
+            <p className="text-black text-sm mt-1">{quizName}</p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -184,7 +184,7 @@ export default function QuizMonitoringModal({
         <div className="flex-1 overflow-y-auto p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
             </div>
           ) : studentGroups.length === 0 ? (
             <div className="text-center py-12">
@@ -205,7 +205,7 @@ export default function QuizMonitoringModal({
                       className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100/80 transition-colors"
                     >
                       <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700">
+                        <div className="p-2 rounded-lg bg-red-100 text-red-700">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
@@ -355,18 +355,18 @@ export default function QuizMonitoringModal({
             <div className="flex-1 overflow-y-auto p-6">
               {resultsLoading ? (
                 <div className="flex items-center justify-center py-10">
-                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
                 </div>
               ) : !resultsData ? (
                 <p className="text-gray-600">No results found for this attempt.</p>
               ) : (
                 <div className="space-y-5">
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                  <div className="bg-red-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
                     <div className="text-sm text-gray-700">
                       <span className="font-semibold">Score:</span>{" "}
                       {resultsData.attempt.score ?? 0}/{resultsData.attempt.max_score ?? 0}
                     </div>
-                    <div className="text-sm font-semibold text-indigo-700">
+                    <div className="text-sm font-semibold text-red-700">
                       {resultsData.attempt.max_score
                         ? `${Math.round(((resultsData.attempt.score ?? 0) / resultsData.attempt.max_score) * 100)}%`
                         : ""}
