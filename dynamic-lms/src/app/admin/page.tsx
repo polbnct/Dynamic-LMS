@@ -772,9 +772,6 @@ export default function AdminDashboardPage() {
                     className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-mono outline-none focus:border-red-400 focus:bg-white"
                   />
                 </div>
-                <div className="rounded-2xl border border-rose-100 bg-rose-50 px-4 py-3 text-sm text-gray-600 flex items-center">
-                  Invite codes are disabled.
-                </div>
               </div>
 
               <div>
