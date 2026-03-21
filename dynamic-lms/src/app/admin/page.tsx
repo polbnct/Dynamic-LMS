@@ -8,7 +8,6 @@ type AdminCourse = {
   id: string;
   name: string;
   code: string;
-  classroom_code: string;
   professor_id: string | null;
   professorName: string | null;
   created_at: string;
@@ -92,7 +91,6 @@ export default function AdminDashboardPage() {
   const [createCourseForm, setCreateCourseForm] = useState({
     name: "",
     code: "",
-    classroom_code: "",
     professor_id: "",
   });
 
@@ -104,8 +102,117 @@ export default function AdminDashboardPage() {
   const [editCourseForm, setEditCourseForm] = useState({ name: "", code: "" });
   const [savingCourse, setSavingCourse] = useState(false);
 
+  const [manageAccountOpen, setManageAccountOpen] = useState(false);
+  const [manageAccountUser, setManageAccountUser] = useState<{
+    userId: string;
+    name: string;
+    email: string;
+    kind: "professor" | "student";
+  } | null>(null);
+  const [manageName, setManageName] = useState("");
+  const [manageEmail, setManageEmail] = useState("");
+  const [managePassword, setManagePassword] = useState("");
+  const [managePasswordConfirm, setManagePasswordConfirm] = useState("");
+  const [manageAccountSaving, setManageAccountSaving] = useState(false);
+  const [manageAccountError, setManageAccountError] = useState("");
+  const [manageAccountSuccess, setManageAccountSuccess] = useState("");
+
   const professorOptions = useMemo(() => professors.slice().sort((a, b) => a.name.localeCompare(b.name)), [professors]);
   const studentOptions = useMemo(() => students.slice().sort((a, b) => a.name.localeCompare(b.name)), [students]);
+
+  const openManageAccount = (u: { userId: string; name: string; email: string; kind: "professor" | "student" }) => {
+    setManageAccountUser(u);
+    setManageName(u.name || "");
+    setManageEmail(u.email || "");
+    setManagePassword("");
+    setManagePasswordConfirm("");
+    setManageAccountError("");
+    setManageAccountSuccess("");
+    setManageAccountOpen(true);
+  };
+
+  const closeManageAccount = () => {
+    if (manageAccountSaving) return;
+    setManageAccountOpen(false);
+    setManageAccountUser(null);
+    setManageName("");
+    setManageEmail("");
+    setManagePassword("");
+    setManagePasswordConfirm("");
+    setManageAccountError("");
+    setManageAccountSuccess("");
+  };
+
+  const handleAdminManageAccountSave = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!manageAccountUser || manageAccountSaving) return;
+    setManageAccountError("");
+    setManageAccountSuccess("");
+
+    const name = manageName.trim();
+    const email = manageEmail.trim().toLowerCase().replace(/\s+/g, "");
+    if (!name) {
+      setManageAccountError("Name is required.");
+      return;
+    }
+    if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+      setManageAccountError("Please enter a valid email address.");
+      return;
+    }
+
+    const password = managePassword;
+    const wantsPasswordChange = password.trim().length > 0;
+    if (wantsPasswordChange) {
+      if (password.trim().length < 8) {
+        setManageAccountError("Password must be at least 8 characters long.");
+        return;
+      }
+      if (password !== managePasswordConfirm) {
+        setManageAccountError("Passwords do not match.");
+        return;
+      }
+    }
+
+    setManageAccountSaving(true);
+    try {
+      // Update Auth user + public.users profile (name/email).
+      await fetchJson<{ ok: true; user: { id: string; name: string; email: string } }>(
+        `/api/admin/users/${encodeURIComponent(manageAccountUser.userId)}`,
+        {
+          method: "PATCH",
+          body: JSON.stringify({ name, email }),
+        }
+      );
+
+      // Optional: update password.
+      if (wantsPasswordChange) {
+        await fetchJson<{ ok: true }>(
+          `/api/admin/users/${encodeURIComponent(manageAccountUser.userId)}/password`,
+          {
+            method: "PATCH",
+            body: JSON.stringify({ password }),
+          }
+        );
+      }
+
+      // Update local UI lists to reflect changes immediately.
+      setProfessors((prev) =>
+        prev.map((p) => (p.user_id === manageAccountUser.userId ? { ...p, name, email } : p))
+      );
+      setStudents((prev) =>
+        prev.map((s) => (s.user_id === manageAccountUser.userId ? { ...s, name, email } : s))
+      );
+
+      setManageAccountUser((prev) => (prev ? { ...prev, name, email } : prev));
+      setManageAccountSuccess(wantsPasswordChange ? "Account updated (name, email, password)." : "Account updated (name, email).");
+      setManagePassword("");
+      setManagePasswordConfirm("");
+    } catch (e: any) {
+      setManageAccountError(e?.message || "Failed to update account.");
+    } finally {
+      setManageAccountSaving(false);
+    }
+  };
 
   const refreshAll = async () => {
     setLoading(true);
@@ -136,7 +243,6 @@ export default function AdminDashboardPage() {
     setCreateCourseForm({
       name: "",
       code: generateCourseCode(),
-      classroom_code: generateInviteCode(),
       professor_id: "",
     });
     setCreateCourseOpen(true);
@@ -159,10 +265,6 @@ export default function AdminDashboardPage() {
       setError("Course code is required.");
       return;
     }
-    if (!createCourseForm.classroom_code.trim()) {
-      setError("Invite code is required.");
-      return;
-    }
 
     setCreatingCourse(true);
     try {
@@ -171,7 +273,6 @@ export default function AdminDashboardPage() {
         body: JSON.stringify({
           name: createCourseForm.name.trim(),
           code: createCourseForm.code.trim(),
-          classroom_code: createCourseForm.classroom_code.trim(),
           professor_id: createCourseForm.professor_id.trim() || null,
         }),
       });
@@ -407,7 +508,7 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50 text-gray-900">
+    <div className="min-h-screen bg-white text-gray-900">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
@@ -544,6 +645,20 @@ export default function AdminDashboardPage() {
                     <div className="flex items-center gap-3">
                       <button
                         type="button"
+                        onClick={() =>
+                          openManageAccount({
+                            userId: p.user_id,
+                            name: p.name,
+                            email: p.email,
+                            kind: "professor",
+                          })
+                        }
+                        className="text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50"
+                      >
+                        Manage account
+                      </button>
+                      <button
+                        type="button"
                         disabled={deletingProfessorId === p.id}
                         onClick={() => handleDeleteProfessor(p.id)}
                         className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
@@ -574,6 +689,20 @@ export default function AdminDashboardPage() {
                       <div className="text-xs text-gray-500 font-mono">
                         {s.student_id}
                       </div>
+                      <button
+                        type="button"
+                        onClick={() =>
+                          openManageAccount({
+                            userId: s.user_id,
+                            name: s.name,
+                            email: s.email,
+                            kind: "student",
+                          })
+                        }
+                        className="text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50"
+                      >
+                        Manage account
+                      </button>
                       <button
                         type="button"
                         disabled={deletingStudentId === s.id}
@@ -686,6 +815,122 @@ export default function AdminDashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Manage account modal */}
+      {manageAccountOpen && manageAccountUser && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          onClick={closeManageAccount}
+        >
+          <div
+            className="w-full max-w-lg rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <div className="text-xl font-black text-gray-900">Manage account</div>
+                  <div className="mt-1 text-sm text-gray-600">
+                    {manageAccountUser.kind === "professor" ? "Professor" : "Student"}:{" "}
+                    <span className="font-semibold text-gray-900">{manageAccountUser.name}</span>{" "}
+                    <span className="text-gray-500">({manageAccountUser.email})</span>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={closeManageAccount}
+                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-4">
+              {manageAccountError && (
+                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {manageAccountError}
+                </div>
+              )}
+              {manageAccountSuccess && (
+                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
+                  {manageAccountSuccess}
+                </div>
+              )}
+
+              <form onSubmit={handleAdminManageAccountSave} className="space-y-4">
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700">Name</label>
+                  <input
+                    type="text"
+                    value={manageName}
+                    onChange={(e) => setManageName(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    placeholder="Full name"
+                    autoComplete="name"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700">Email</label>
+                  <input
+                    type="email"
+                    value={manageEmail}
+                    onChange={(e) => setManageEmail(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    placeholder="Email address"
+                    autoComplete="email"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700">New password</label>
+                  <input
+                    type="password"
+                    value={managePassword}
+                    onChange={(e) => setManagePassword(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    placeholder="At least 8 characters"
+                    autoComplete="new-password"
+                  />
+                  <p className="mt-1 text-xs text-gray-500">Leave blank to keep the current password.</p>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-700">Confirm password</label>
+                  <input
+                    type="password"
+                    value={managePasswordConfirm}
+                    onChange={(e) => setManagePasswordConfirm(e.target.value)}
+                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    placeholder="Re-enter password"
+                    autoComplete="new-password"
+                    disabled={!managePassword}
+                    aria-disabled={!managePassword}
+                  />
+                </div>
+
+                <div className="flex items-center justify-end gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeManageAccount}
+                    className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={manageAccountSaving}
+                    className="rounded-2xl bg-red-600 hover:bg-red-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    {manageAccountSaving ? "Saving…" : "Update password"}
+                  </button>
+                </div>
+              </form>
+            </div>
           </div>
         </div>
       )}

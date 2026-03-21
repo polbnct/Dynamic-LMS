@@ -36,7 +36,7 @@ export default function StudentJoinCoursePage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-rose-50 via-white to-red-50">
+    <div className="min-h-screen bg-white">
       <StudentNavbar currentPage="courses" />
       <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-8">

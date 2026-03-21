@@ -34,7 +34,7 @@ export async function PATCH(
       .from("courses")
       .update(payload)
       .eq("id", courseId)
-      .select("id, name, code, classroom_code, professor_id, created_at")
+      .select("id, name, code, professor_id, created_at")
       .single();
 
     if (error) return jsonError(error.message, 500);

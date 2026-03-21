@@ -116,7 +116,6 @@ export default function ProfessorDashboard() {
                             {course.name}
                           </h3>
                           <p className="text-sm text-gray-500 mt-1">{course.code}</p>
-                          <p className="text-xs text-gray-400 mt-1">Invite code: {course.classroom_code}</p>
                         </div>
                         <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                           <svg

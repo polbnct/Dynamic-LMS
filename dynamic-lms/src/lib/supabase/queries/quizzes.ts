@@ -336,9 +336,13 @@ export async function createQuiz(
       quizData.points_per_question != null && !Number.isNaN(quizData.points_per_question)
         ? Number(quizData.points_per_question)
         : 10,
-    // Default to hidden so correct answers aren't always visible in results.
-    reveal_correct_answers: Boolean(quizData.reveal_correct_answers),
   };
+
+  // Only include the reveal setting if the caller explicitly provided it.
+  // This prevents runtime failures if the DB migration hasn't been applied yet.
+  if (quizData.reveal_correct_answers !== undefined) {
+    insertData.reveal_correct_answers = Boolean(quizData.reveal_correct_answers);
+  }
 
   // Only set type if it's not "mixed" (mixed quizzes have null type)
   if (quizData.type !== "mixed") {

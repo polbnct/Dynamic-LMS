@@ -33,6 +33,12 @@ export async function DELETE(
     const { error: authErr } = await admin.auth.admin.deleteUser(userId);
     if (authErr) return jsonError(authErr.message, 500);
 
+    // Verify deletion so we don't report success when auth user still exists.
+    const { data: verifyUser, error: verifyErr } = await admin.auth.admin.getUserById(userId);
+    if (!verifyErr && verifyUser) {
+      return jsonError("Auth user deletion did not complete (user still exists).", 500);
+    }
+
     return NextResponse.json({ ok: true }, { status: 200 });
   } catch (e: any) {
     return jsonError(e?.message || "Unauthorized", e?.message === "Not authenticated" ? 401 : 403);

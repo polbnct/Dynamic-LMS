@@ -1,6 +1,8 @@
 "use client";
 
 import React from "react";
+import { useRouter } from "next/navigation";
+import { createClient } from "@/lib/supabase/client";
 
 const COURSES = [
   {
@@ -11,6 +13,17 @@ const COURSES = [
 ];
 
 export default function ProfDashboard() {
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+    } finally {
+      router.push("/login");
+    }
+  };
+
   return (
     <div className="min-h-screen bg-red-50">
       {/* Navbar (horizontal, matches prof/page.tsx) */}
@@ -21,7 +34,7 @@ export default function ProfDashboard() {
           <a href="#" className="hover:text-red-800">Students</a>
           <a href="#" className="hover:text-red-800">Profile</a>
         </div>
-        <button className="text-red-600 font-semibold hover:text-red-800">Logout</button>
+        <button onClick={handleLogout} className="text-red-600 font-semibold hover:text-red-800">Logout</button>
       </nav>
       {/* Main */}
       <main className="px-12 py-10">
