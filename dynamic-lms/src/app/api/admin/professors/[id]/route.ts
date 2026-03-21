@@ -25,7 +25,8 @@ export async function DELETE(
       .eq("id", id)
       .maybeSingle();
     if (profErr) return jsonError(profErr.message, 500);
-    if (!professor?.user_id) return jsonError("Professor not found", 404);
+    // Make delete idempotent: if it's already gone, treat as success.
+    if (!professor?.user_id) return NextResponse.json({ ok: true }, { status: 200 });
 
     const userId = (professor as any).user_id as string;
 
