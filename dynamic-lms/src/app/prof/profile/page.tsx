@@ -204,12 +204,12 @@ export default function ProfProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       <ProfessorNavbar currentPage="profile" handledCourses={handledCourses} />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Profile Settings
           </h1>
           <p className="text-gray-600">Manage your account information</p>
@@ -228,10 +228,10 @@ export default function ProfProfile() {
 
         {loading ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8 flex items-center justify-center min-h-[200px]">
-            <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+            <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
           </div>
         ) : editing ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
             <h2 className="text-2xl font-bold text-gray-800 mb-6">Edit Profile</h2>
             <form onSubmit={handleSave} className="space-y-6">
               <div>
@@ -241,7 +241,7 @@ export default function ProfProfile() {
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   required
                 />
               </div>
@@ -252,11 +252,11 @@ export default function ProfProfile() {
                   type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   required
                 />
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
                   onClick={cancelEditing}
@@ -267,7 +267,7 @@ export default function ProfProfile() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                  className="px-4 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50"
                 >
                   {saving ? "Saving…" : "Save changes"}
                 </button>
@@ -276,13 +276,13 @@ export default function ProfProfile() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-              <div className="flex items-center justify-between mb-6">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
                 <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
                 <button
                   type="button"
                   onClick={startEditing}
-                  className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -303,7 +303,7 @@ export default function ProfProfile() {
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Change Password</h2>
 
               {passwordError && (
@@ -327,7 +327,7 @@ export default function ProfProfile() {
                     type="password"
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     autoComplete="current-password"
                   />
                 </div>
@@ -340,7 +340,7 @@ export default function ProfProfile() {
                     type="password"
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     autoComplete="new-password"
                   />
                 </div>
@@ -353,7 +353,7 @@ export default function ProfProfile() {
                     type="password"
                     value={passwordForm.confirmNewPassword}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, confirmNewPassword: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     autoComplete="new-password"
                   />
                 </div>
@@ -361,7 +361,7 @@ export default function ProfProfile() {
                 <button
                   type="submit"
                   disabled={passwordSaving}
-                  className="w-full px-4 py-2.5 bg-indigo-600 text-white rounded-xl font-semibold hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {passwordSaving ? "Updating..." : "Update password"}
                 </button>

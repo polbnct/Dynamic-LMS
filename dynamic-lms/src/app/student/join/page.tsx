@@ -40,7 +40,7 @@ export default function StudentJoinCoursePage() {
       <StudentNavbar currentPage="courses" />
       <main className="max-w-md mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-8">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-2">
+          <h1 className="text-2xl font-bold text-gray-900 mb-2">
             Join a course
           </h1>
           <p className="text-gray-600 text-sm mb-6">

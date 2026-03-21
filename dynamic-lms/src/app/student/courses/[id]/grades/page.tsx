@@ -98,12 +98,12 @@ export default function StudentGradesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
         <StudentCourseNavbar courseId={courseId} currentPage="grades" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
-            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+            <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
           </div>
         </main>
       </div>
@@ -113,7 +113,7 @@ export default function StudentGradesPage() {
   const totalGrades = grades.length;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Main Student Navbar */}
       <StudentNavbar currentPage="courses" />
       
@@ -131,7 +131,7 @@ export default function StudentGradesPage() {
         <div className="mb-8">
           <Link
             href="/student/dashboard"
-            className="inline-flex items-center gap-2 text-gray-600 hover:text-indigo-600 mb-4 transition-colors"
+            className="inline-flex items-center gap-2 text-gray-600 hover:text-red-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
@@ -144,7 +144,7 @@ export default function StudentGradesPage() {
             Back to Courses
           </Link>
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Grades
             </h1>
               <p className="text-gray-600">
@@ -157,8 +157,8 @@ export default function StudentGradesPage() {
         {totalGrades === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-100 to-purple-100 rounded-full mb-4">
-                <svg className="w-8 h-8 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -182,7 +182,7 @@ export default function StudentGradesPage() {
                   {/* Category Header */}
                   <div className="mb-4 flex items-center gap-3">
                     <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
-                    <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-sm font-semibold">
+                    <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
                       {categoryItems.length} item{categoryItems.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -198,7 +198,7 @@ export default function StudentGradesPage() {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-1">
                               <h3 className="text-xl font-bold text-gray-800">{item.title}</h3>
-                              <span className="px-3 py-1 bg-indigo-100 text-indigo-700 rounded-full text-xs font-semibold">
+                              <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
                                 {typeLabels[item.type]}
                               </span>
                             </div>
@@ -217,7 +217,7 @@ export default function StudentGradesPage() {
                             >
                               <div className="flex items-center justify-between gap-3">
                                 <div className="flex items-center gap-3">
-                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 text-indigo-700 text-xs font-semibold">
+                                  <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-semibold">
                                     #{idx + 1}
                                   </span>
                                   <div className="flex flex-col">
@@ -238,15 +238,15 @@ export default function StudentGradesPage() {
                                   <span className="text-sm text-gray-700">
                                     {attempt.score}/{attempt.maxScore}
                                   </span>
-                                  <span className="text-sm font-semibold text-indigo-600">
+                                  <span className="text-sm font-semibold text-red-600">
                                     {attempt.percentage.toFixed(0)}%
                                   </span>
                                 </div>
                               </div>
 
                               {attempt.feedback && attempt.feedback.trim() && (
-                                <div className="mt-2 rounded-xl border border-indigo-100 bg-white px-3 py-2 text-sm text-gray-700">
-                                  <div className="text-xs font-semibold text-indigo-700 mb-1">Feedback</div>
+                                <div className="mt-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-gray-700">
+                                  <div className="text-xs font-semibold text-red-700 mb-1">Feedback</div>
                                   <div className="whitespace-pre-wrap">{attempt.feedback}</div>
                                 </div>
                               )}

@@ -2,9 +2,11 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 
 export default function StudentProfile() {
+  const router = useRouter();
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
@@ -273,15 +275,29 @@ export default function StudentProfile() {
     setSuccess("");
   };
 
+  const handleLogout = async () => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.signOut();
+      if (error) {
+        console.error("Logout error:", error);
+        return;
+      }
+      router.push("/login");
+    } catch (err) {
+      console.error("Logout error:", err);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-indigo-50 via-white to-purple-50">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Modern Navbar */}
       <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
+          <div className="flex items-center justify-between h-16 gap-3">
             {/* Logo */}
             <div className="flex items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-indigo-600 to-purple-600 rounded-xl flex items-center justify-center shadow-lg">
+              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
                 <svg
                   className="w-6 h-6 text-white"
                   fill="none"
@@ -296,26 +312,29 @@ export default function StudentProfile() {
                   />
                 </svg>
               </div>
-              <span className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+              <span className="hidden sm:inline text-xl font-bold text-gray-900">
                 Dynamic LMS
               </span>
             </div>
 
             {/* Nav Items */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-4 overflow-x-auto">
               <Link
                 href="/student/profile"
-                className="px-4 py-2 text-sm font-semibold text-indigo-600 bg-indigo-50 rounded-lg transition-colors"
+                className="shrink-0 px-3 sm:px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 rounded-lg transition-colors"
               >
                 Profile
               </Link>
               <Link
                 href="/student"
-                className="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-colors"
+                className="shrink-0 px-3 sm:px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
               >
                 Courses
               </Link>
-              <button className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors">
+              <button
+                onClick={handleLogout}
+                className="flex shrink-0 items-center gap-2 px-3 sm:px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
+              >
                 <svg
                   className="w-5 h-5"
                   fill="none"
@@ -329,7 +348,7 @@ export default function StudentProfile() {
                     d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
                   />
                 </svg>
-                Logout
+                <span className="hidden sm:inline">Logout</span>
               </button>
             </div>
           </div>
@@ -337,11 +356,11 @@ export default function StudentProfile() {
       </nav>
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {loadingProfile && (
           <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 text-gray-600">
-              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-indigo-600" />
+              <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-red-600" />
               <span className="text-sm font-semibold">Loading profile…</span>
             </div>
           </div>
@@ -349,7 +368,7 @@ export default function StudentProfile() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Profile Settings
           </h1>
           <p className="text-gray-600">Manage your account information and preferences</p>
@@ -376,13 +395,13 @@ export default function StudentProfile() {
         )}
 
         {/* Profile Information Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Personal Information</h2>
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
               >
                 <svg
                   className="w-5 h-5"
@@ -403,7 +422,7 @@ export default function StudentProfile() {
           </div>
 
           <form onSubmit={handleProfileSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Full Name */}
               <div>
                 <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -432,7 +451,7 @@ export default function StudentProfile() {
                     value={formData.name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -472,7 +491,7 @@ export default function StudentProfile() {
                     value={formData.email}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -512,7 +531,7 @@ export default function StudentProfile() {
                     value={formData.studentId}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -552,7 +571,7 @@ export default function StudentProfile() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -592,7 +611,7 @@ export default function StudentProfile() {
                     value={formData.year}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -604,19 +623,42 @@ export default function StudentProfile() {
 
             {/* Action Buttons */}
             {isEditing && (
-              <div className="flex gap-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 hover:from-red-500 hover:to-rose-500 cursor-pointer"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-800 rounded-xl font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   Cancel
+                </button>
+              </div>
+            )}
+            {!isEditing && (
+              <div className="pt-4 border-t border-gray-200 sm:hidden">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit Profile
                 </button>
               </div>
             )}
@@ -624,10 +666,10 @@ export default function StudentProfile() {
         </div>
 
         {/* Password Change Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Password</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Password</h2>
               <p className="text-sm text-gray-600 mt-1">
                 Change your password to keep your account secure
               </p>
@@ -635,7 +677,7 @@ export default function StudentProfile() {
             {!showPasswordSection && (
               <button
                 onClick={() => setShowPasswordSection(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
+                className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer "
               >
                 <svg
                   className="w-5 h-5"
@@ -657,7 +699,7 @@ export default function StudentProfile() {
 
           {showPasswordSection && (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 {/* Current Password */}
                 <div>
                   <label
@@ -688,7 +730,7 @@ export default function StudentProfile() {
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.currentPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Enter your current password"
@@ -729,7 +771,7 @@ export default function StudentProfile() {
                       type="password"
                       value={passwordData.newPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.newPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Enter your new password"
@@ -771,7 +813,7 @@ export default function StudentProfile() {
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.confirmPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Confirm your new password"
@@ -784,10 +826,10 @@ export default function StudentProfile() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-indigo-600 to-purple-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500"
                 >
                   Update Password
                 </button>
@@ -802,7 +844,7 @@ export default function StudentProfile() {
                     });
                     setErrors({});
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-800 rounded-xl font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>

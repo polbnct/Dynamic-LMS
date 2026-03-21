@@ -411,7 +411,7 @@ export default function AdminDashboardPage() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
         <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between">
           <div>
-            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent">
+            <h1 className="mt-3 text-3xl sm:text-4xl font-black tracking-tight text-gray-900">
               Control Center
             </h1>
             <p className="mt-2 text-sm text-gray-600">

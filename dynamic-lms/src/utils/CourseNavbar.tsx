@@ -84,10 +84,10 @@ export default function CourseNavbar({
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Course Info */}
         {(courseName || courseCode) && (
-          <div className="pt-4 pb-2 border-b border-rose-100">
+          <div className="pt-2 sm:pt-4 pb-2 border-b border-rose-100">
             <Link
               href={`/prof/courses/${courseId}/classlist`}
-              className="text-sm text-gray-600 hover:text-red-600 transition-colors"
+              className="block break-words text-xs sm:text-sm text-gray-600 hover:text-red-600 transition-colors"
             >
               {courseCode && <span className="font-medium">{courseCode}</span>}
               {courseName && courseCode && " • "}
@@ -97,21 +97,23 @@ export default function CourseNavbar({
         )}
 
         {/* Navigation Items */}
-        <div className="flex items-center gap-1 py-2">
+        <div className="overflow-x-auto py-2">
+          <div className="flex w-max min-w-full items-center justify-center sm:justify-start gap-1 sm:gap-2 pr-1">
           {navItems.map((item) => (
             <Link
               key={item.key}
               href={item.href}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 px-2.5 sm:px-4 py-2 rounded-lg font-semibold text-xs sm:text-sm whitespace-nowrap transition-colors ${
                 currentPage === item.key
                   ? "bg-rose-100 text-red-600"
                   : "text-gray-700 hover:bg-red-50 hover:text-red-600"
               }`}
             >
-              {item.icon}
+              <span className="hidden sm:inline-flex">{item.icon}</span>
               <span>{item.name}</span>
             </Link>
           ))}
+          </div>
         </div>
       </div>
     </nav>

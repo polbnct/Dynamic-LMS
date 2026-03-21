@@ -162,29 +162,29 @@ export default function QuizMonitoringModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
       <div
-        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+        className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between p-6 border-b border-gray-200">
-          <div>
-            <h2 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+        <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
+          <div className="min-w-0">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
               Quiz attempts & activity logs
             </h2>
-            <p className="text-gray-600 text-sm mt-1">{quizName}</p>
+            <p className="text-gray-600 text-sm mt-1 break-words">{quizName}</p>
           </div>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors">
+          <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
             </svg>
           </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6">
           {loading ? (
             <div className="flex items-center justify-center py-12">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
             </div>
           ) : studentGroups.length === 0 ? (
             <div className="text-center py-12">
@@ -202,23 +202,23 @@ export default function QuizMonitoringModal({
                     <button
                       type="button"
                       onClick={() => setExpandedStudentId(isExpanded ? null : group.studentId)}
-                      className="w-full flex items-center justify-between p-4 text-left hover:bg-gray-100/80 transition-colors"
+                    className="w-full flex items-start sm:items-center justify-between gap-3 p-4 text-left hover:bg-gray-100/80 transition-colors"
                     >
-                      <div className="flex items-center gap-3">
-                        <div className="p-2 rounded-lg bg-indigo-100 text-indigo-700">
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="p-2 rounded-lg bg-red-100 text-red-700">
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                           </svg>
                         </div>
-                        <div>
-                          <h3 className="font-semibold text-gray-800">{group.studentName}</h3>
-                          <p className="text-sm text-gray-600">{group.studentEmail}</p>
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-gray-800 break-words">{group.studentName}</h3>
+                          <p className="text-sm text-gray-600 break-all">{group.studentEmail}</p>
                           <p className="text-xs text-gray-500 mt-0.5">
                             {group.attempts.length} attempt{group.attempts.length !== 1 ? "s" : ""}
                           </p>
                         </div>
                       </div>
-                      <span className="text-gray-500">
+                    <span className="text-gray-500 shrink-0">
                         {isExpanded ? (
                           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 15l7-7 7 7" />
@@ -232,7 +232,7 @@ export default function QuizMonitoringModal({
                     </button>
 
                     {isExpanded && (
-                      <div className="border-t border-gray-200 bg-white/80 p-4">
+                      <div className="border-t border-gray-200 bg-white/80 p-3 sm:p-4">
                         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
                           Attempts & activity logs
                         </p>
@@ -241,7 +241,7 @@ export default function QuizMonitoringModal({
                             const logs = activityLogsByAttemptId[attempt.attemptId] || [];
                             return (
                               <div key={attempt.attemptId} className="rounded-lg border border-gray-200 bg-gray-50/80 overflow-hidden">
-                                <div className="flex items-center gap-3 p-3 text-sm">
+                                <div className="flex flex-col sm:flex-row sm:items-start gap-3 p-3 text-sm">
                                   <div className={`p-1.5 rounded-md ${getStatusColor(attempt)}`}>
                                     {getStatusIcon(attempt)}
                                   </div>
@@ -254,7 +254,7 @@ export default function QuizMonitoringModal({
                                         {getStatusText(attempt)}
                                       </span>
                                     </div>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-1 mt-1 text-xs text-gray-500">
+                                    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-xs text-gray-500">
                                       <span>Started: {formatDate(attempt.startedAt)}</span>
                                       {attempt.lastActivityAt && (
                                         <span>Last activity: {getTimeSince(attempt.lastActivityAt)}</span>
@@ -265,7 +265,7 @@ export default function QuizMonitoringModal({
                                     </div>
                                   </div>
                                   {attempt.submittedAt && (
-                                    <div className="shrink-0">
+                                    <div className="shrink-0 sm:ml-auto">
                                       <button
                                         type="button"
                                         onClick={async () => {
@@ -280,7 +280,7 @@ export default function QuizMonitoringModal({
                                             setResultsLoading(false);
                                           }
                                         }}
-                                        className="px-3 py-1.5 rounded-lg bg-indigo-600 text-white text-xs font-semibold hover:bg-indigo-700 transition-colors"
+                                        className="w-full sm:w-auto px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-semibold hover:bg-red-700 transition-colors"
                                       >
                                         View score & answers
                                       </button>
@@ -290,10 +290,10 @@ export default function QuizMonitoringModal({
                                 {logs.length > 0 && (
                                   <div className="border-t border-gray-100 px-3 py-2 bg-white/60">
                                     <p className="text-xs font-medium text-gray-500 mb-2">Activity log (tab switch, focus, etc.)</p>
-                                    <ul className="space-y-1 max-h-32 overflow-y-auto">
+                                    <ul className="space-y-1 max-h-36 overflow-y-auto pr-1">
                                       {logs.map((log) => (
-                                        <li key={log.id} className="flex items-center justify-between text-xs text-gray-600">
-                                          <span className="capitalize">
+                                        <li key={log.id} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1 text-xs text-gray-600">
+                                          <span className="capitalize break-words">
                                             {log.event_type === "blurred"
                                               ? "tab switched"
                                               : log.event_type === "focused"
@@ -324,7 +324,7 @@ export default function QuizMonitoringModal({
           )}
         </div>
 
-        <div className="p-4 border-t border-gray-200 bg-gray-50 text-sm text-gray-600">
+        <div className="p-3 sm:p-4 border-t border-gray-200 bg-gray-50 text-xs sm:text-sm text-gray-600">
           {studentGroups.length} student{studentGroups.length !== 1 ? "s" : ""} · {totalAttempts} total attempt
           {totalAttempts !== 1 ? "s" : ""}
         </div>
@@ -332,12 +332,12 @@ export default function QuizMonitoringModal({
 
       {/* Results modal (score + answers) */}
       {resultsModalOpen && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[90vh] overflow-hidden flex flex-col">
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <div>
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col">
+            <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
+              <div className="min-w-0">
                 <h3 className="text-lg font-bold text-gray-800">Quiz results</h3>
-                <p className="text-sm text-gray-600 mt-0.5">{resultsAttemptLabel}</p>
+                <p className="text-sm text-gray-600 mt-0.5 break-words">{resultsAttemptLabel}</p>
               </div>
               <button
                 type="button"
@@ -345,28 +345,28 @@ export default function QuizMonitoringModal({
                   setResultsModalOpen(false);
                   setResultsData(null);
                 }}
-                className="text-gray-400 hover:text-gray-600"
+                className="text-gray-400 hover:text-gray-600 shrink-0"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
               {resultsLoading ? (
                 <div className="flex items-center justify-center py-10">
-                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-indigo-600 border-t-transparent" />
+                  <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
                 </div>
               ) : !resultsData ? (
                 <p className="text-gray-600">No results found for this attempt.</p>
               ) : (
                 <div className="space-y-5">
-                  <div className="bg-indigo-50 border border-indigo-100 rounded-xl p-4 flex items-center justify-between">
+                  <div className="bg-red-50 border border-red-100 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
                     <div className="text-sm text-gray-700">
                       <span className="font-semibold">Score:</span>{" "}
                       {resultsData.attempt.score ?? 0}/{resultsData.attempt.max_score ?? 0}
                     </div>
-                    <div className="text-sm font-semibold text-indigo-700">
+                    <div className="text-sm font-semibold text-red-700">
                       {resultsData.attempt.max_score
                         ? `${Math.round(((resultsData.attempt.score ?? 0) / resultsData.attempt.max_score) * 100)}%`
                         : ""}

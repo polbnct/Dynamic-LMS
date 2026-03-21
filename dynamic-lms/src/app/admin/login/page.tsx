@@ -80,15 +80,15 @@ function AdminLoginInner() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-slate-950 via-slate-900 to-indigo-950">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-indigo-500 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-blob" />
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-blob" />
         <div className="absolute -bottom-40 -left-36 w-72 h-72 bg-violet-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-blue-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000" />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-red-500 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000" />
       </div>
 
       <div className="relative w-full max-w-md mx-4">
         <div className="bg-slate-950/80 backdrop-blur-sm rounded-3xl shadow-2xl p-8 border border-white/10">
           <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-indigo-500 via-violet-500 to-blue-500 rounded-2xl mb-4 shadow-lg shadow-indigo-900/40">
+            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-500 via-violet-500 to-red-500 rounded-2xl mb-4 shadow-lg shadow-indigo-900/40">
               <svg
                 className="w-8 h-8 text-white"
                 fill="none"
@@ -137,7 +137,7 @@ function AdminLoginInner() {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-white/10 bg-slate-900/70 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-white/10 bg-slate-900/70 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="admin@example.com"
                   autoComplete="email"
                 />
@@ -169,7 +169,7 @@ function AdminLoginInner() {
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-white/10 bg-slate-900/70 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-3 rounded-2xl border border-white/10 bg-slate-900/70 text-sm text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
                   placeholder="Enter admin password"
                   autoComplete="current-password"
                 />
@@ -198,7 +198,7 @@ function AdminLoginInner() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-indigo-500 via-violet-500 to-blue-500 text-slate-950 py-3 rounded-2xl font-semibold shadow-lg shadow-indigo-900/40 hover:shadow-indigo-800/60 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-indigo-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-gradient-to-r from-red-500 via-violet-500 to-red-500 text-slate-950 py-3 rounded-2xl font-semibold shadow-lg shadow-indigo-900/40 hover:shadow-indigo-800/60 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-red-500/40 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {loading ? "Signing in…" : "Sign in as admin"}
             </button>
