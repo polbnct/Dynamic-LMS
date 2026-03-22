@@ -134,10 +134,11 @@ export default function StudentProfile() {
 
     if (!passwordData.newPassword.trim()) {
       newErrors.newPassword = "New password is required.";
-    } else if (passwordData.newPassword.length < 8) {
+    } else if(passwordData.newPassword.length < 8) {
       newErrors.newPassword = "Password must be at least 8 characters long.";
+    } else if (passwordData.currentPassword === passwordData.newPassword) {
+    newErrors.newPassword = "New password must be different from your current password.";
     }
-
     if (!passwordData.confirmPassword.trim()) {
       newErrors.confirmPassword = "Please confirm your new password.";
     } else if (passwordData.newPassword !== passwordData.confirmPassword) {
