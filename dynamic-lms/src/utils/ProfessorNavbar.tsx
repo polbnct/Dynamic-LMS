@@ -65,7 +65,7 @@ export default function ProfessorNavbar({
                 </svg>
               </div>
               <span className="hidden sm:inline text-xl font-bold text-gray-900 truncate">
-                Dynamic LMS
+                LohikAral
               </span>
             </Link>
 

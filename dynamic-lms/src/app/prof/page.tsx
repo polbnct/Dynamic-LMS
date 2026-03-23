@@ -19,9 +19,21 @@ export default function ProfessorDashboard() {
         currentPage="dashboard"
         handledCourses={handledCourses}
       />
-
+    
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
+
+        {/* Top Banner Image */}
+        <div className="w-full mb-8">
+          <div className="w-full h-40 sm:h-52 md:h-60 lg:h-72 overflow-hidden rounded-3xl shadow-xl">
+            <img
+              src="/dashboard_image.svg"
+              alt="Dashboard Banner"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
+
         {/* Header */}
         <div className="mb-8">
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">

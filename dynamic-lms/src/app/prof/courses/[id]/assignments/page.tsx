@@ -1063,8 +1063,10 @@ export default function AssignmentsPage() {
                           <p className="text-sm font-semibold text-gray-700 mb-3 break-words">
                             Grade: {selectedSubmission.studentName}
                           </p>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3 items-end">
-                            <div className="w-full">
+
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-4">
+                            <div className="flex gap-3 lg:shrink-0">
+                              <div className="w-full lg:w-24">
                               <label className="block text-xs font-medium text-gray-800 mb-1">Score</label>
                               <input
                                 type="number"
@@ -1072,30 +1074,35 @@ export default function AssignmentsPage() {
                                 value={gradeForm.score}
                                 onChange={(e) => setGradeForm((f) => ({ ...f, score: e.target.value }))}
                                 placeholder="0"
-                                className="w-full sm:w-24 px-3 py-2 border border-gray-300 text-gray-900 placeholder-text-700 rounded-lg text-sm"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
                               />
-                            </div>
-                            <div className="w-full">
-                              <label className="block text-xs font-medium text-gray-800 mb-1">Out of</label>
-                              <input
-                                type="number"
-                                min={1}
-                                value={gradeForm.max_score}
-                                onChange={(e) => setGradeForm((f) => ({ ...f, max_score: e.target.value }))}
-                                placeholder="100"
-                                className="w-full sm:w-24 px-3 py-2 border border-gray-300 text-gray-700 placeholder-text-gray-600 rounded-lg text-sm"
-                              />
-                            </div>
-                            <div className="w-full sm:col-span-2 xl:col-span-1">
+                          </div>
+
+                          <div className="w-full lg:w-24">
+                            <label className="mb-1 block text-xs font-medium text-gray-800">Out of</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={gradeForm.max_score}
+                              onChange={(e) => setGradeForm((f) => ({ ...f, max_score: e.target.value }))}
+                              placeholder="100"
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
+                            />
+                          </div>
+                        </div>
+
+                            <div className="w-full lg:flex-1">
                               <label className="block text-xs font-medium text-gray-800 mb-1">Feedback (optional)</label>
                               <input
                                 type="text"
                                 value={gradeForm.feedback}
                                 onChange={(e) => setGradeForm((f) => ({ ...f, feedback: e.target.value }))}
                                 placeholder="Optional feedback for student"
-                                className="w-full px-3 py-2 border border-gray-300 text-gray-900 placeholder-text-700 rounded-lg text-sm"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
                               />
                             </div>
+
+                          <div className="w-full lg:w-auto lg:ml-auto">
                             <button
                               type="button"
                               disabled={savingGrade || gradeForm.score === "" || gradeForm.max_score === ""}
@@ -1143,11 +1150,13 @@ export default function AssignmentsPage() {
                                   setSavingGrade(false);
                                 }
                               }}
-                              className="w-full xl:w-auto px-5 py-2.5 bg-red-600 text-white rounded-lg font-semibold text-sm hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                              className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
                             >
                               {savingGrade ? "Saving..." : "Save grade"}
                             </button>
+                            </div>
                           </div>
+                          
                           {gradeSuccess && (
                             <p className="mt-2 text-sm text-green-600">{gradeSuccess}</p>
                           )}
