@@ -973,7 +973,7 @@ export default function ContentPage() {
                         onChange={(e) => {
                           setStudyAidGenerateType(e.target.value as any);
                           if (e.target.value === "summary") setStudyAidGenerateCount(1);
-                          if (e.target.value === "fill_blank") setStudyAidGenerateCount(5);
+                          if (e.target.value === "fill_blank") setStudyAidGenerateCount(1);
                         }}
                         className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                       >

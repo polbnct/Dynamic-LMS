@@ -1566,11 +1566,16 @@ export default function QuizzesPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   >
                     <option value="">None</option>
-                    {lessons.map((lesson) => (
-                      <option key={lesson.id} value={lesson.id}>
-                        {lesson.title}
-                      </option>
-                    ))}
+
+                    {[...lessons]
+                      .sort((a, b) =>
+                        a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" })
+                      )
+                      .map((lesson) => (
+                        <option key={lesson.id} value={lesson.id}>
+                          {lesson.title}
+                        </option>
+                      ))}
                   </select>
                 </div>
 

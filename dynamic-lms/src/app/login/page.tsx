@@ -155,18 +155,18 @@ function LoginPageInner() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative w-full max-w-6xl mx-4">
+      <div className="relative w-full max-w-[min(100%,900px)] mx-auto px-4 lg:px-0">
         <div className="overflow-hidden rounded-3xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-2xl">
-          <div className="grid lg:grid-cols-2">
-            {/* Image panel (left) */}
+          <div className="grid gap-0 lg:grid-cols-2">
+            {/* Image panel */}
             <section className="relative hidden lg:block">
-              <div className="min-h-[640px] w-full">
+              <div className="h-full w-full max-h-[calc(100vh-2rem)]">
                 <img src="/66c3e76a07f2662c181a44c1b27d5629.jpeg" alt="Welcome to LohikAral" className="h-full w-full object-cover" />
               </div>
             </section>
 
-            {/* Form panel (right) */}
-            <section className="p-8 sm:p-10">
+            {/* Form panel */}
+            <section className="p-8 sm:p-10 max-w-xl mx-auto lg:mx-0 lg:max-w-none">
               {/* Logo/Branding section */}
               <div className="text-center mb-8">
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-2">
