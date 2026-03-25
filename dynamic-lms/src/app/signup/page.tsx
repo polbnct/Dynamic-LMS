@@ -59,7 +59,7 @@ export default function SignupPage() {
           email: formData.email,
           password: formData.password,
           name: formData.name,
-          role: formData.role,
+          role: "student",
         }),
       });
 
@@ -121,12 +121,7 @@ export default function SignupPage() {
       // User should be automatically logged in after signup
       // If we have a session from the API, use it
       if (data.session) {
-        // Redirect based on role immediately
-        if (data.role === "professor") {
-          router.push("/prof");
-        } else {
-          router.push("/student/dashboard");
-        }
+        router.push("/student/dashboard");
         return;
       }
 
@@ -149,12 +144,7 @@ export default function SignupPage() {
       }
 
       if (signInData.user && signInData.session) {
-        // Successfully logged in - redirect based on role
-        if (data.role === "professor") {
-          router.push("/prof");
-        } else {
-          router.push("/student/dashboard");
-        }
+        router.push("/student/dashboard");
         return;
       }
 
@@ -292,54 +282,7 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Role selection */}
-            <div>
-              <label htmlFor="role" className="block text-sm font-semibold text-gray-700 mb-2">
-                I am a
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                    />
-                  </svg>
-                </div>
-                <select
-                  id="role"
-                  name="role"
-                  value={formData.role}
-                  onChange={handleChange}
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
-                >
-                  <option value="student">Student</option>
-                  <option value="prof">Professor</option>
-                </select>
-                <div className="absolute inset-y-0 right-0 pr-3 flex items-center pointer-events-none">
-                  <svg
-                    className="h-5 w-5 text-gray-400"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M19 9l-7 7-7-7"
-                    />
-                  </svg>
-                </div>
-              </div>
-            </div>
+            {/* Role selection removed (professors must be created by admin). */}
 
             {/* Password field */}
             <div>

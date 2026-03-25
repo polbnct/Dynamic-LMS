@@ -164,6 +164,10 @@ export default function QuizzesPage() {
 
   const sourceFilterOptions = useMemo(() => {
     const lessonNameById = new Map(lessons.map((lesson) => [lesson.id, lesson.title]));
+    const lessonMetaById = new Map(
+      lessons.map((lesson) => [lesson.id, { category: lesson.category, order: lesson.order, title: lesson.title }])
+    );
+    const categoryRank: Record<string, number> = { prelim: 0, midterm: 1, finals: 2 };
     const lessonIdsInBank = Array.from(
       new Set(quizBank.map((q) => q.source).filter((sourceId): sourceId is string => Boolean(sourceId)))
     );
@@ -173,7 +177,15 @@ export default function QuizzesPage() {
         id: lessonId,
         name: lessonNameById.get(lessonId) || "Unknown lesson",
       }))
-      .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" }));
+      .sort((a, b) => {
+        const aMeta = lessonMetaById.get(a.id);
+        const bMeta = lessonMetaById.get(b.id);
+        const byCategory = (categoryRank[aMeta?.category || ""] ?? 999) - (categoryRank[bMeta?.category || ""] ?? 999);
+        if (byCategory !== 0) return byCategory;
+        const byOrder = (aMeta?.order ?? 999999) - (bMeta?.order ?? 999999);
+        if (byOrder !== 0) return byOrder;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+      });
   }, [quizBank, lessons]);
 
   const displayedBank = useMemo(() => {
@@ -323,6 +335,8 @@ export default function QuizzesPage() {
                   : newQuestion.type === "true_false"
                     ? newQuestion.trueFalseAnswer
                     : newQuestion.fillBlankAnswer,
+              source_lesson_id: newQuestion.source || null,
+              source_type: newQuestion.source ? newQuestion.sourceType : null,
             })
           : await createQuestion({
               course_id: courseId,

@@ -221,6 +221,8 @@ export async function updateQuestion(
     question?: string;
     options?: string[] | null;
     correct_answer?: string | number | boolean;
+    source_lesson_id?: string | null;
+    source_type?: "lesson" | "pdf" | null;
   }
 ): Promise<Question> {
   const supabase = createClient();
@@ -233,6 +235,12 @@ export async function updateQuestion(
   }
   if (Object.prototype.hasOwnProperty.call(updates, "correct_answer")) {
     payload.correct_answer = JSON.stringify(updates.correct_answer);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "source_lesson_id")) {
+    payload.source_lesson_id = updates.source_lesson_id ?? null;
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "source_type")) {
+    payload.source_type = updates.source_type ?? null;
   }
 
   const { data: question, error } = await supabase

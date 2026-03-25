@@ -147,7 +147,7 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gradient-to-br from-rose-50 via-white to-red-50">
+    <div className="flex min-h-screen items-center justify-center bg-red-50">
       {/* Decorative background elements */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-blob"></div>
@@ -161,11 +161,7 @@ function LoginPageInner() {
             {/* Image panel (left) */}
             <section className="relative hidden lg:block">
               <div className="min-h-[640px] w-full">
-            <img
-              src="/sideImage.svg"
-              alt="Campus academic environment"
-              className="h-full w-full object-cover"
-              />
+                <img src="/66c3e76a07f2662c181a44c1b27d5629.jpeg" alt="Welcome to LohikAral" className="h-full w-full object-cover" />
               </div>
             </section>
 
@@ -173,22 +169,6 @@ function LoginPageInner() {
             <section className="p-8 sm:p-10">
               {/* Logo/Branding section */}
               <div className="text-center mb-8">
-                <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 via-rose-500 to-orange-400 rounded-2xl mb-4 shadow-lg shadow-red-100">
-                  <svg
-                    className="w-8 h-8 text-white"
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                    xmlns="http://www.w3.org/2000/svg"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                    />
-                  </svg>
-                </div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-2">
                   Welcome Back
                 </h1>
@@ -223,7 +203,7 @@ function LoginPageInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 border border-red-100 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-rose-50/40 focus:bg-white"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                   autoComplete="email"
                 />
               </div>
@@ -256,7 +236,7 @@ function LoginPageInner() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-4 py-3 border border-red-100 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-rose-50/40 focus:bg-white"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                   autoComplete="current-password"
                 />
               </div>
@@ -299,7 +279,7 @@ function LoginPageInner() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-gradient-to-r from-red-600 via-rose-600 to-red-500 text-white py-3 rounded-2xl font-semibold shadow-lg shadow-red-200 hover:shadow-red-300 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-red-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+              className="w-full bg-red-600 hover:bg-red-700 text-white py-3 rounded-2xl font-semibold shadow-lg shadow-red-200 hover:shadow-red-300 transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-4 focus:ring-red-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>

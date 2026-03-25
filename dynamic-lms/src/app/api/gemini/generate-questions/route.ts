@@ -323,6 +323,10 @@ Question Type: ${questionType === "multiple_choice" ? "Multiple Choice" : questi
 Specific Guidelines for ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? "True/False" : "Fill-in-the-Blank"} ${forStudyAid ? "Study Aid" : ""} Questions:
 ${specificGuidelines}
 
+Wording Rules (STRICT):
+- Do NOT begin questions with filler lead-ins such as "According to the material", "According to the provided material", "According to the lesson", or similar phrases.
+- Write direct question stems that start immediately with the concept or scenario being asked.
+
 Technical Requirements:
 ${requirements}
 
@@ -338,6 +342,17 @@ Return your response as a valid JSON array in this exact format:
 ]
 
 CRITICAL: Return ONLY the JSON array. No markdown, no code blocks, no explanations, no additional text. Just the raw JSON array starting with [ and ending with ].`;
+}
+
+function cleanQuestionStem(input: string): string {
+  const text = String(input || "").trim();
+  if (!text) return text;
+
+  // Remove common filler openings that make stems sound repetitive.
+  return text
+    .replace(/^\s*according to (the )?(provided )?(lesson|material|text|document)\s*,?\s*/i, "")
+    .replace(/^\s*based on (the )?(provided )?(lesson|material|text|document)\s*,?\s*/i, "")
+    .trim();
 }
 
 function parseStudyAidSummaryResponse(responseText: string, lessonId: string): any[] {
@@ -428,7 +443,7 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
       const questionObj: any = {
         id: `gen-${Date.now()}-${index}`,
         type: q.type || questionType,
-        question: q.question.trim(),
+        question: cleanQuestionStem(q.question),
         source_lesson_id: lessonId,
         source_type: "lesson" as const,
         created_at: new Date().toISOString(),
@@ -481,7 +496,7 @@ function generateFallbackQuestions(text: string, questionType: string, lessonId:
       return {
         id: `gen-${Date.now()}-${index}`,
         type: "multiple_choice",
-        question: cleanSentence + "?",
+        question: cleanQuestionStem(cleanSentence + "?"),
         options: ["True", "False", "Maybe", "Not specified"],
         correct_answer: 0,
         source_lesson_id: lessonId,
@@ -492,7 +507,7 @@ function generateFallbackQuestions(text: string, questionType: string, lessonId:
       return {
         id: `gen-${Date.now()}-${index}`,
         type: "true_false",
-        question: cleanSentence + "?",
+        question: cleanQuestionStem(cleanSentence + "?"),
         correct_answer: true,
         source_lesson_id: lessonId,
         source_type: "lesson" as const,
@@ -502,7 +517,9 @@ function generateFallbackQuestions(text: string, questionType: string, lessonId:
       return {
         id: `gen-${Date.now()}-${index}`,
         type: "fill_blank",
-        question: cleanSentence.replace(/\w+/g, (match, offset) => offset === 0 ? "______" : match) + "?",
+        question: cleanQuestionStem(
+          cleanSentence.replace(/\w+/g, (match, offset) => (offset === 0 ? "______" : match)) + "?"
+        ),
         correct_answer: "answer",
         source_lesson_id: lessonId,
         source_type: "lesson" as const,
