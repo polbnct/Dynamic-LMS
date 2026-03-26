@@ -48,22 +48,12 @@ export default function ProfessorNavbar({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Logo */}
-            <Link href="/prof" className="flex min-w-0 items-center gap-2">
-              <div className="w-10 h-10 bg-gradient-to-br from-red-600 to-rose-600 rounded-xl flex items-center justify-center shadow-lg">
-                <svg
-                  className="w-6 h-6 text-white"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                  />
-                </svg>
-              </div>
+            <Link href="/student" className="flex min-w-0 items-center gap-2">
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="w-10 h-10 rounded-xl shadow-lg"
+              />
               <span className="hidden sm:inline text-xl font-bold text-gray-900 truncate">
                 LohikAral
               </span>
@@ -71,16 +61,16 @@ export default function ProfessorNavbar({
 
             {/* Desktop Nav Items */}
             <div className="hidden md:flex items-center gap-2 lg:gap-4">
-              {/* Profile */}
+              {/* Dashboard */}
               <Link
-                href="/prof/profile"
+                href="/prof"
                 className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
-                  currentPage === "profile"
+                  currentPage === "dashboard"
                     ? "text-red-600 bg-red-50"
                     : "text-gray-700 hover:text-red-600 hover:bg-red-50"
                 }`}
               >
-                Profile
+                Dashboard
               </Link>
 
               {/* Courses Dropdown */}
@@ -179,6 +169,18 @@ export default function ProfessorNavbar({
                   </>
                 )}
               </div>
+
+              {/* Profile */}
+              <Link
+                href="/prof/profile"
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                  currentPage === "profile"
+                    ? "text-red-600 bg-red-50"
+                    : "text-gray-700 hover:text-red-600 hover:bg-red-50"
+                }`}
+              >
+                Profile
+              </Link>
 
               {/* Logout */}
               <button 

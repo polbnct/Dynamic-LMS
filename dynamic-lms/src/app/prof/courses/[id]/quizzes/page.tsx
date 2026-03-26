@@ -1055,7 +1055,20 @@ export default function QuizzesPage() {
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-lg font-bold text-gray-800">Quiz Question Bank</h3>
                     <button
-                      onClick={() => setCreateQuestionModalOpen(true)}
+                      onClick={() => {
+                        setEditingBankQuestion(null);
+                        setNewQuestion({
+                          type: "multiple_choice",
+                          question: "",
+                          options: ["", "", "", ""],
+                          correctAnswer: 0,
+                          trueFalseAnswer: true,
+                          fillBlankAnswer: "",
+                          source: "",
+                          sourceType: "lesson",
+                        });
+                        setCreateQuestionModalOpen(true);
+                      }}
                       className="text-sm text-red-600 hover:text-red-700 font-medium"
                     >
                       + Create
@@ -1129,7 +1142,20 @@ export default function QuizzesPage() {
                     <div className="text-center py-8 text-gray-500">
                       <p>No questions in quiz bank for this type.</p>
                       <button
-                        onClick={() => setCreateQuestionModalOpen(true)}
+                        onClick={() => {
+                          setEditingBankQuestion(null);
+                          setNewQuestion({
+                            type: "multiple_choice",
+                            question: "",
+                            options: ["", "", "", ""],
+                            correctAnswer: 0,
+                            trueFalseAnswer: true,
+                            fillBlankAnswer: "",
+                            source: "",
+                            sourceType: "lesson",
+                          });
+                          setCreateQuestionModalOpen(true);
+                        }}
                         className="mt-4 text-red-600 hover:text-red-700 font-medium text-sm"
                       >
                         Create one now
@@ -1566,7 +1592,6 @@ export default function QuizzesPage() {
                     className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   >
                     <option value="">None</option>
-
                     {[...lessons]
                       .sort((a, b) =>
                         a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" })
