@@ -227,6 +227,13 @@ export default function ProfessorNavbar({
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-gray-200 bg-white p-4 space-y-2 shadow-inner">
           <Link
+            href="/prof"
+            className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Dashboard
+          </Link>
+          <Link
             href="/prof/profile"
             className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
             onClick={() => setMobileMenuOpen(false)}

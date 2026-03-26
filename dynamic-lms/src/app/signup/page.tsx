@@ -185,32 +185,33 @@ export default function SignupPage() {
         <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-red-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
       </div>
 
-      <div className="relative w-full max-w-md mx-4">
-        {/* Main card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
-          {/* Logo/Branding section */}
-          <div className="text-center mb-8">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-600 to-rose-600 rounded-2xl mb-4 shadow-lg">
-              <svg
-                className="w-8 h-8 text-white"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-                xmlns="http://www.w3.org/2000/svg"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
-                />
-              </svg>
-            </div>
-            <h1 className="text-3xl font-bold text-gray-900 mb-2">
-              Create Account
-            </h1>
-            <p className="text-gray-500 text-sm">Join our learning community today</p>
+     <div className="relative w-full max-w-md mx-4">
+      {/* Main card */}
+      <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
+        
+        {/* Logo/Branding section */}
+        <div className="text-center mb-8">
+
+          {/* Logo + Name */}
+          <div className="flex flex-col items-center justify-center mb-6">
+            <img
+              src="/logo.png"
+              alt="Logo"
+              className="w-20 h-20 rounded-xl shadow-lg mb-2"
+            />
           </div>
+
+          {/* Title */}
+          <h1 className="text-3xl font-bold text-gray-900 mb-2">
+            Create Account
+          </h1>
+
+          {/* Subtitle */}
+          <p className="text-gray-500 text-sm">
+            Join the platform and begin your learning experience
+          </p>
+
+        </div>
 
           {/* Form */}
           <form onSubmit={handleSubmit} className="space-y-4">

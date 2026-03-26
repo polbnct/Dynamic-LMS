@@ -5,7 +5,7 @@ import Link from "next/link";
 
 interface StudentCourseNavbarProps {
   courseId: string;
-  currentPage: "assignments" | "quizzes" | "grades" | "content";
+  currentPage: "content" | "assignments" | "quizzes" | "grades";
   courseName?: string;
   courseCode?: string;
 }
@@ -17,6 +17,21 @@ export default function StudentCourseNavbar({
   courseCode,
 }: StudentCourseNavbarProps) {
   const navItems = [
+    {
+      name: "Content",
+      href: `/student/courses/${courseId}/content`,
+      key: "content" as const,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+          />
+        </svg>
+      ),
+    },
     {
       name: "Assignments",
       href: `/student/courses/${courseId}/assignments`,
@@ -62,21 +77,6 @@ export default function StudentCourseNavbar({
         </svg>
       ),
     },
-    {
-      name: "Content",
-      href: `/student/courses/${courseId}/content`,
-      key: "content" as const,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-          />
-        </svg>
-      ),
-    },
   ];
 
   return (
@@ -105,8 +105,8 @@ export default function StudentCourseNavbar({
               href={item.href}
               className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${
                 currentPage === item.key
-                  ? "text-red-600"
-                  : "text-gray-700 hover:text-red-600"
+                  ? "text-red-600 bg-red-50"
+                  : "text-gray-700 hover:text-red-600 hover:bg-red-50"
               }`}
             >
               <span className="hidden sm:inline-flex">{item.icon}</span>

@@ -161,7 +161,7 @@ function LoginPageInner() {
             {/* Image panel */}
             <section className="relative hidden lg:block">
               <div className="h-full w-full max-h-[calc(100vh-2rem)]">
-                <img src="/66c3e76a07f2662c181a44c1b27d5629.jpeg" alt="Welcome to LohikAral" className="h-full w-full object-cover" />
+                <img src="/login_Image.jpeg" alt="Welcome to LohikAral" className="h-full w-full object-cover" />
               </div>
             </section>
 

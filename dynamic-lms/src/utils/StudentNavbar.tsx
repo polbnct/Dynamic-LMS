@@ -77,7 +77,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                 className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
                   currentPage === "dashboard"
                     ? "text-red-600 bg-red-50"
-                    : "text-gray-700 hover:text-red-600 hover:bg-red-50"
+                    : "text-gray-700"
                 }`}
               >
                 Dashboard
@@ -88,7 +88,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
               <button
                 onClick={() => setCoursesDropdownOpen(!coursesDropdownOpen)}
                 className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                  currentPage === "courses" ? "text-red-600" : "text-gray-700 hover:text-red-600"
+                  currentPage === "courses" ? "text-red-600 bg-red-50" : "text-gray-700 hover:text-red-600 hover:bg-red-50"
                 }`}
               >
                 <span>Courses</span>
@@ -131,7 +131,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
             <Link
               href="/student/profile"
               className={`rounded-lg px-4 py-2 text-sm font-semibold transition-colors ${
-                currentPage === "profile" ? "text-red-600" : "text-gray-700 hover:text-red-600"
+                currentPage === "profile" ? "text-red-600 bg-red-50" : "text-gray-700 hover:text-red-600 hover:bg-red-50"
               }`}
             >
               Profile
@@ -163,6 +163,13 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
       {/* Mobile Menu Panel */}
       {mobileMenuOpen && (
         <div className="md:hidden border-t border-rose-100 bg-white p-4 space-y-2 shadow-inner">
+          <Link
+            href="/student"
+            className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:text-red-600"
+            onClick={() => setMobileMenuOpen(false)}
+          >
+            Dashboard
+          </Link>
           <Link
             href="/student/profile"
             className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:text-red-600"

@@ -246,7 +246,7 @@ export default function ContentPage() {
   const [generatedForStudy, setGeneratedForStudy] = useState<any[]>([]);
   const [selectedGenerated, setSelectedGenerated] = useState<Set<number>>(new Set());
   const [studyAidGenerateType, setStudyAidGenerateType] = useState<"summary" | "flashcard" | "multiple_choice" | "fill_blank">("multiple_choice");
-  const [studyAidGenerateCount, setStudyAidGenerateCount] = useState(5);
+  const [studyAidGenerateCount, setStudyAidGenerateCount] = useState(1);
   const [studyAidLoading, setStudyAidLoading] = useState(false);
   const [studyAidGenerating, setStudyAidGenerating] = useState(false);
   const [studyAidAdding, setStudyAidAdding] = useState(false);
