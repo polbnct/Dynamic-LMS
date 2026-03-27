@@ -572,36 +572,22 @@ export default function AdminDashboardPage() {
 
   return (
     <div className="min-h-screen bg-white text-gray-900">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col gap-6 sm:flex-row sm:items-end sm:justify-between pb-5 border-b border-gray-200">
-          <div>
-            <div className="flex items-center gap-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
+        <div className="flex items-center justify-between gap-2 sm:gap-3 pb-4 sm:pb-5 border-b border-gray-200">
+          <div className="min-w-0">
+            <div className="flex items-center gap-3 min-w-0">
               <img
                 src="/logo.png"
                 alt="Logo"
-                className="w-10 h-10 rounded-xl shadow-md"
+                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-md shrink-0"
               />
-              <h1 className="text-3xl sm:text-4xl font-black tracking-tight text-gray-900">
+              <h1 className="text-xl sm:text-4xl font-black tracking-tight text-gray-900 truncate">
                 Admin Dashboard
               </h1>
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <button
-              type="button"
-              onClick={refreshAll}
-              className="px-4 py-2 rounded-xl border border-gray-200 bg-white text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
-            >
-              Refresh
-            </button>
-            <button
-              type="button"
-              onClick={openCreateCourse}
-              className="px-4 py-2 rounded-xl bg-red-600 text-white font-semibold text-sm shadow-sm hover:bg-red-700"
-            >
-              Create course
-            </button>
+          <div className="shrink-0 flex justify-end">
             <button
               type="button"
               onClick={handleLogout}
@@ -612,21 +598,41 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        <div className="mt-6 flex flex-wrap gap-2">
-          {(["courses", "professors", "students"] as const).map((tab) => (
-            <button
-              key={tab}
-              type="button"
-              onClick={() => setActiveTab(tab)}
-              className={`px-4 py-2 rounded-xl text-sm font-semibold border ${
-                activeTab === tab
-                  ? "border-red-200 bg-red-50 text-red-700"
-                  : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
-              }`}
-            >
-              {tab === "courses" ? "Courses" : tab === "professors" ? "Professors" : "Students"}
-            </button>
-          ))}
+        <div className="mt-4 sm:mt-6 rounded-2xl border border-rose-100 bg-rose-50/40 p-2.5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap sm:gap-2">
+              {(["courses", "professors", "students"] as const).map((tab) => (
+                <button
+                  key={tab}
+                  type="button"
+                  onClick={() => setActiveTab(tab)}
+                  className={`w-full sm:w-auto px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold border ${
+                    activeTab === tab
+                      ? "border-red-200 bg-red-50 text-red-700"
+                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                  }`}
+                >
+                  {tab === "courses" ? "Courses" : tab === "professors" ? "Professors" : "Students"}
+                </button>
+              ))}
+            </div>
+            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:justify-end">
+              <button
+                type="button"
+                onClick={refreshAll}
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+              >
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={openCreateCourse}
+                className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-xl bg-red-600 text-white font-semibold text-xs sm:text-sm shadow-sm hover:bg-red-700"
+              >
+                Create course
+              </button>
+            </div>
+          </div>
         </div>
 
         {(error || success) && (
