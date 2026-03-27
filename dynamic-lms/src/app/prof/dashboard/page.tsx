@@ -121,7 +121,7 @@ export default function ProfessorDashboard() {
                     key={course.id}
                     className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
                   >
-                    <Link href={`/prof/courses/${course.id}`} className="block">
+                    <Link href={`/prof/courses/${course.id}/content`} className="block">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <h3 className="text-xl font-bold text-gray-800 group-hover:text-red-600 transition-colors">

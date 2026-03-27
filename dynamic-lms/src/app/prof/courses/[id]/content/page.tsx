@@ -656,7 +656,7 @@ export default function ContentPage() {
                               )}
                               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                                 {lesson.pdfFileName && (
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
                                     <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path
                                         strokeLinecap="round"
@@ -665,7 +665,19 @@ export default function ContentPage() {
                                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                                       />
                                     </svg>
-                                    <span>{lesson.pdfFileName}</span>
+                                    {lesson.pdfUrl ? (
+                                      <a
+                                        href={lesson.pdfUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="truncate text-red-700 hover:text-red-800 hover:underline"
+                                        title="Open PDF"
+                                      >
+                                        {lesson.pdfFileName}
+                                      </a>
+                                    ) : (
+                                      <span className="truncate">{lesson.pdfFileName}</span>
+                                    )}
                                   </div>
                                 )}
                                 {lesson.createdAt && (
