@@ -1118,15 +1118,16 @@ export default function AdminDashboardPage() {
       {/* Manage course modal */}
       {manageCourse && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 overflow-y-auto sm:overflow-hidden bg-black/30 backdrop-blur-sm p-3 sm:p-4"
           onClick={closeManageCourse}
         >
+        <div className="flex min-h-screen sm:h-screen items-start sm:items-center justify-center">
           <div
-            className="w-full max-w-4xl rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
+            className="w-full max-w-4xl max-h-none sm:max-h-[90vh] rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+              <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
                   <div className="text-xl font-black truncate text-gray-900">{manageCourse.name}</div>
                   <div className="mt-1 text-sm text-gray-600 font-mono">
@@ -1145,7 +1146,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:flex-1 sm:overflow-hidden">
               <div className="space-y-4">
                 <div className="rounded-3xl border border-rose-100 bg-rose-50 p-5">
                   <div className="text-sm font-bold text-gray-800">Course details</div>
@@ -1233,7 +1234,7 @@ export default function AdminDashboardPage() {
                   </div>
                 </div>
 
-                <div className="max-h-[55vh] overflow-y-auto">
+                <div className="max-h-[50vh] sm:max-h-[55vh] overflow-y-auto">
                   {loadingEnrollments ? (
                     <div className="py-10 text-center text-gray-500 text-sm">Loading enrollments…</div>
                   ) : manageEnrollments.length === 0 ? (
@@ -1272,8 +1273,8 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
+      </div>
       )}
     </div>
   );
 }
-
