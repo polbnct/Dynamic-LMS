@@ -98,7 +98,7 @@ export default function StudentGradesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
         <StudentCourseNavbar courseId={courseId} currentPage="grades" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -113,7 +113,7 @@ export default function StudentGradesPage() {
   const totalGrades = grades.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Main Student Navbar */}
       <StudentNavbar currentPage="courses" />
       
@@ -144,7 +144,7 @@ export default function StudentGradesPage() {
             Back to Courses
           </Link>
           <div>
-            <h1 className="text-4xl font-bold text-red-700 mb-2">
+            <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Grades
             </h1>
               <p className="text-gray-600">
@@ -157,7 +157,7 @@ export default function StudentGradesPage() {
         {totalGrades === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
                 <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"

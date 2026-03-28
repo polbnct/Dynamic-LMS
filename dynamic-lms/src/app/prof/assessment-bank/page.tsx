@@ -51,7 +51,7 @@ export default function AssessmentBankPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
@@ -63,12 +63,12 @@ export default function AssessmentBankPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-red-600 hover:bg-red-700 text-white bg-clip-text text-transparent mb-2">
+          <h1 className="text-4xl font-bold text-gray-900 mb-2">
             Assessment Bank
           </h1>
           <p className="text-gray-600">Manage your question bank across all courses</p>
@@ -84,7 +84,7 @@ export default function AssessmentBankPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search questions..."
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500"
               />
             </div>
             <div>
@@ -92,7 +92,7 @@ export default function AssessmentBankPage() {
               <select
                 value={filterType}
                 onChange={(e) => setFilterType(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500"
               >
                 <option value="all">All Types</option>
                 <option value="multiple_choice">Multiple Choice</option>
@@ -105,7 +105,7 @@ export default function AssessmentBankPage() {
               <select
                 value={filterCourse}
                 onChange={(e) => setFilterCourse(e.target.value)}
-                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500"
+                className="w-full px-4 py-2 border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500"
               >
                 <option value="all">All Courses</option>
                 {/* Course options would be populated from courses */}

@@ -4,19 +4,19 @@ import { useEffect } from "react";
 import { useParams, useRouter } from "next/navigation";
 
 export default function CourseDetailPage() {
-  // Redirect to classlist as default page
+  // Redirect to content as default page
   const params = useParams();
   const router = useRouter();
 
   useEffect(() => {
     if (params.id) {
-      router.push(`/prof/courses/${params.id}/classlist`);
+      router.replace(`/prof/courses/${params.id}/content`);
     }
   }, [params.id, router]);
 
   // Show loading while redirecting
   return (
-    <div className="min-h-screen bg-white flex items-center justify-center">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50 flex items-center justify-center">
       <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
     </div>
   );

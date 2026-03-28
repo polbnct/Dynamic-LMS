@@ -161,7 +161,7 @@ export default function TakeQuizPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
         <StudentCourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -175,7 +175,7 @@ export default function TakeQuizPage() {
 
   if (error || !quiz) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
         <StudentCourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -188,7 +188,7 @@ export default function TakeQuizPage() {
   }
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       <StudentNavbar currentPage="courses" />
       <StudentCourseNavbar courseId={courseId} currentPage="quizzes" courseName={course?.name} courseCode={course?.code} />
 
@@ -196,7 +196,7 @@ export default function TakeQuizPage() {
         {/* Header with timer */}
         <div className="mb-8 flex items-center justify-between">
           <div>
-            <h1 className="text-3xl font-bold bg-red-600 hover:bg-red-700 text-white bg-clip-text text-transparent mb-2">
+            <h1 className="text-3xl font-bold text-gray-900 mb-2">
               {quiz.name}
             </h1>
             <p className="text-gray-600">{questions.length} questions</p>
@@ -228,7 +228,7 @@ export default function TakeQuizPage() {
                   {question.options.map((option, optIndex) => (
                     <label
                       key={optIndex}
-                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-red-50 cursor-pointer"
+                      className="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:bg-red-50 cursor-pointer text-gray-800"
                     >
                       <input
                         type="radio"
@@ -238,7 +238,7 @@ export default function TakeQuizPage() {
                         onChange={() => handleAnswerChange(question.id, optIndex)}
                         className="w-4 h-4 text-red-600"
                       />
-                      <span>{option}</span>
+                      <span className="text-gray-800">{option}</span>
                     </label>
                   ))}
                 </div>
@@ -275,7 +275,7 @@ export default function TakeQuizPage() {
                   value={(answers[question.id] as string) || ""}
                   onChange={(e) => handleAnswerChange(question.id, e.target.value)}
                   placeholder="Enter your answer"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent"
                 />
               )}
             </div>
@@ -293,7 +293,7 @@ export default function TakeQuizPage() {
           <button
             onClick={handleSubmitQuiz}
             disabled={submitting || Object.keys(answers).length === 0}
-            className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+            className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
           >
             {submitting ? "Submitting..." : "Submit Quiz"}
           </button>

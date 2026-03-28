@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
@@ -80,7 +80,7 @@ function EditStudyQuestionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
           <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
@@ -89,19 +89,19 @@ function EditStudyQuestionForm({
         <textarea
           value={questionText}
           onChange={(e) => setQuestionText(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm min-h-[88px] text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-shadow bg-white"
+          className="w-full px-4 py-3 border border-gray-300 text-gray-900 rounded-xl text-sm min-h-[88px] focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-shadow"
           placeholder="Enter the question..."
           required
         />
       </div>
       <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Question type</label>
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Question type</label>
           <select
             value={type}
             onChange={(e) =>
               setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank" | "summary")
             }
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
           >
             <option value="multiple_choice">Multiple choice</option>
             <option value="true_false">Flashcard</option>
@@ -112,12 +112,12 @@ function EditStudyQuestionForm({
       {type === "multiple_choice" && (
         <>
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Answer options</label>
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Answer options</label>
             <div className="space-y-2">
               {[0, 1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-red-700">
-                    {String.fromCharCode(65 + i)}.
+                  <span className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-100 text-red-700 text-xs font-bold">
+                    {String.fromCharCode(65 + i)}
                   </span>
                   <input
                     value={options[i] ?? ""}
@@ -128,7 +128,7 @@ function EditStudyQuestionForm({
                         return next;
                       })
                     }
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     placeholder={`Option ${String.fromCharCode(65 + i)}`}
                   />
                 </div>
@@ -136,11 +136,11 @@ function EditStudyQuestionForm({
             </div>
           </div>
           <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Correct answer</label>
-          <select
+            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
+            <select
               value={correctAnswerMc}
               onChange={(e) => setCorrectAnswerMc(parseInt(e.target.value, 10))}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
             >
               {options.map((opt, i) => (
                 <option key={i} value={i}>
@@ -153,13 +153,13 @@ function EditStudyQuestionForm({
       )}
       {type === "true_false" && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Correct answer</label>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-1.5">Correct answer</label>
           <div className="flex gap-3">
             <button
               type="button"
               onClick={() => setCorrectAnswerTf(true)}
               className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                correctAnswerTf ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                correctAnswerTf ? "border-green-500 bg-green-50 text-green-600" : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
               }`}
             >
               True
@@ -168,7 +168,7 @@ function EditStudyQuestionForm({
               type="button"
               onClick={() => setCorrectAnswerTf(false)}
               className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                !correctAnswerTf ? "border-green-500 bg-green-50 text-green-700" : "border-gray-200 bg-white text-gray-600 hover:border-gray-300"
+                !correctAnswerTf ? "border-green-500 bg-green-50 text-green-600" : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
               }`}
             >
               False
@@ -178,21 +178,21 @@ function EditStudyQuestionForm({
       )}
       {type === "fill_blank" && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-black mb-1.5">Correct answer</label>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
           <input
             type="text"
             value={correctAnswerFill}
             onChange={(e) => setCorrectAnswerFill(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder:text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-red-500"
             placeholder="Answer that fills the blank"
           />
         </div>
       )}
-      <div className="flex gap-3 pt-2">
+      <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="submit"
           disabled={saving}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-red-600 text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-all"
+          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 transition-all"
         >
           {saving ? (
             <>
@@ -209,7 +209,7 @@ function EditStudyQuestionForm({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-3 bg-white border-2 border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors"
+          className="w-full sm:w-auto px-4 py-3 bg-white border-2 border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors"
         >
           Cancel
         </button>
@@ -246,7 +246,7 @@ export default function ContentPage() {
   const [generatedForStudy, setGeneratedForStudy] = useState<any[]>([]);
   const [selectedGenerated, setSelectedGenerated] = useState<Set<number>>(new Set());
   const [studyAidGenerateType, setStudyAidGenerateType] = useState<"summary" | "flashcard" | "multiple_choice" | "fill_blank">("multiple_choice");
-  const [studyAidGenerateCount, setStudyAidGenerateCount] = useState(5);
+  const [studyAidGenerateCount, setStudyAidGenerateCount] = useState(1);
   const [studyAidLoading, setStudyAidLoading] = useState(false);
   const [studyAidGenerating, setStudyAidGenerating] = useState(false);
   const [studyAidAdding, setStudyAidAdding] = useState(false);
@@ -254,6 +254,25 @@ export default function ContentPage() {
   const [studyAidSaving, setStudyAidSaving] = useState(false);
   const { handledCourses } = useProfessorCourses();
   const [creatingLesson, setCreatingLesson] = useState(false);
+
+  const orderedStudyAidQuestions = useMemo(() => {
+    const typePriority: Record<StudyAidQuestion["type"], number> = {
+      summary: 0,
+      true_false: 1,
+      fill_blank: 2,
+      multiple_choice: 3,
+    };
+
+    return [...studyAidQuestions].sort((a, b) => {
+      const byType = typePriority[a.type] - typePriority[b.type];
+      if (byType !== 0) return byType;
+
+      const byQuestion = a.question.localeCompare(b.question, undefined, { sensitivity: "base" });
+      if (byQuestion !== 0) return byQuestion;
+
+      return a.id.localeCompare(b.id);
+    });
+  }, [studyAidQuestions]);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -492,7 +511,7 @@ export default function ContentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -507,7 +526,7 @@ export default function ContentPage() {
   const totalLessons = lessons.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Professor Navbar */}
       <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
@@ -520,7 +539,7 @@ export default function ContentPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {/* Page Header */}
         <div className="mb-8">
           <Link
@@ -537,18 +556,18 @@ export default function ContentPage() {
             </svg>
             Back to Courses
           </Link>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-red-700 mb-2">
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Course Content
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 break-words">
                 {course?.name} ({course?.code}) • {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}
               </p>
             </div>
             <button
               onClick={() => setAddLessonModalOpen(true)}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -567,7 +586,7 @@ export default function ContentPage() {
         {totalLessons === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
                 <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -581,7 +600,7 @@ export default function ContentPage() {
               <p className="text-gray-600 mb-6">Add your first lesson to get started</p>
               <button
                 onClick={() => setAddLessonModalOpen(true)}
-                className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+                className="inline-flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -596,7 +615,7 @@ export default function ContentPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {(["prelim", "midterm", "finals"] as const).map((category) => {
               const categoryLessons = lessonsByCategory[category];
               if (categoryLessons.length === 0) return null;
@@ -604,7 +623,7 @@ export default function ContentPage() {
               return (
                 <div key={category}>
                   {/* Category Header */}
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
                     <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
                     <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
                       {categoryLessons.length} lesson{categoryLessons.length !== 1 ? "s" : ""}
@@ -616,11 +635,11 @@ export default function ContentPage() {
                     {categoryLessons.map((lesson) => (
                       <div
                         key={lesson.id}
-                        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
+                        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="flex-shrink-0 w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div className="flex items-start gap-4 flex-1 min-w-0">
+                            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
                               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -631,13 +650,13 @@ export default function ContentPage() {
                               </svg>
                             </div>
                             <div className="flex-1">
-                              <h3 className="text-xl font-bold text-gray-800 mb-2">{lesson.title}</h3>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{lesson.title}</h3>
                               {lesson.description && (
-                                <p className="text-gray-600 mb-3">{lesson.description}</p>
+                                <p className="text-gray-600 mb-3 break-words">{lesson.description}</p>
                               )}
-                              <div className="flex items-center gap-4 text-sm text-gray-500">
+                              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                                 {lesson.pdfFileName && (
-                                  <div className="flex items-center gap-2">
+                                  <div className="flex items-center gap-2 min-w-0">
                                     <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path
                                         strokeLinecap="round"
@@ -646,7 +665,19 @@ export default function ContentPage() {
                                         d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
                                       />
                                     </svg>
-                                    <span>{lesson.pdfFileName}</span>
+                                    {lesson.pdfUrl ? (
+                                      <a
+                                        href={lesson.pdfUrl}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="truncate text-red-700 hover:text-red-800 hover:underline"
+                                        title="Open PDF"
+                                      >
+                                        {lesson.pdfFileName}
+                                      </a>
+                                    ) : (
+                                      <span className="truncate">{lesson.pdfFileName}</span>
+                                    )}
                                   </div>
                                 )}
                                 {lesson.createdAt && (
@@ -661,7 +692,7 @@ export default function ContentPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full lg:w-auto items-center justify-end gap-2 lg:self-start">
                             {lesson.pdf_file_path && (
                               <button
                                 type="button"
@@ -759,27 +790,27 @@ export default function ContentPage() {
           onClick={() => setStudyAidLesson(null)}
         >
           <div
-            className="bg-white rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-hidden flex flex-col border border-gray-200"
+            className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col border border-gray-200"
             onClick={(e) => e.stopPropagation()}
           >
-            {/* Modal header with gradient */}
-            <div className="bg-red-600 hover:bg-red-700 text-white px-6 py-5 text-white">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center">
-                    <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            {/* Modal header */}
+            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 bg-white">
+              <div className="flex items-start sm:items-center justify-between gap-3">
+                <div className="flex items-start sm:items-center gap-3 min-w-0">
+                  <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
+                    <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                     </svg>
                   </div>
-                  <div>
-                    <h2 className="text-xl font-bold">Study aid</h2>
-                    <p className="text-red-100 text-sm mt-0.5">{studyAidLesson.title}</p>
+                  <div className="min-w-0">
+                    <h2 className="text-xl font-bold text-gray-900">Study aid</h2>
+                    <p className="text-gray-600 text-sm mt-0.5 break-words">{studyAidLesson.title}</p>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setStudyAidLesson(null)}
-                  className="p-2 rounded-xl hover:bg-white/20 transition-colors"
+                  className="p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
                   aria-label="Close"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -789,7 +820,7 @@ export default function ContentPage() {
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 space-y-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
               {error && (
                 <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
                   <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -809,7 +840,7 @@ export default function ContentPage() {
 
               {/* Current study aid — card */}
               <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
+                <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
                   <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
                     <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -822,7 +853,7 @@ export default function ContentPage() {
                     </span>
                   )}
                 </div>
-                <div className="p-5">
+                <div className="p-4 sm:p-5">
                   {studyAidLoading ? (
                     <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
                       <svg className="animate-spin w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24">
@@ -842,59 +873,61 @@ export default function ContentPage() {
                       <p className="text-gray-500 text-sm mt-1">Generate questions below and add them here.</p>
                     </div>
                   ) : (
-                    <ul className="space-y-2">
-                      {studyAidQuestions.map((q) => (
-                        <li
-                          key={q.id}
-                          className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200 hover:border-red-200 hover:shadow-sm transition-all"
-                        >
-                          <span className="flex-1 text-sm text-gray-800 line-clamp-2 pr-2">{q.question}</span>
-                          <span className="flex-shrink-0 text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
-                            {q.type === "true_false"
-                              ? "Flashcard"
-                              : q.type === "summary"
-                                ? "Summary"
-                                : q.type === "fill_blank"
-                                  ? "Fill in the blank"
-                                  : "Multiple choice"}
-                          </span>
-                          <div className="flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => setEditingStudyQuestion(q)}
-                              className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-                              title="Edit"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                              </svg>
-                            </button>
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                try {
-                                  await removeLessonStudyQuestion(studyAidLesson.id, q.id);
-                                  setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
-                                  if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
-                                } catch (e) {
-                                  setError((e as Error).message);
-                                }
-                              }}
-                              className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-                              title="Remove"
-                            >
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                              </svg>
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
+                    <div className="max-h-72 sm:max-h-[24rem] overflow-y-auto pr-1">
+                      <ul className="space-y-2">
+                        {orderedStudyAidQuestions.map((q) => (
+                          <li
+                            key={q.id}
+                            className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 bg-white rounded-xl border border-gray-200 hover:border-red-200 hover:shadow-sm transition-all"
+                          >
+                            <span className="flex-1 text-sm text-gray-800 break-words pr-2">{q.question}</span>
+                            <span className="self-start sm:self-auto flex-shrink-0 text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
+                              {q.type === "true_false"
+                                ? "Flashcard"
+                                : q.type === "summary"
+                                  ? "Summary"
+                                  : q.type === "fill_blank"
+                                    ? "Fill in the blank"
+                                    : "Multiple choice"}
+                            </span>
+                            <div className="flex items-center gap-1 self-end sm:self-auto">
+                              <button
+                                type="button"
+                                onClick={() => setEditingStudyQuestion(q)}
+                                className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                                title="Edit"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                </svg>
+                              </button>
+                              <button
+                                type="button"
+                                onClick={async () => {
+                                  try {
+                                    await removeLessonStudyQuestion(studyAidLesson.id, q.id);
+                                    setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
+                                    if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
+                                  } catch (e) {
+                                    setError((e as Error).message);
+                                  }
+                                }}
+                                className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                                title="Remove"
+                              >
+                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                </svg>
+                              </button>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   )}
 
                   {editingStudyQuestion && studyAidLesson && (
-                    <div className="mt-5 rounded-2xl border-2 border-red-200 bg-white p-5 shadow-sm">
+                    <div className="mt-5 rounded-2xl border-2 border-red-200 bg-white p-4 sm:p-5 shadow-sm">
                       <h4 className="flex items-center gap-2 font-semibold text-gray-800 mb-4">
                         <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -916,7 +949,7 @@ export default function ContentPage() {
                             setStudyAidQuestions((prev) =>
                               prev.map((x) => (x.id === updated.id ? updated : x))
                             );
-                            setEditingStudyQuestion(updated);
+                            setEditingStudyQuestion(null);
                             setSuccess("Question updated.");
                             setTimeout(() => setSuccess(""), 3000);
                           } catch (e) {
@@ -935,26 +968,26 @@ export default function ContentPage() {
 
               {/* Generate with AI — card */}
               <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
-                <div className="px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
+                    <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
                     </svg>
                   </div>
                   <h3 className="font-semibold text-gray-800">Generate with AI (Gemini)</h3>
                 </div>
-                <div className="p-5 space-y-4">
-                  <div className="flex flex-wrap gap-4 items-end">
-                    <div className="flex-1 min-w-[140px]">
-                      <label className="block text-xs font-medium text-gray-900 mb-1.5">Question type</label>
+                <div className="p-4 sm:p-5 space-y-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                    <div className="sm:col-span-2">
+                      <label className="block text-xs font-medium text-gray-500 mb-1.5">Question type</label>
                       <select
                         value={studyAidGenerateType}
                         onChange={(e) => {
                           setStudyAidGenerateType(e.target.value as any);
                           if (e.target.value === "summary") setStudyAidGenerateCount(1);
-                          if (e.target.value === "fill_blank") setStudyAidGenerateCount(5);
+                          if (e.target.value === "fill_blank") setStudyAidGenerateCount(1);
                         }}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
                       >
                         <option value="summary">Summary (1 per lesson)</option>
                         <option value="flashcard">Flashcard</option>
@@ -963,34 +996,31 @@ export default function ContentPage() {
                       </select>
                     </div>
                     {studyAidGenerateType !== "summary" && (
-                      <div className="w-24">
-                        <label className="block text-xs font-medium text-gray-900 mb-1.5">Count</label>
+                      <div className="w-full sm:w-24">
+                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
                         <input
                           type="number"
                           min={1}
                           max={10}
                           value={studyAidGenerateCount}
                           onChange={(e) => setStudyAidGenerateCount(parseInt(e.target.value, 10) || 5)}
-                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                          className="w-full px-4 py-2.5 border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
                     )}
                     {studyAidGenerateType === "summary" && (
-                      <div className="w-24">
-                        <label className="block text-xs font-medium text-gray-900 mb-1.5">Count</label>
-                        <div className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-gray-50 text-gray-900">
+                      <div className="w-full sm:w-24">
+                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
+                        <div className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-gray-50 text-gray-500">
                           1 (Summary only)
                         </div>
                       </div>
                     )}
                     {studyAidGenerateType === "summary" &&
                       studyAidQuestions.some(
-                        (q) =>
-                          q.type === "summary" ||
-                          (q.type === "fill_blank" &&
-                            String(q.correct_answer || "").toLowerCase().includes("summary"))
+                        (q) => q.type === "summary"
                       ) && (
-                      <span className="text-sm text-amber-700 font-medium">Summary already exists for this lesson.</span>
+                      <span className="text-sm text-amber-700 font-medium sm:col-span-2">Summary already exists for this lesson.</span>
                     )}
                     <button
                       type="button"
@@ -998,20 +1028,13 @@ export default function ContentPage() {
                         studyAidGenerating ||
                         (studyAidGenerateType === "summary" &&
                           studyAidQuestions.some(
-                            (q) => q.type === "fill_blank" && String(q.correct_answer || "").toLowerCase().includes("summary")
+                            (q) => q.type === "summary"
                           ))
                       }
                       onClick={async () => {
                         // Summary is one-time only: do not allow generating again if one exists
                         if (studyAidGenerateType === "summary") {
-                          const existingSummary = studyAidQuestions.find(
-                            (q) =>
-                              q.type === "summary" ||
-                              (q.type === "fill_blank" &&
-                                String(q.correct_answer || "")
-                                  .toLowerCase()
-                                  .includes("summary"))
-                          );
+                          const existingSummary = studyAidQuestions.find((q) => q.type === "summary");
                           if (existingSummary) {
                             return; // Button is disabled when summary exists; no-op
                           }
@@ -1049,7 +1072,7 @@ export default function ContentPage() {
                           setStudyAidGenerating(false);
                         }
                       }}
-                      className="inline-flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-white text-sm font-semibold rounded-xl hover:from-purple-700 hover:to-indigo-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 text-white text-sm font-semibold rounded-xl hover:from-rose-700 hover:to-red-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all"
                     >
                       {studyAidGenerating ? (
                         <>
@@ -1072,11 +1095,11 @@ export default function ContentPage() {
 
                   {generatedForStudy.length > 0 && (
                     <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex items-center justify-between">
+                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
                         <span className="text-sm font-medium text-gray-700">Select questions to add</span>
                         <span className="text-xs text-gray-500">{selectedGenerated.size} selected</span>
                       </div>
-                      <ul className="max-h-56 overflow-y-auto divide-y divide-gray-100">
+                      <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
                         {generatedForStudy.map((q: any, idx: number) => (
                           <li
                             key={idx}
@@ -1098,7 +1121,7 @@ export default function ContentPage() {
                               onChange={() => {}}
                               className="mt-1 rounded border-gray-300 text-red-600 focus:ring-red-500"
                             />
-                            <span className="text-sm text-gray-800 flex-1">{q.question}</span>
+                            <span className="text-sm text-gray-800 flex-1 break-words">{q.question}</span>
                           </li>
                         ))}
                       </ul>
@@ -1115,14 +1138,7 @@ export default function ContentPage() {
                               // If adding a summary, remove existing summary first
                               // When adding a new summary, remove existing summary first (only if we ever allowed replace; currently summary is one-time so this path is for first add only)
                               if (studyAidGenerateType === "summary") {
-                                const existingSummary = studyAidQuestions.find(
-                                  (q) =>
-                                    q.type === "summary" ||
-                                    (q.type === "fill_blank" &&
-                                      String(q.correct_answer || "")
-                                        .toLowerCase()
-                                        .includes("summary"))
-                                );
+                                const existingSummary = studyAidQuestions.find((q) => q.type === "summary");
                                 if (existingSummary) {
                                   try {
                                     await removeLessonStudyQuestion(
@@ -1193,11 +1209,11 @@ export default function ContentPage() {
             onClick={handleCancel}
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
+              className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-4 sm:p-6 transform transition-all max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-black">
+              <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   Add New Lesson
                 </h2>
                 <button
@@ -1218,7 +1234,7 @@ export default function ContentPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Lesson Name */}
                 <div>
-                  <label htmlFor="lessonName" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="lessonName" className="block text-sm font-semibold text-gray-700 mb-2">
                     Lesson Name
                   </label>
                   <div className="relative">
@@ -1238,7 +1254,7 @@ export default function ContentPage() {
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Enter lesson name"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                       autoFocus
                     />
                   </div>
@@ -1246,7 +1262,7 @@ export default function ContentPage() {
 
                 {/* Category */}
                 <div>
-                  <label htmlFor="category" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="category" className="block text-sm font-semibold text-gray-700 mb-2">
                     Category
                   </label>
                   <div className="relative">
@@ -1266,7 +1282,7 @@ export default function ContentPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, category: e.target.value as "prelim" | "midterm" | "finals" })
                       }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
                     >
                       <option value="prelim">Prelim</option>
                       <option value="midterm">Midterm</option>
@@ -1287,7 +1303,7 @@ export default function ContentPage() {
 
                 {/* PDF Upload */}
                 <div>
-                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-gray-700 mb-2">
                     PDF File
                   </label>
                   <div className="relative">
@@ -1296,11 +1312,11 @@ export default function ContentPage() {
                       type="file"
                       accept="application/pdf"
                       onChange={handleFileChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                     />
                   </div>
                   {formData.pdfFile && (
-                    <p className="mt-2 text-sm text-black flex items-center gap-2">
+                    <p className="mt-2 text-sm text-gray-600 flex items-center gap-2">
                       <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
                           strokeLinecap="round"
@@ -1312,7 +1328,7 @@ export default function ContentPage() {
                       {formData.pdfFile.name}
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-black">Upload a PDF file for this lesson</p>
+                  <p className="mt-1 text-xs text-gray-500">Upload a PDF file for this lesson</p>
                 </div>
 
                 {/* Error Message */}
@@ -1356,7 +1372,7 @@ export default function ContentPage() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
                     type="button"
                     onClick={handleCancel}
@@ -1367,7 +1383,7 @@ export default function ContentPage() {
                   <button
                     type="submit"
                     disabled={creatingLesson}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
                   >
                     {creatingLesson ? "Adding..." : "Add Lesson"}
                   </button>
@@ -1385,11 +1401,11 @@ export default function ContentPage() {
           onClick={closeEditLessonModal}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6 transform transition-all"
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-4 sm:p-6 transform transition-all max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-black">
+            <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                 Edit Lesson
               </h2>
               <button
@@ -1404,7 +1420,7 @@ export default function ContentPage() {
 
             <form onSubmit={handleUpdateLesson} className="space-y-4">
               <div>
-                <label htmlFor="editLessonName" className="block text-sm font-semibold text-black mb-2">
+                <label htmlFor="editLessonName" className="block text-sm font-semibold text-gray-700 mb-2">
                   Lesson Name
                 </label>
                 <input
@@ -1412,13 +1428,13 @@ export default function ContentPage() {
                   type="text"
                   value={editLessonForm.title}
                   onChange={(e) => setEditLessonForm((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
                   autoFocus
                 />
               </div>
 
               <div>
-                <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-black mb-2">
+                <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-gray-700 mb-2">
                   Category
                 </label>
                 <select
@@ -1427,7 +1443,7 @@ export default function ContentPage() {
                   onChange={(e) =>
                     setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
                   }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
                 >
                   <option value="prelim">Prelim</option>
                   <option value="midterm">Midterm</option>
@@ -1436,18 +1452,18 @@ export default function ContentPage() {
               </div>
 
               <div>
-                <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-black mb-2">
-                  Replace PDF <span className="text-gray-700 text-xs">(Optional)</span>
+                <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-gray-700 mb-2">
+                  Replace PDF <span className="text-gray-500 text-xs">(Optional)</span>
                 </label>
                 <input
                   id="editLessonPdf"
                   type="file"
                   accept="application/pdf"
                   onChange={handleEditLessonFileChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
                 />
                 {editingLesson.pdfFileName && (
-                  <p className="mt-2 text-xs text-black">
+                  <p className="mt-2 text-xs text-gray-500">
                     Current PDF: <span className="font-medium">{editingLesson.pdfFileName}</span>
                   </p>
                 )}
@@ -1459,18 +1475,18 @@ export default function ContentPage() {
                 </div>
               )}
 
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
                   onClick={closeEditLessonModal}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl cursor-pointer font-semibold hover:bg-gray-50 transition-colors"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={updatingLesson}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {updatingLesson ? "Saving..." : "Save changes"}
                 </button>

@@ -227,7 +227,7 @@ export default function StudentContentPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
         <StudentCourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -242,7 +242,7 @@ export default function StudentContentPage() {
   const totalLessons = lessons.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Main Student Navbar */}
       <StudentNavbar currentPage="courses" />
       
@@ -255,7 +255,7 @@ export default function StudentContentPage() {
       />
 
       {/* Main Content */}
-        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {/* Page Header */}
         <div className="mb-8">
           <Link
@@ -273,10 +273,10 @@ export default function StudentContentPage() {
             Back to Courses
           </Link>
           <div>
-            <h1 className="text-4xl font-bold text-red-700 mb-2">
+            <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
               Course Content
             </h1>
-            <p className="text-gray-600">
+            <p className="text-sm sm:text-base text-gray-600 break-words">
               {course?.name} ({course?.code}) • {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}
             </p>
           </div>
@@ -285,9 +285,9 @@ export default function StudentContentPage() {
         {/* Lessons by Category */}
         {totalLessons === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-          <div className="text-center py-12">
-            <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
-              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="text-center py-12">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
+                <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
                     strokeLinejoin="round"
@@ -301,7 +301,7 @@ export default function StudentContentPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {(["prelim", "midterm", "finals"] as const).map((category) => {
               const categoryLessons = lessonsByCategory[category];
               if (categoryLessons.length === 0) return null;
@@ -309,8 +309,8 @@ export default function StudentContentPage() {
               return (
                 <div key={category}>
                   {/* Category Header */}
-                  <div className="mb-4 flex items-center gap-3">
-                    <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
+                  <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+                    <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
                     <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
                       {categoryLessons.length} lesson{categoryLessons.length !== 1 ? "s" : ""}
                     </span>
@@ -323,18 +323,18 @@ export default function StudentContentPage() {
                       return (
                       <div
                         key={lesson.id}
-                        className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-amber-200 bg-amber-50/50"}`}
+                        className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-4 sm:p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-amber-200 bg-amber-50/50"}`}
                       >
-                        <div className="flex items-start justify-between">
+                        <div className="flex flex-col items-start justify-between gap-4">
                           <div className="flex-1">
-                            <h3 className="text-xl font-bold text-gray-800 mb-2">{lesson.title}</h3>
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{lesson.title}</h3>
                             {!isUnlocked && (
                               <p className="text-amber-800 text-sm font-medium mb-2">
                                 Complete the previous lesson&apos;s study aid with at least 70% to unlock.
                               </p>
                             )}
                             {lesson.description && (
-                              <p className="text-gray-600 mb-4">{lesson.description}</p>
+                              <p className="text-gray-600 mb-4 break-words">{lesson.description}</p>
                             )}
                             <div className="flex items-center gap-4 mt-4 flex-wrap">
                               {lesson.pdfUrl && (
@@ -343,7 +343,7 @@ export default function StudentContentPage() {
                                     href={lesson.pdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 bg-gray-100 text-gray-800 hover:bg-gray-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm border border-gray-300"
+                                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-100 text-gray-800 hover:bg-gray-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm border border-gray-300"
                                   >
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -352,7 +352,7 @@ export default function StudentContentPage() {
                                     {lesson.pdfFileName && <span className="text-gray-500 font-normal">({lesson.pdfFileName})</span>}
                                   </a>
                                 ) : (
-                                  <span className="inline-flex items-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm border border-gray-300 cursor-not-allowed">
+                                  <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm border border-gray-300 cursor-not-allowed">
                                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                                     View PDF (locked)
                                   </span>
@@ -361,7 +361,7 @@ export default function StudentContentPage() {
                               {isUnlocked ? (
                                 <button
                                   onClick={() => handleStudyAid(lesson)}
-                                  className="inline-flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
+                                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -369,7 +369,7 @@ export default function StudentContentPage() {
                                   Study Aid
                                 </button>
                               ) : (
-                                <span className="inline-flex items-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm cursor-not-allowed">
+                                <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm cursor-not-allowed">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
                                   Study Aid (locked)
                                 </span>
@@ -391,13 +391,13 @@ export default function StudentContentPage() {
       {studyAidModalOpen && selectedLesson && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setStudyAidModalOpen(false)}>
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-2xl shadow-2xl max-w-5xl w-full max-h-[94vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200 bg-white">
-              <div>
-                <h2 className="text-2xl font-bold text-black">
+            <div className="flex items-start sm:items-center justify-between gap-3 p-3 sm:p-4 border-b border-gray-200">
+              <div className="min-w-0">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   Study Aid: {selectedLesson.title}
                 </h2>
                 <p className="text-sm text-gray-600 mt-1">Choose a study method</p>
@@ -405,7 +405,6 @@ export default function StudentContentPage() {
               <button
                 onClick={() => setStudyAidModalOpen(false)}
                 className="text-gray-400 hover:text-gray-600 transition-colors"
-                aria-label="Close"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -413,88 +412,35 @@ export default function StudentContentPage() {
               </button>
             </div>
 
-            {/* Study Aid Type Selection — Summary first */}
-            <div className="p-6 border-b border-gray-200 bg-gray-50">
-              <div className="flex gap-4 flex-wrap">
-                <button
-                  onClick={() => { setStudyAidType("summary"); setStudyAidIndex(0); setStudyAidReveal(false); }}
-                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                    studyAidType === "summary"
-                      ? "bg-red-600 hover:bg-red-700 text-white text-white shadow-lg transform -translate-y-0.5"
-                      : "bg-white text-red-700 border border-red-300 hover:bg-red-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                    </svg>
-                    Summary
-                  </div>
-                </button>
-                <button
-                  onClick={() => { setStudyAidType("flashcards"); setStudyAidIndex(0); setStudyAidReveal(false); }}
-                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                    studyAidType === "flashcards"
-                      ? "bg-red-600 hover:bg-red-700 text-white text-white shadow-lg transform -translate-y-0.5"
-                      : "bg-white text-red-700 border border-red-300 hover:bg-red-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-                    </svg>
-                    Flashcards
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    setStudyAidType("multiple_choice");
+            {/* Study Aid Type Selection */}
+            <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50">
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
+                <label className="text-sm font-semibold text-gray-700 sm:shrink-0">Study method</label>
+                <select
+                  value={studyAidType}
+                  onChange={(e) => {
+                    const nextType = e.target.value as "summary" | "flashcards" | "multiple_choice" | "fill_blank";
+                    setStudyAidType(nextType);
                     setStudyAidIndex(0);
                     setStudyAidReveal(false);
-                    setStudyAidAnswers({});
-                    setStudyAidScoreSubmitted(false);
-                    setStudyAidSubmitError(null);
+                    if (nextType === "multiple_choice" || nextType === "fill_blank") {
+                      setStudyAidAnswers({});
+                      setStudyAidScoreSubmitted(false);
+                      setStudyAidSubmitError(null);
+                    }
                   }}
-                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                    studyAidType === "multiple_choice"
-                      ? "bg-red-600 hover:bg-red-700 text-white text-white shadow-lg transform -translate-y-0.5"
-                      : "bg-white text-red-700 border border-red-300 hover:bg-red-50"
-                  }`}
+                  className="w-full sm:max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    Multiple Choice
-                  </div>
-                </button>
-                <button
-                  onClick={() => {
-                    setStudyAidType("fill_blank");
-                    setStudyAidIndex(0);
-                    setStudyAidReveal(false);
-                    setStudyAidAnswers({});
-                    setStudyAidScoreSubmitted(false);
-                    setStudyAidSubmitError(null);
-                  }}
-                  className={`flex-1 min-w-[100px] px-6 py-3 rounded-xl font-semibold transition-all duration-200 ${
-                    studyAidType === "fill_blank"
-                      ? "bg-red-600 hover:bg-red-700 text-white text-white shadow-lg transform -translate-y-0.5"
-                      : "bg-white text-red-700 border border-red-300 hover:bg-red-50"
-                  }`}
-                >
-                  <div className="flex items-center justify-center gap-2">
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                    </svg>
-                    Fill in the blank
-                  </div>
-                </button>
+                  <option value="summary">Summary</option>
+                  <option value="flashcards">Flashcards</option>
+                  <option value="multiple_choice">Multiple Choice</option>
+                  <option value="fill_blank">Fill in the blank</option>
+                </select>
               </div>
             </div>
 
             {/* Study Aid Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-3 sm:p-4">
               {studyAidLoading ? (
                 <div className="flex items-center justify-center py-16">
                   <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600" />
@@ -514,16 +460,16 @@ export default function StudentContentPage() {
                   <p className="text-gray-600">No {studyAidType.replace("_", " ")} questions for this lesson.</p>
                 </div>
               ) : studyAidType === "flashcards" && currentQuestion && (
-                <div className="text-center py-8">
+                <div className="text-center py-4 sm:py-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Flashcards</h3>
-                  <div className="bg-red-50 rounded-2xl p-8 max-w-md mx-auto">
-                    <p className="text-gray-500 text-sm mb-4">Click to flip</p>
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-3 sm:p-5 max-w-lg mx-auto">
+                    <p className="text-gray-500 text-sm mb-3">Click to flip</p>
                     <button
                       type="button"
                       onClick={() => setStudyAidReveal((r) => !r)}
-                      className="w-full bg-white rounded-xl shadow-lg p-8 min-h-[200px] flex items-center justify-center text-left hover:ring-2 hover:ring-indigo-300 transition-all"
+                      className="w-full bg-white rounded-xl shadow-lg p-4 sm:p-6 min-h-[140px] sm:min-h-[170px] flex items-center justify-center text-left hover:ring-2 hover:ring-red-300 transition-all"
                     >
-                      <p className="text-lg font-semibold text-gray-700">
+                      <p className="text-base sm:text-lg font-semibold text-gray-700">
                         {studyAidReveal
                           ? typeof currentQuestion.correct_answer === "boolean"
                             ? String(currentQuestion.correct_answer)
@@ -534,7 +480,7 @@ export default function StudentContentPage() {
                       </p>
                     </button>
                     <p className="text-sm text-gray-600 mt-2">{studyAidReveal ? "Answer" : "Question — click to flip"}</p>
-                    <div className="flex items-center justify-center gap-4 mt-6">
+                    <div className="flex items-center justify-center gap-3 mt-4">
                       <button
                         type="button"
                         onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
@@ -548,7 +494,7 @@ export default function StudentContentPage() {
                         type="button"
                         onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
                         disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50 transition-colors"
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
                       >
                         Next
                       </button>
@@ -558,9 +504,9 @@ export default function StudentContentPage() {
               )}
 
               {studyAidType === "summary" && currentQuestion && (
-                <div className="py-8">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Summary</h3>
-                  <div className="bg-red-50 rounded-2xl p-8 max-w-2xl mx-auto">
+                <div className="py-4 sm:py-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Summary</h3>
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-3 sm:p-5 max-w-3xl mx-auto">
                     <div className="bg-white rounded-xl shadow-lg p-6 text-left">
                       <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{currentQuestion.question}</p>
                     </div>
@@ -579,7 +525,7 @@ export default function StudentContentPage() {
                           type="button"
                           onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
                           disabled={studyAidIndex === currentList.length - 1}
-                          className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
                         >
                           Next
                         </button>
@@ -590,7 +536,7 @@ export default function StudentContentPage() {
               )}
 
               {studyAidType === "multiple_choice" && currentQuestion && currentQuestion.options && (
-                <div className="text-center py-8">
+                <div className="text-center py-4 sm:py-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
                   {studyAidSubmitError && (
                     <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
@@ -603,14 +549,14 @@ export default function StudentContentPage() {
                       Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
                     </p>
                   )}
-                  <div className="bg-red-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
-                    <div className="bg-white rounded-xl shadow-lg p-6 text-left">
-                      <p className="text-lg font-semibold text-gray-800 mb-4">{currentQuestion.question}</p>
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-3 sm:p-5 max-w-3xl mx-auto space-y-3">
+                    <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 text-left">
+                      <p className="text-base sm:text-lg font-semibold text-gray-800 mb-3">{currentQuestion.question}</p>
                       <div className="space-y-2">
                         {currentQuestion.options.map((option, idx) => (
                           <label
                             key={idx}
-                            className={`flex items-center gap-3 p-3 border rounded-lg transition-colors ${
+                            className={`flex items-center gap-3 p-2.5 sm:p-3 border rounded-lg transition-colors ${
                               studyAidScoreSubmitted
                                 ? Number(currentQuestion.correct_answer) === idx
                                   ? "border-green-500 bg-green-50"
@@ -618,7 +564,7 @@ export default function StudentContentPage() {
                                     ? "border-red-400 bg-red-50"
                                     : "border-gray-200 bg-gray-50"
                                 : studyAidAnswers[currentQuestion.id] === idx
-                                  ? "border-indigo-500 bg-red-50 cursor-pointer"
+                                  ? "border-red-500 bg-red-50 cursor-pointer"
                                   : "border-gray-300 hover:border-red-300 hover:bg-red-50/50 cursor-pointer"
                             }`}
                           >
@@ -657,7 +603,7 @@ export default function StudentContentPage() {
                         type="button"
                         onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
                         disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
                       >
                         Next
                       </button>
@@ -698,8 +644,8 @@ export default function StudentContentPage() {
                       Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
                     </p>
                   )}
-                  <div className="bg-red-50 rounded-2xl p-8 max-w-2xl mx-auto space-y-4">
-                    <div className="bg-white rounded-xl shadow-lg p-6 text-left">
+                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-4 sm:p-8 max-w-2xl mx-auto space-y-4">
+                    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 text-left">
                       <p className="text-lg font-semibold text-gray-800 mb-4">{currentQuestion.question}</p>
                       <input
                         type="text"
@@ -707,9 +653,9 @@ export default function StudentContentPage() {
                         onChange={(e) =>
                           setStudyAidAnswers((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }))
                         }
-                        placeholder="Type your answer..."
+                        placeholder="Type your answer here"
                         disabled={studyAidScoreSubmitted}
-                        className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent disabled:bg-gray-100"
+                        className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder-text-gray-800 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-100"
                       />
                       {studyAidScoreSubmitted && (
                         <div className="mt-4 space-y-2">
@@ -736,7 +682,7 @@ export default function StudentContentPage() {
                         type="button"
                         onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
                         disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 disabled:opacity-50"
+                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
                       >
                         Next
                       </button>
@@ -765,10 +711,10 @@ export default function StudentContentPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-gray-200 p-6 bg-gray-50">
+            <div className="border-t border-gray-200 p-4 sm:p-6 bg-gray-50">
               <button
                 onClick={() => setStudyAidModalOpen(false)}
-                className="w-full bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                className="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
               >
                 Close
               </button>

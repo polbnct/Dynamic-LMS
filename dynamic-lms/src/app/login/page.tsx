@@ -147,20 +147,35 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-white">
-      <div className="relative w-full max-w-md mx-4">
-        {/* Main card */}
-        <div className="bg-white rounded-3xl shadow-2xl p-8 border border-gray-200">
-          {/* Branding section */}
-          <div className="text-center mb-8">
-            <h1 className="text-3xl font-bold text-red-700 mb-2">
-              Welcome Back
-            </h1>
-            <p className="text-gray-500 text-sm">Sign in to access your learning dashboard</p>
-          </div>
+    <div className="flex min-h-screen items-center justify-center bg-red-50">
+      {/* Decorative background elements */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-blob"></div>
+        <div className="absolute -bottom-40 -left-36 w-72 h-72 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
+        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
+      </div>
 
-          {/* Form */}
-          <form onSubmit={handleSubmit} className="space-y-5">
+      <div className="relative w-full max-w-[min(100%,900px)] mx-auto px-4 lg:px-0">
+        <div className="overflow-hidden rounded-3xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-2xl">
+          <div className="grid gap-0 lg:grid-cols-2">
+            {/* Image panel */}
+            <section className="relative hidden lg:block">
+              <div className="h-full w-full max-h-[calc(100vh-2rem)]">
+                <img src="/login_Image.jpeg" alt="Welcome to LohikAral" className="h-full w-full object-cover" />
+              </div>
+            </section>
+
+            {/* Form panel */}
+            <section className="p-8 sm:p-10 max-w-xl mx-auto lg:mx-0 lg:max-w-none">
+              {/* Logo/Branding section */}
+              <div className="text-center mb-8">
+                <h1 className="text-3xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-2">
+                  Welcome Back
+                </h1>
+                <p className="text-gray-500 text-sm">Sign in to access your learning dashboard</p>
+              </div>
+
+              <form onSubmit={handleSubmit} className="space-y-5">
             {/* Email field */}
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -188,7 +203,7 @@ function LoginPageInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white text-black placeholder:text-black"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                   autoComplete="email"
                 />
               </div>
@@ -221,7 +236,7 @@ function LoginPageInner() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white text-black placeholder:text-black"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
                   autoComplete="current-password"
                 />
               </div>
@@ -234,7 +249,7 @@ function LoginPageInner() {
                   type="checkbox"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  className="w-4 h-4 text-red-600 border-rose-300 rounded focus:ring-red-500 cursor-pointer"
+                  className="h-4 w-4 cursor-pointer rounded border-gray-300 text-red-600 focus:ring-red-500"
                 />
                 <span className="ml-2 text-sm text-gray-600">Remember me</span>
               </label>
@@ -242,7 +257,7 @@ function LoginPageInner() {
 
             {/* Error message */}
             {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
+              <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                 <svg
                   className="w-5 h-5 text-red-600"
                   fill="none"
@@ -268,25 +283,20 @@ function LoginPageInner() {
             >
               {loading ? "Signing in..." : "Sign In"}
             </button>
-          </form>
+              </form>
 
-          {/* Divider */}
-          <div className="my-6 flex items-center">
-            <div className="flex-1 border-t border-gray-300"></div>
-            <span className="px-4 text-sm text-gray-500">or</span>
-            <div className="flex-1 border-t border-gray-300"></div>
+              <div className="my-6 h-px w-full bg-gray-200" />
+
+              <p className="text-center text-sm text-gray-600">
+                Don't have an account?{" "}
+                <Link href="/signup" className="font-semibold text-red-600 hover:text-red-700 transition-colors">
+                  Sign up
+                </Link>
+              </p>
+            </section>
           </div>
-
-          {/* Sign up link */}
-          <p className="text-center text-sm text-gray-600">
-            Don't have an account?{" "}
-            <Link href="/signup" className="font-semibold text-red-600 hover:text-red-700 transition-colors">
-              Sign up
-            </Link>
-          </p>
         </div>
       </div>
-
     </div>
   );
 }

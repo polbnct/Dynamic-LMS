@@ -168,7 +168,7 @@ export default function AssignmentsPage() {
         description: formData.description.trim() || undefined,
         category: formData.category,
         due_date: formData.dueDate ? manilaInputToUtcIso(formData.dueDate) ?? undefined : undefined,
-        max_submissions: maxSubmissionsValue ?? undefined,
+        max_submissions: maxSubmissionsValue,
       });
 
       let pdfPath: string | undefined;
@@ -250,7 +250,7 @@ export default function AssignmentsPage() {
         description: editForm.description.trim() || undefined,
         category: editForm.category,
         due_date: editForm.dueDate ? manilaInputToUtcIso(editForm.dueDate) ?? undefined : undefined,
-        max_submissions: maxSubmissionsValue ?? undefined,
+        max_submissions: maxSubmissionsValue,
       });
       setAssignments((prev) =>
         prev.map((a) =>
@@ -291,7 +291,7 @@ export default function AssignmentsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="assignments" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -306,7 +306,7 @@ export default function AssignmentsPage() {
   const totalAssignments = assignments.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Professor Navbar */}
       <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
@@ -319,7 +319,7 @@ export default function AssignmentsPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {/* Page Header */}
         <div className="mb-8">
           <Link
@@ -336,18 +336,18 @@ export default function AssignmentsPage() {
             </svg>
             Back to Courses
           </Link>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-red-700 mb-2">
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Assignments
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 break-words">
                 {course?.name} ({course?.code}) • {totalAssignments} assignment{totalAssignments !== 1 ? "s" : ""}
               </p>
             </div>
             <button
               onClick={() => setCreateAssignmentModalOpen(true)}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -366,7 +366,7 @@ export default function AssignmentsPage() {
         {totalAssignments === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
                 <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -381,7 +381,7 @@ export default function AssignmentsPage() {
             </div>
           </div>
         ) : (
-          <div className="space-y-8">
+          <div className="space-y-6 sm:space-y-8">
             {(["prelim", "midterm", "finals"] as const).map((category) => {
               const categoryAssignments = assignmentsByCategory[category];
               if (categoryAssignments.length === 0) return null;
@@ -389,7 +389,7 @@ export default function AssignmentsPage() {
               return (
                 <div key={category}>
                   {/* Category Header */}
-                  <div className="mb-4 flex items-center gap-3">
+                  <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
                     <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
                     <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
                       {categoryAssignments.length} assignment{categoryAssignments.length !== 1 ? "s" : ""}
@@ -401,11 +401,11 @@ export default function AssignmentsPage() {
                     {categoryAssignments.map((assignment) => (
                       <div
                         key={assignment.id}
-                        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
+                        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start gap-4 flex-1">
-                            <div className="flex-shrink-0 w-12 h-12 bg-red-50 rounded-xl flex items-center justify-center">
+                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                          <div className="flex items-start gap-4 flex-1 min-w-0">
+                            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
                               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -416,17 +416,17 @@ export default function AssignmentsPage() {
                               </svg>
                             </div>
                             <div className="flex-1">
-                              <h3 className="text-xl font-bold text-gray-800 mb-2">{assignment.title}</h3>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{assignment.title}</h3>
                               {assignment.description && (
-                                <p className="text-gray-600 mb-3">{assignment.description}</p>
+                                <p className="text-gray-600 mb-3 break-words">{assignment.description}</p>
                               )}
-                              <div className="flex items-center gap-4 text-sm text-gray-500 flex-wrap">
+                              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                                 {assignment.pdfUrl && (
                                   <a
                                     href={assignment.pdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-red-600 hover:text-indigo-800 font-medium"
+                                    className="inline-flex items-center gap-2 text-red-600 hover:text-red-800 font-medium break-all"
                                   >
                                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -446,7 +446,7 @@ export default function AssignmentsPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex w-full lg:w-auto items-center justify-end gap-2 lg:self-start">
                             <button
                               onClick={async () => {
                                 setAssignmentForSubmissions(assignment);
@@ -528,11 +528,11 @@ export default function AssignmentsPage() {
             onClick={handleCancel}
           >
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 transform transition-all max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 transform transition-all max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-black">
+              <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   Create Assignment
                 </h2>
                 <button
@@ -553,7 +553,7 @@ export default function AssignmentsPage() {
               <form onSubmit={handleSubmit} className="space-y-4">
                 {/* Assignment Name */}
                 <div>
-                  <label htmlFor="assignmentName" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="assignmentName" className="block text-sm font-semibold text-gray-700 mb-2">
                     Assignment Name <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -573,7 +573,7 @@ export default function AssignmentsPage() {
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Enter assignment name"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                       autoFocus
                     />
                   </div>
@@ -581,8 +581,8 @@ export default function AssignmentsPage() {
 
                 {/* Description (Optional Text) */}
                 <div>
-                  <label htmlFor="description" className="block text-sm font-semibold text-black mb-2">
-                    Description <span className="text-gray-700 text-xs">(Optional)</span>
+                  <label htmlFor="description" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Description <span className="text-gray-500 text-xs">(Optional)</span>
                   </label>
                   <div className="relative">
                     <textarea
@@ -591,15 +591,15 @@ export default function AssignmentsPage() {
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Write assignment description or instructions..."
                       rows={5}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white resize-none"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white resize-none"
                     />
                   </div>
-                  <p className="mt-1 text-xs text-black">Provide details, instructions, or requirements for this assignment</p>
+                  <p className="mt-1 text-xs text-gray-500">Provide details, instructions, or requirements for this assignment</p>
                 </div>
 
                 {/* Category */}
                 <div>
-                  <label htmlFor="category" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="category" className="block text-sm font-semibold text-gray-700 mb-2">
                     Category <span className="text-red-500">*</span>
                   </label>
                   <div className="relative">
@@ -619,7 +619,7 @@ export default function AssignmentsPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, category: e.target.value as "prelim" | "midterm" | "finals" })
                       }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
                     >
                       <option value="prelim">Prelim</option>
                       <option value="midterm">Midterm</option>
@@ -640,15 +640,15 @@ export default function AssignmentsPage() {
 
                 {/* Due Date (Optional, PH time) */}
                 <div>
-                  <label htmlFor="dueDate" className="block text-sm font-semibold text-black mb-2">
-                    Due date &amp; time (PH) <span className="text-gray-700 text-xs">(Optional)</span>
+                  <label htmlFor="dueDate" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Due date &amp; time (PH) <span className="text-gray-500 text-xs">(Optional)</span>
                   </label>
                   <input
                     id="dueDate"
                     type="datetime-local"
                     value={formData.dueDate}
                     onChange={(e) => setFormData({ ...formData, dueDate: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   />
                   <p className="mt-1 text-xs text-gray-500">
                     Interpreted as Philippine time (Asia/Manila) when saving.
@@ -657,14 +657,14 @@ export default function AssignmentsPage() {
 
                 {/* Max submissions per student */}
                 <div>
-                  <label htmlFor="maxSubmissions" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="maxSubmissions" className="block text-sm font-semibold text-gray-700 mb-2">
                     Max submissions per student
                   </label>
                   <select
                     id="maxSubmissions"
                     value={formData.maxSubmissions}
                     onChange={(e) => setFormData({ ...formData, maxSubmissions: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
                   >
                     <option value="1">1 (single submission)</option>
                     <option value="2">2 submissions</option>
@@ -673,7 +673,7 @@ export default function AssignmentsPage() {
                     <option value="10">10 submissions</option>
                     <option value="unlimited">Unlimited</option>
                   </select>
-                  <p className="mt-1 text-xs text-black">
+                  <p className="mt-1 text-xs text-gray-500">
                     Students will be stopped from submitting again after they reach this limit. Choose{" "}
                     <span className="font-semibold">Unlimited</span> to allow any number of submissions.
                   </p>
@@ -681,8 +681,8 @@ export default function AssignmentsPage() {
 
                 {/* PDF Upload (Optional) */}
                 <div>
-                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-black mb-2">
-                    PDF File <span className="text-gray-700 text-xs">(Optional)</span>
+                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-gray-700 mb-2">
+                    PDF File <span className="text-gray-500 text-xs">(Optional)</span>
                   </label>
                   <div className="relative">
                     <input
@@ -690,7 +690,7 @@ export default function AssignmentsPage() {
                       type="file"
                       accept="application/pdf"
                       onChange={handleFileChange}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                     />
                   </div>
                   {formData.pdfFile && (
@@ -706,7 +706,7 @@ export default function AssignmentsPage() {
                       {formData.pdfFile.name}
                     </p>
                   )}
-                  <p className="mt-1 text-xs text-black">Upload a PDF file if needed (e.g., assignment template, rubric)</p>
+                  <p className="mt-1 text-xs text-gray-500">Upload a PDF file if needed (e.g., assignment template, rubric)</p>
                 </div>
 
                 {/* Error Message */}
@@ -750,19 +750,19 @@ export default function AssignmentsPage() {
                 )}
 
                 {/* Action Buttons */}
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
                     type="button"
                     onClick={handleCancel}
                     disabled={creatingAssignment}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creatingAssignment}
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-60 disabled:cursor-not-allowed disabled:transform-none"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {creatingAssignment ? "Creating..." : "Create Assignment"}
                   </button>
@@ -775,15 +775,15 @@ export default function AssignmentsPage() {
 
       {/* Edit Assignment Modal */}
       {editingAssignment && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="text-2xl font-bold text-black">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-3 sm:p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                 Edit Assignment
               </h2>
               <button
                 onClick={() => { setEditingAssignment(null); setError(""); }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -791,61 +791,59 @@ export default function AssignmentsPage() {
               </button>
             </div>
             <form onSubmit={handleSaveEdit} className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-black mb-2">
-                Assignment Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={editForm.title}
-                onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
-                placeholder="Enter assignment name"
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white"
-                required
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-black mb-2">Description (Optional)</label>
-              <textarea
-                value={editForm.description}
-                onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
-                placeholder="Assignment description..."
-                rows={4}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white resize-none"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-black mb-2">Category</label>
-              <select
-                value={editForm.category}
-                onChange={(e) => setEditForm({ ...editForm, category: e.target.value as "prelim" | "midterm" | "finals" })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 bg-white"
-              >
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Assignment Name <span className="text-red-500">*</span></label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
+                  placeholder="Enter assignment name"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  required
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Description (Optional)</label>
+                <textarea
+                  value={editForm.description}
+                  onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
+                  placeholder="Assignment description..."
+                  rows={4}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white resize-none"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">Category</label>
+                <select
+                  value={editForm.category}
+                  onChange={(e) => setEditForm({ ...editForm, category: e.target.value as "prelim" | "midterm" | "finals" })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 bg-gray-50/50 focus:bg-white"
+                >
                   <option value="prelim">Prelim</option>
                   <option value="midterm">Midterm</option>
                   <option value="finals">Finals</option>
                 </select>
               </div>
-            <div>
-              <label className="block text-sm font-semibold text-black mb-2">
-                Due date &amp; time (PH, optional)
-              </label>
-              <input
-                type="datetime-local"
-                value={editForm.dueDate}
-                onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 bg-white"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-semibold text-black mb-2">
-                Max submissions per student
-              </label>
-              <select
-                value={editForm.maxSubmissions}
-                onChange={(e) => setEditForm({ ...editForm, maxSubmissions: e.target.value })}
-                className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 bg-white"
-              >
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Due date &amp; time (PH, optional)
+                </label>
+                <input
+                  type="datetime-local"
+                  value={editForm.dueDate}
+                  onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 bg-gray-50/50 focus:bg-white"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Max submissions per student
+                </label>
+                <select
+                  value={editForm.maxSubmissions}
+                  onChange={(e) => setEditForm({ ...editForm, maxSubmissions: e.target.value })}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 bg-gray-50/50 focus:bg-white"
+                >
                   <option value="1">1 (single submission)</option>
                   <option value="2">2 submissions</option>
                   <option value="3">3 submissions</option>
@@ -865,18 +863,18 @@ export default function AssignmentsPage() {
               {error && (
                 <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">{error}</div>
               )}
-              <div className="flex gap-3 pt-4">
+              <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="button"
                   onClick={() => { setEditingAssignment(null); setError(""); }}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold disabled:opacity-50"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {saving ? "Saving..." : "Save changes"}
                 </button>
@@ -890,13 +888,13 @@ export default function AssignmentsPage() {
       {submissionsModalOpen && assignmentForSubmissions && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div
-            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl min-h-[85vh] max-h-[95vh] overflow-hidden flex flex-col"
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-6xl h-[95vh] sm:min-h-[85vh] max-h-[95vh] overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between p-4 border-b border-gray-200 shrink-0">
-              <div>
-                <h2 className="text-xl font-bold text-gray-800">Student submissions</h2>
-                <p className="text-gray-600 text-sm mt-0.5">{assignmentForSubmissions.title}</p>
+            <div className="flex items-start sm:items-center justify-between gap-3 p-4 border-b border-gray-200 shrink-0">
+              <div className="min-w-0">
+                <h2 className="text-lg sm:text-xl font-bold text-gray-800">Student submissions</h2>
+                <p className="text-gray-600 text-sm mt-0.5 break-words">{assignmentForSubmissions.title}</p>
               </div>
               <button
                 onClick={() => {
@@ -906,7 +904,7 @@ export default function AssignmentsPage() {
                   setSelectedSubmission(null);
                   setExpandedStudents(new Set());
                 }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer shrink-0"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -914,7 +912,7 @@ export default function AssignmentsPage() {
               </button>
             </div>
 
-            <div className="flex-1 flex min-h-0">
+            <div className="flex-1 flex min-h-0 flex-col lg:flex-row">
               {submissionsLoading ? (
                 <div className="flex-1 flex items-center justify-center">
                   <div className="animate-spin rounded-full h-12 w-12 border-2 border-red-600 border-t-transparent"></div>
@@ -926,7 +924,7 @@ export default function AssignmentsPage() {
               ) : (
                 <>
                   {/* Left: students + submissions dropdown */}
-                  <div className="w-72 shrink-0 border-r border-gray-200 overflow-y-auto bg-gray-50/50">
+                  <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto bg-gray-50/50 max-h-[38vh] lg:max-h-none">
                     <div className="p-3 space-y-2">
                       {submissionsGroupedByStudent.map((student) => {
                         const isExpanded = expandedStudents.has(student.studentId);
@@ -986,7 +984,7 @@ export default function AssignmentsPage() {
                                         }}
                                         className={`w-full text-left rounded-lg px-3 py-2 border transition-colors ${
                                           isSelected
-                                            ? "bg-red-50 border-red-200 ring-1 ring-indigo-200"
+                                            ? "bg-red-50 border-red-200 ring-1 ring-red-200"
                                             : "bg-white border-gray-200 hover:bg-gray-50"
                                         }`}
                                       >
@@ -1032,11 +1030,11 @@ export default function AssignmentsPage() {
                   </div>
 
                   {/* Right: file viewer + grading */}
-                  <div className="flex-1 flex flex-col min-w-0">
+                  <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-y-auto">
                     {selectedSubmission ? (
                       <>
                         {/* Embedded file viewer */}
-                        <div className="flex-1 min-h-[280px] border-b border-gray-200 bg-gray-100">
+                        <div className="h-[35vh] sm:h-[40vh] lg:h-auto lg:flex-1 lg:min-h-[280px] border-b border-gray-200 bg-gray-100">
                           {selectedSubmission.fileUrl ? (
                             <iframe
                               src={selectedSubmission.fileUrl}
@@ -1044,7 +1042,7 @@ export default function AssignmentsPage() {
                               className="w-full h-full min-h-[280px]"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-gray-500">
+                            <div className="w-full h-full flex items-center justify-center text-gray-500 px-4 text-center">
                               No file to display.{" "}
                               {selectedSubmission.file_path && (
                                 <a
@@ -1062,42 +1060,49 @@ export default function AssignmentsPage() {
 
                         {/* Grading form */}
                         <div className="shrink-0 p-4 bg-white border-t border-gray-200">
-                          <p className="text-sm font-semibold text-gray-700 mb-3">
+                          <p className="text-sm font-semibold text-gray-700 mb-3 break-words">
                             Grade: {selectedSubmission.studentName}
                           </p>
-                          <div className="flex flex-wrap gap-4 items-end">
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Score</label>
+
+                          <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:gap-4">
+                            <div className="flex gap-3 lg:shrink-0">
+                              <div className="w-full lg:w-24">
+                              <label className="block text-xs font-medium text-gray-800 mb-1">Score</label>
                               <input
                                 type="number"
                                 min={0}
                                 value={gradeForm.score}
                                 onChange={(e) => setGradeForm((f) => ({ ...f, score: e.target.value }))}
                                 placeholder="0"
-                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
                               />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Out of</label>
-                              <input
-                                type="number"
-                                min={1}
-                                value={gradeForm.max_score}
-                                onChange={(e) => setGradeForm((f) => ({ ...f, max_score: e.target.value }))}
-                                placeholder="100"
-                                className="w-24 px-3 py-2 border border-gray-300 rounded-lg text-sm"
-                              />
-                            </div>
-                            <div className="flex-1 min-w-[200px]">
-                              <label className="block text-xs font-medium text-gray-500 mb-1">Feedback (optional)</label>
+                          </div>
+
+                          <div className="w-full lg:w-24">
+                            <label className="mb-1 block text-xs font-medium text-gray-800">Out of</label>
+                            <input
+                              type="number"
+                              min={1}
+                              value={gradeForm.max_score}
+                              onChange={(e) => setGradeForm((f) => ({ ...f, max_score: e.target.value }))}
+                              placeholder="100"
+                              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
+                            />
+                          </div>
+                        </div>
+
+                            <div className="w-full lg:flex-1">
+                              <label className="block text-xs font-medium text-gray-800 mb-1">Feedback (optional)</label>
                               <input
                                 type="text"
                                 value={gradeForm.feedback}
                                 onChange={(e) => setGradeForm((f) => ({ ...f, feedback: e.target.value }))}
                                 placeholder="Optional feedback for student"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
                               />
                             </div>
+
+                          <div className="w-full lg:w-auto lg:ml-auto">
                             <button
                               type="button"
                               disabled={savingGrade || gradeForm.score === "" || gradeForm.max_score === ""}
@@ -1145,11 +1150,13 @@ export default function AssignmentsPage() {
                                   setSavingGrade(false);
                                 }
                               }}
-                              className="px-5 py-2.5 bg-indigo-600 text-white rounded-lg font-semibold text-sm hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                              className="w-full rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50 lg:w-auto"
                             >
                               {savingGrade ? "Saving..." : "Save grade"}
                             </button>
+                            </div>
                           </div>
+                          
                           {gradeSuccess && (
                             <p className="mt-2 text-sm text-green-600">{gradeSuccess}</p>
                           )}

@@ -5,7 +5,7 @@ import Link from "next/link";
 
 interface StudentCourseNavbarProps {
   courseId: string;
-  currentPage: "assignments" | "quizzes" | "grades" | "content";
+  currentPage: "content" | "assignments" | "quizzes" | "grades";
   courseName?: string;
   courseCode?: string;
 }
@@ -17,6 +17,21 @@ export default function StudentCourseNavbar({
   courseCode,
 }: StudentCourseNavbarProps) {
   const navItems = [
+    {
+      name: "Content",
+      href: `/student/courses/${courseId}/content`,
+      key: "content" as const,
+      icon: (
+        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            strokeWidth={2}
+            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
+          />
+        </svg>
+      ),
+    },
     {
       name: "Assignments",
       href: `/student/courses/${courseId}/assignments`,
@@ -62,32 +77,17 @@ export default function StudentCourseNavbar({
         </svg>
       ),
     },
-    {
-      name: "Content",
-      href: `/student/courses/${courseId}/content`,
-      key: "content" as const,
-      icon: (
-        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-          />
-        </svg>
-      ),
-    },
   ];
 
   return (
-    <nav className="bg-white/90 backdrop-blur-sm border-b border-rose-100 shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+    <nav className="border-b border-rose-100 bg-white/90 shadow-sm backdrop-blur-sm">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Course Info */}
         {(courseName || courseCode) && (
-          <div className="pt-4 pb-2 border-b border-rose-100">
+          <div className="border-b border-rose-100 py-2 sm:py-4">
             <Link
               href={`/student/courses/${courseId}/content`}
-              className="text-sm text-gray-600 hover:text-red-600 transition-colors"
+              className="block break-words text-xs sm:text-sm text-gray-600 transition-colors hover:text-red-600"
             >
               {courseCode && <span className="font-medium">{courseCode}</span>}
               {courseName && courseCode && " • "}
@@ -97,21 +97,23 @@ export default function StudentCourseNavbar({
         )}
 
         {/* Navigation Items */}
-        <div className="flex items-center gap-1 py-2">
+        <div className="overflow-x-auto py-2">
+          <div className="flex w-max min-w-full items-center justify-center sm:justify-start gap-1 sm:gap-2 pr-1">
           {navItems.map((item) => (
             <Link
               key={item.key}
               href={item.href}
-              className={`flex items-center gap-2 px-4 py-2 rounded-lg font-semibold text-sm transition-colors ${
+              className={`inline-flex shrink-0 items-center gap-2 rounded-lg px-2.5 sm:px-4 py-2 text-xs sm:text-sm font-semibold whitespace-nowrap transition-colors ${
                 currentPage === item.key
-                  ? "bg-rose-100 text-red-600"
-                  : "text-gray-700 hover:bg-red-50 hover:text-red-600"
+                  ? "text-red-600 bg-red-50"
+                  : "text-gray-700 hover:text-red-600 hover:bg-red-50"
               }`}
             >
-              {item.icon}
+              <span className="hidden sm:inline-flex">{item.icon}</span>
               <span>{item.name}</span>
             </Link>
           ))}
+          </div>
         </div>
       </div>
     </nav>

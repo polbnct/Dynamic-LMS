@@ -101,7 +101,7 @@ export default function ProfProfile() {
       }
 
       const name = editName.trim();
-      const email = editEmail.trim().toLowerCase().replace(/\s+/g, "");
+      const email = editEmail.trim().toLowerCase();
       if (!name) {
         setError("Name is required.");
         setSaving(false);
@@ -113,19 +113,22 @@ export default function ProfProfile() {
         return;
       }
 
-      const res = await fetch("/api/profile", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name,
-          email: email !== user.email ? email : undefined,
-        }),
-      });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok) {
-        setError(json?.error || "Failed to update profile.");
+      const { error: updateError } = await supabase
+        .from("users")
+        .update({ name, email })
+        .eq("id", user.id);
+
+      if (updateError) {
+        setError(updateError.message || "Failed to update profile.");
         setSaving(false);
         return;
+      }
+
+      if (email !== user.email) {
+        const { error: authError } = await supabase.auth.updateUser({ email });
+        if (authError) {
+          setError(authError.message || "Profile updated but email change may require verification.");
+        }
       }
 
       setProfile({ name, email });
@@ -201,15 +204,15 @@ export default function ProfProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       <ProfessorNavbar currentPage="profile" handledCourses={handledCourses} />
 
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-red-700 mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Profile Settings
           </h1>
-          <p className="text-black">Manage your account information</p>
+          <p className="text-gray-600">Manage your account information</p>
         </div>
 
         {error && (
@@ -228,32 +231,32 @@ export default function ProfProfile() {
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
           </div>
         ) : editing ? (
-          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-            <h2 className="text-2xl font-bold text-black mb-6">Edit Profile</h2>
+          <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
+            <h2 className="text-2xl font-bold text-gray-800 mb-6">Edit Profile</h2>
             <form onSubmit={handleSave} className="space-y-6">
               <div>
-                <label htmlFor="profile-name" className="block text-sm font-semibold text-black mb-2">Name</label>
+                <label htmlFor="profile-name" className="block text-sm font-semibold text-gray-700 mb-2">Name</label>
                 <input
                   id="profile-name"
                   type="text"
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   required
                 />
               </div>
               <div>
-                <label htmlFor="profile-email" className="block text-sm font-semibold text-black mb-2">Email</label>
+                <label htmlFor="profile-email" className="block text-sm font-semibold text-gray-700 mb-2">Email</label>
                 <input
                   id="profile-email"
                   type="email"
                   value={editEmail}
                   onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                   required
                 />
               </div>
-              <div className="flex gap-3 pt-2">
+              <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
                   type="button"
                   onClick={cancelEditing}
@@ -273,9 +276,9 @@ export default function ProfProfile() {
           </div>
         ) : (
           <div className="space-y-6">
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-black">Personal Information</h2>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+                <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
                 <button
                   type="button"
                   onClick={startEditing}
@@ -290,18 +293,18 @@ export default function ProfProfile() {
 
               <div className="space-y-6">
                 <div>
-                  <label className="block text-sm font-semibold text-black mb-1">Name</label>
-                  <div className="font-semibold text-xl text-black">{profile?.name ?? "—"}</div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Name</label>
+                  <div className="font-semibold text-xl text-gray-800">{profile?.name ?? "—"}</div>
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold text-black mb-1">Email</label>
-                  <div className="text-black">{profile?.email ?? "—"}</div>
+                  <label className="block text-sm font-semibold text-gray-700 mb-1">Email</label>
+                  <div className="text-gray-700">{profile?.email ?? "—"}</div>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-              <h2 className="text-2xl font-bold text-black mb-6">Change Password</h2>
+            <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
+              <h2 className="text-2xl font-bold text-gray-800 mb-6">Change Password</h2>
 
               {passwordError && (
                 <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
@@ -316,7 +319,7 @@ export default function ProfProfile() {
 
               <form onSubmit={handlePasswordSubmit} className="space-y-5">
                 <div>
-                  <label htmlFor="prof-current-password" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="prof-current-password" className="block text-sm font-semibold text-gray-700 mb-2">
                     Current password
                   </label>
                   <input
@@ -324,12 +327,12 @@ export default function ProfProfile() {
                     type="password"
                     value={passwordForm.currentPassword}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, currentPassword: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     autoComplete="current-password"
                   />
                 </div>
                 <div>
-                  <label htmlFor="prof-new-password" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="prof-new-password" className="block text-sm font-semibold text-gray-700 mb-2">
                     New password
                   </label>
                   <input
@@ -337,12 +340,12 @@ export default function ProfProfile() {
                     type="password"
                     value={passwordForm.newPassword}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, newPassword: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     autoComplete="new-password"
                   />
                 </div>
                 <div>
-                  <label htmlFor="prof-confirm-new-password" className="block text-sm font-semibold text-black mb-2">
+                  <label htmlFor="prof-confirm-new-password" className="block text-sm font-semibold text-gray-700 mb-2">
                     Confirm new password
                   </label>
                   <input
@@ -350,7 +353,7 @@ export default function ProfProfile() {
                     type="password"
                     value={passwordForm.confirmNewPassword}
                     onChange={(e) => setPasswordForm((f) => ({ ...f, confirmNewPassword: e.target.value }))}
-                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                    className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     autoComplete="new-password"
                   />
                 </div>

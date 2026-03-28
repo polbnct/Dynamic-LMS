@@ -35,7 +35,12 @@ export async function proxy(request: NextRequest) {
 
   // Public routes that don't require authentication
   const publicRoutes = ['/login', '/signup', '/']
-  const isPublicRoute = publicRoutes.includes(pathname) || pathname.startsWith('/api/')
+  const isApiRoute = pathname.startsWith('/api/')
+  // Allow serving uploaded/static assets from `/public` (images, files) without auth redirects.
+  const isStaticAsset =
+    /\.(png|jpe?g|gif|webp|svg|ico|css|js|map|json|txt|pdf)$/i.test(pathname)
+
+  const isPublicRoute = publicRoutes.includes(pathname) || isApiRoute || isStaticAsset
 
   // If accessing a protected route and not authenticated, redirect to login
   if (!isPublicRoute && !user) {

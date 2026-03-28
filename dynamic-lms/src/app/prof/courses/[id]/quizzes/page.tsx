@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
@@ -90,6 +90,8 @@ export default function QuizzesPage() {
   const [selectedQuestions, setSelectedQuestions] = useState<Question[]>([]);
   const [quizBank, setQuizBank] = useState<Question[]>([]);
   const [filteredBank, setFilteredBank] = useState<Question[]>([]);
+  const [bankQuestionFilter, setBankQuestionFilter] = useState<"all" | QuestionType>("all");
+  const [bankSourceFilter, setBankSourceFilter] = useState<"all" | "manual" | string>("all");
   const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
 
   // Create question form
@@ -159,6 +161,62 @@ export default function QuizzesPage() {
       setFilteredBank(quizBank.filter((q) => q.type === quizType));
     }
   }, [quizType, quizBank]);
+
+  const sourceFilterOptions = useMemo(() => {
+    const lessonNameById = new Map(lessons.map((lesson) => [lesson.id, lesson.title]));
+    const lessonMetaById = new Map(
+      lessons.map((lesson) => [lesson.id, { category: lesson.category, order: lesson.order, title: lesson.title }])
+    );
+    const categoryRank: Record<string, number> = { prelim: 0, midterm: 1, finals: 2 };
+    const lessonIdsInBank = Array.from(
+      new Set(quizBank.map((q) => q.source).filter((sourceId): sourceId is string => Boolean(sourceId)))
+    );
+
+    return lessonIdsInBank
+      .map((lessonId) => ({
+        id: lessonId,
+        name: lessonNameById.get(lessonId) || "Unknown lesson",
+      }))
+      .sort((a, b) => {
+        const aMeta = lessonMetaById.get(a.id);
+        const bMeta = lessonMetaById.get(b.id);
+        const byCategory = (categoryRank[aMeta?.category || ""] ?? 999) - (categoryRank[bMeta?.category || ""] ?? 999);
+        if (byCategory !== 0) return byCategory;
+        const byOrder = (aMeta?.order ?? 999999) - (bMeta?.order ?? 999999);
+        if (byOrder !== 0) return byOrder;
+        return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: "base" });
+      });
+  }, [quizBank, lessons]);
+
+  const displayedBank = useMemo(() => {
+    const typePriority: Record<QuestionType, number> = {
+      multiple_choice: 0,
+      true_false: 1,
+      fill_blank: 2,
+    };
+
+    const filtered =
+      bankQuestionFilter === "all"
+        ? filteredBank
+        : filteredBank.filter((q) => q.type === bankQuestionFilter);
+
+    const sourceFiltered =
+      bankSourceFilter === "all"
+        ? filtered
+        : bankSourceFilter === "manual"
+          ? filtered.filter((q) => !q.source)
+          : filtered.filter((q) => q.source === bankSourceFilter);
+
+    return [...sourceFiltered].sort((a, b) => {
+      const byType = typePriority[a.type] - typePriority[b.type];
+      if (byType !== 0) return byType;
+
+      const byQuestion = a.question.localeCompare(b.question, undefined, { sensitivity: "base" });
+      if (byQuestion !== 0) return byQuestion;
+
+      return a.id.localeCompare(b.id);
+    });
+  }, [filteredBank, bankQuestionFilter, bankSourceFilter]);
 
   const handleQuestionSelect = (question: Question) => {
     if (!selectedQuestions.find((q) => q.id === question.id)) {
@@ -277,6 +335,8 @@ export default function QuizzesPage() {
                   : newQuestion.type === "true_false"
                     ? newQuestion.trueFalseAnswer
                     : newQuestion.fillBlankAnswer,
+              source_lesson_id: newQuestion.source || null,
+              source_type: newQuestion.source ? newQuestion.sourceType : null,
             })
           : await createQuestion({
               course_id: courseId,
@@ -367,8 +427,7 @@ export default function QuizzesPage() {
           points_per_question: quizPointsPerQuestion.trim()
             ? Number(quizPointsPerQuestion)
             : 10,
-          // Only send if true, so we don't break quiz creation if the DB migration isn't applied yet.
-          reveal_correct_answers: quizRevealCorrectAnswers ? true : undefined,
+          reveal_correct_answers: quizRevealCorrectAnswers,
         });
         await setQuizQuestions(editingQuiz.id, questionIds);
         const updatedQuizzes = await getQuizzes(courseId);
@@ -397,8 +456,7 @@ export default function QuizzesPage() {
           points_per_question: quizPointsPerQuestion.trim()
             ? Number(quizPointsPerQuestion)
             : 10,
-          // Only include when enabled (prevents PGRST204 if column missing).
-          reveal_correct_answers: quizRevealCorrectAnswers ? true : undefined,
+          reveal_correct_answers: quizRevealCorrectAnswers,
         },
         questionIds
       );
@@ -452,7 +510,7 @@ export default function QuizzesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-white">
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
@@ -467,7 +525,7 @@ export default function QuizzesPage() {
   const totalQuizzes = quizzes.length;
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Professor Navbar */}
       <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
@@ -480,7 +538,7 @@ export default function QuizzesPage() {
       />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {/* Page Header */}
         <div className="mb-8">
           <Link
@@ -497,12 +555,12 @@ export default function QuizzesPage() {
             </svg>
             Back to Courses
           </Link>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-4xl font-bold text-red-700 mb-2">
+              <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Quizzes
               </h1>
-              <p className="text-gray-600">
+              <p className="text-sm sm:text-base text-gray-600 break-words">
                 {course?.name} ({course?.code}) • {totalQuizzes} quiz{totalQuizzes !== 1 ? "zes" : ""}
               </p>
             </div>
@@ -518,7 +576,7 @@ export default function QuizzesPage() {
                 setSelectedQuestions([]);
                 setCreateQuizModalOpen(true);
               }}
-              className="flex items-center gap-2 bg-red-600 hover:bg-red-700 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -534,10 +592,10 @@ export default function QuizzesPage() {
         </div>
 
         {/* Quizzes List */}
-            {totalQuizzes === 0 ? (
+        {totalQuizzes === 0 ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
             <div className="text-center py-12">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-red-50 rounded-full mb-4">
+              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
                 <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
                     strokeLinecap="round"
@@ -556,16 +614,16 @@ export default function QuizzesPage() {
             {quizzes.map((quiz) => (
               <div
                 key={quiz.id}
-                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
+                className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
               >
-                <div className="flex items-start justify-between">
+                <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
                   <div className="flex-1">
-                    <h3 className="text-xl font-bold text-gray-800 mb-2">{quiz.name}</h3>
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{quiz.name}</h3>
                     <p className="text-gray-600 text-sm">
                       Type: {quiz.type.replace("_", " ")} • {quiz.questions.length} question{quiz.questions.length !== 1 ? "s" : ""}
                     </p>
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center justify-end gap-2">
                     <button
                       onClick={() => {
                         setMonitoringQuizId(quiz.id);
@@ -690,11 +748,11 @@ export default function QuizzesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header */}
-            <div className="flex items-center justify-between p-6 border-b border-gray-200">
-              <h2 className="text-2xl font-bold text-black">
+            <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                 {editingQuiz ? "Edit Quiz" : "Create Quiz"}
               </h2>
-              <button onClick={handleCancel} className="text-gray-400 hover:text-gray-600 transition-colors">
+              <button onClick={handleCancel} className="text-gray-500 hover:text-gray-700 transition-colors cursor-pointer">
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
@@ -702,13 +760,13 @@ export default function QuizzesPage() {
             </div>
 
             {/* Modal Content */}
-            <div className="flex-1 overflow-hidden flex">
+            <div className="flex-1 overflow-hidden flex flex-col lg:flex-row">
               {/* Main Content Area */}
-              <div className="flex-1 overflow-y-auto p-6">
+              <div className="flex-1 overflow-y-auto p-4 sm:p-6">
                 {/* Quiz Name and Type */}
                 <div className="space-y-4 mb-6">
                   <div>
-                    <label htmlFor="quizName" className="block text-sm font-semibold text-black mb-2">
+                    <label htmlFor="quizName" className="block text-sm font-semibold text-gray-700 mb-2">
                       Quiz Name <span className="text-red-500">*</span>
                     </label>
                     <input
@@ -717,20 +775,20 @@ export default function QuizzesPage() {
                       value={quizName}
                       onChange={(e) => setQuizName(e.target.value)}
                       placeholder="Enter quiz name"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                       autoFocus
                     />
                   </div>
 
                   <div>
-                    <label htmlFor="quizType" className="block text-sm font-semibold text-black mb-2">
+                    <label htmlFor="quizType" className="block text-sm font-semibold text-gray-700 mb-2">
                       Quiz Type <span className="text-red-500">*</span>
                     </label>
                     <select
                       id="quizType"
                       value={quizType}
                       onChange={(e) => setQuizType(e.target.value as QuestionType)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white appearance-none cursor-pointer"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
                     >
                       <option value="mixed">Mixed (Any Type)</option>
                       <option value="multiple_choice">Multiple Choice</option>
@@ -740,8 +798,8 @@ export default function QuizzesPage() {
                   </div>
 
                   <div>
-                    <label htmlFor="quizPointsPerQuestion" className="block text-sm font-semibold text-black mb-2">
-                      Points per question <span className="text-gray-700 text-xs">(Required)</span>
+                    <label htmlFor="quizPointsPerQuestion" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Points per question <span className="text-gray-500 text-xs">(Required)</span>
                     </label>
                     <input
                       id="quizPointsPerQuestion"
@@ -750,50 +808,50 @@ export default function QuizzesPage() {
                       value={quizPointsPerQuestion}
                       onChange={(e) => setQuizPointsPerQuestion(e.target.value)}
                       placeholder="10"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                     />
-                    <p className="text-xs text-black mt-1">
+                    <p className="text-xs text-gray-500 mt-1">
                       Used to compute total quiz score (points × number of items).
                     </p>
                   </div>
 
-                  <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-white p-4">
+                  <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4">
                     <input
                       id="quizRevealCorrectAnswers"
                       type="checkbox"
                       checked={quizRevealCorrectAnswers}
                       onChange={(e) => setQuizRevealCorrectAnswers(e.target.checked)}
-                      className="mt-1 h-4 w-4 accent-red-600"
+                      className="mt-1 h-4 w-4 accent-indigo-600"
                     />
                     <div className="flex-1">
-                      <label htmlFor="quizRevealCorrectAnswers" className="block text-sm font-semibold text-black">
+                      <label htmlFor="quizRevealCorrectAnswers" className="block text-sm font-semibold text-gray-800">
                         Show correct answers in student results
                       </label>
-                      <p className="text-xs text-black mt-1">
+                      <p className="text-xs text-gray-600 mt-1">
                         If unchecked, students will still see whether they were correct, but not the correct answer.
                       </p>
                     </div>
                   </div>
 
                   <div>
-                    <label htmlFor="quizDueDate" className="block text-sm font-semibold text-black mb-2">
-                      Lock date &amp; time <span className="text-gray-700 text-xs">(Optional)</span>
+                    <label htmlFor="quizDueDate" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Lock date &amp; time <span className="text-gray-500 text-xs">(Optional)</span>
                     </label>
                     <input
                       id="quizDueDate"
                       type="datetime-local"
                       value={quizDueDate}
                       onChange={(e) => setQuizDueDate(e.target.value)}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                     />
-                    <p className="mt-1 text-xs text-black">
+                    <p className="mt-1 text-xs text-gray-500">
                       After this time, students will no longer be able to start this quiz.
                     </p>
                   </div>
 
                   <div>
-                    <label htmlFor="quizMaxAttempts" className="block text-sm font-semibold text-black mb-2">
-                      Max takes per student <span className="text-gray-700 text-xs">(Optional)</span>
+                    <label htmlFor="quizMaxAttempts" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Max takes per student <span className="text-gray-500 text-xs">(Optional)</span>
                     </label>
                     <input
                       id="quizMaxAttempts"
@@ -802,9 +860,9 @@ export default function QuizzesPage() {
                       value={quizMaxAttempts}
                       onChange={(e) => setQuizMaxAttempts(e.target.value)}
                       placeholder="1"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                     />
-                    <p className="text-xs text-black mt-1">Set to blank for unlimited attempts.</p>
+                    <p className="text-xs text-gray-500 mt-1">Set to blank for unlimited attempts.</p>
                   </div>
                 </div>
 
@@ -950,7 +1008,7 @@ export default function QuizzesPage() {
                                   setError(e.message || "Failed to grant retake");
                                 }
                               }}
-                              className="shrink-0 px-3 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-semibold hover:bg-indigo-700"
+                              className="shrink-0 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700"
                             >
                               Grant retake
                             </button>
@@ -992,12 +1050,25 @@ export default function QuizzesPage() {
               </div>
 
               {/* Quiz Bank Sidebar */}
-              <div className="w-96 border-l border-gray-200 bg-gray-50 overflow-y-auto">
+              <div className="w-full lg:w-96 border-t lg:border-t-0 lg:border-l border-gray-200 bg-gray-50 overflow-y-auto">
                 <div className="p-4 border-b border-gray-200 bg-white sticky top-0">
                   <div className="flex items-center justify-between mb-4">
-                    <h3 className="text-lg font-bold text-gray-800">Quiz Bank</h3>
+                    <h3 className="text-lg font-bold text-gray-800">Quiz Question Bank</h3>
                     <button
-                      onClick={() => setCreateQuestionModalOpen(true)}
+                      onClick={() => {
+                        setEditingBankQuestion(null);
+                        setNewQuestion({
+                          type: "multiple_choice",
+                          question: "",
+                          options: ["", "", "", ""],
+                          correctAnswer: 0,
+                          trueFalseAnswer: true,
+                          fillBlankAnswer: "",
+                          source: "",
+                          sourceType: "lesson",
+                        });
+                        setCreateQuestionModalOpen(true);
+                      }}
                       className="text-sm text-red-600 hover:text-red-700 font-medium"
                     >
                       + Create
@@ -1005,7 +1076,7 @@ export default function QuizzesPage() {
                   </div>
                   <button
                     onClick={handleGenerateQuiz}
-                    className="w-full bg-red-600 hover:bg-red-700 text-white text-white py-2.5 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2"
+                    className="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white py-2.5 px-4 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path
@@ -1017,24 +1088,81 @@ export default function QuizzesPage() {
                     </svg>
                     Generate More
                   </button>
+                  <details className="mt-3 group rounded-lg border border-gray-200 bg-white">
+                    <summary className="list-none cursor-pointer select-none px-3 py-2 text-sm font-medium text-gray-700 flex items-center justify-between">
+                      <span>Filters</span>
+                      <svg
+                        className="w-4 h-4 text-gray-500 transition-transform group-open:rotate-180"
+                        fill="none"
+                        stroke="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                      </svg>
+                    </summary>
+                    <div className="border-t border-gray-200 p-3 space-y-3">
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Question type</label>
+                        <select
+                          value={bankQuestionFilter}
+                          onChange={(e) => setBankQuestionFilter(e.target.value as "all" | QuestionType)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        >
+                          <option value="all">All types</option>
+                          <option value="multiple_choice">Multiple Choice</option>
+                          <option value="true_false">True or False</option>
+                          <option value="fill_blank">Fill in the Blank</option>
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-xs font-medium text-gray-600 mb-1.5">Source</label>
+                        <select
+                          value={bankSourceFilter}
+                          onChange={(e) => setBankSourceFilter(e.target.value)}
+                          className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 bg-white focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                        >
+                          <option value="all">All sources</option>
+                          <option value="manual">Created manually (no lesson)</option>
+                          {sourceFilterOptions.map((sourceOpt) => (
+                            <option key={sourceOpt.id} value={sourceOpt.id}>
+                              Lesson: {sourceOpt.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  </details>
                   <p className="text-xs text-gray-500 mt-2 text-center">
-                    {filteredBank.length} question{filteredBank.length !== 1 ? "s" : ""} available
+                    {displayedBank.length} question{displayedBank.length !== 1 ? "s" : ""} available
                   </p>
                 </div>
 
                 <div className="p-4 space-y-3">
-                  {filteredBank.length === 0 ? (
+                  {displayedBank.length === 0 ? (
                     <div className="text-center py-8 text-gray-500">
                       <p>No questions in quiz bank for this type.</p>
                       <button
-                        onClick={() => setCreateQuestionModalOpen(true)}
+                        onClick={() => {
+                          setEditingBankQuestion(null);
+                          setNewQuestion({
+                            type: "multiple_choice",
+                            question: "",
+                            options: ["", "", "", ""],
+                            correctAnswer: 0,
+                            trueFalseAnswer: true,
+                            fillBlankAnswer: "",
+                            source: "",
+                            sourceType: "lesson",
+                          });
+                          setCreateQuestionModalOpen(true);
+                        }}
                         className="mt-4 text-red-600 hover:text-red-700 font-medium text-sm"
                       >
                         Create one now
                       </button>
                     </div>
                   ) : (
-                    filteredBank.map((question) => {
+                    displayedBank.map((question) => {
                       const isSelected = selectedQuestions.some((q) => q.id === question.id);
                       return (
                         <div
@@ -1194,8 +1322,8 @@ export default function QuizzesPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-gray-200 p-6 bg-gray-50">
-              <div className="flex gap-3">
+            <div className="border-t border-gray-200 p-4 sm:p-6 bg-gray-50">
+              <div className="flex flex-col sm:flex-row gap-3">
                 <button
                   type="button"
                   onClick={handleCancel}
@@ -1205,7 +1333,7 @@ export default function QuizzesPage() {
                 </button>
                 <button
                   onClick={handleCreateQuiz}
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
                 >
                   {editingQuiz ? "Save changes" : "Create Quiz"}
                 </button>
@@ -1219,11 +1347,11 @@ export default function QuizzesPage() {
         {generateModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6"
+            className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold bg-red-600 hover:bg-red-700 text-white bg-clip-text text-transparent">
+              <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   Generate Questions
                 </h2>
                 <button onClick={() => setGenerateModalOpen(false)} className="text-gray-400 hover:text-gray-600">
@@ -1240,7 +1368,7 @@ export default function QuizzesPage() {
                   value={generateQuestionType}
                   onChange={(e) => setGenerateQuestionType(e.target.value as "multiple_choice" | "true_false" | "fill_blank")}
                   disabled={generatingQuestions}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white disabled:opacity-60 disabled:cursor-not-allowed"
                 >
                   <option value="multiple_choice">Multiple Choice</option>
                   <option value="true_false">True or False</option>
@@ -1259,7 +1387,7 @@ export default function QuizzesPage() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  <span className="text-indigo-800 font-medium">Generating questions with Gemini…</span>
+                  <span className="text-red-800 font-medium">Generating questions with Gemini…</span>
                 </div>
               )}
 
@@ -1270,20 +1398,25 @@ export default function QuizzesPage() {
               )}
 
               <p className="text-gray-600 mb-4">Select a lesson or PDF to generate questions from:</p>
-              <div className="space-y-2 max-h-96 overflow-y-auto">
+
+              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
                 {lessons.length === 0 ? (
-                  <div className="p-4 text-center text-gray-500">
+                  <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center text-gray-500">
                     No lessons available. Create lessons first to generate questions.
                   </div>
                 ) : (
-                  lessons.map((lesson) => {
+                  [...lessons]
+                  .sort((a, b) =>
+                    a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" })
+                  )
+                  .map((lesson) => {
                     const isGenerating = generatingForSourceId === lesson.id;
                     return (
                       <button
                         key={lesson.id}
                         onClick={() => !generatingQuestions && handleGenerateFromSource(lesson.id, "lesson")}
                         disabled={generatingQuestions}
-                        className="w-full text-left p-4 border border-gray-200 rounded-xl hover:border-red-300 hover:bg-red-50 transition-colors disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:bg-transparent disabled:hover:border-gray-200"
+                        className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left transition-all duration-150 hover:border-red-300 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-60 disabled:hover:border-gray-200 disabled:hover:bg-white"
                       >
                         <div className="flex items-center justify-between gap-2">
                           <div className="font-semibold text-gray-800">{lesson.title}</div>
@@ -1316,14 +1449,14 @@ export default function QuizzesPage() {
         {createQuestionModalOpen && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div
-              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-6"
+              className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto p-4 sm:p-6"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-2xl font-bold text-black">
+              <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
+                <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
                   {editingBankQuestion ? "Edit Question" : "Create New Question"}
                 </h2>
-                <button onClick={() => setCreateQuestionModalOpen(false)} className="text-gray-400 hover:text-gray-600">
+                <button onClick={() => setCreateQuestionModalOpen(false)} className="text-gray-500 hover:text-gray-700 cursor-pointer">
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                   </svg>
@@ -1338,13 +1471,13 @@ export default function QuizzesPage() {
                 className="space-y-4"
               >
                 <div>
-                  <label className="block text-sm font-semibold text-black mb-2">Question Type</label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Question Type</label>
                   <select
                     value={newQuestion.type}
                     onChange={(e) =>
                       setNewQuestion({ ...newQuestion, type: e.target.value as QuestionType })
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   >
                     <option value="multiple_choice">Multiple Choice</option>
                     <option value="true_false">True or False</option>
@@ -1353,24 +1486,24 @@ export default function QuizzesPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-black mb-2">Question <span className="text-red-500">*</span></label>
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">Question <span className="text-red-500">*</span></label>
                   <textarea
                     value={newQuestion.question}
                     onChange={(e) => setNewQuestion({ ...newQuestion, question: e.target.value })}
                     placeholder="Enter your question"
                     rows={3}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white resize-none"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white resize-none"
                   />
                 </div>
 
                 {newQuestion.type === "multiple_choice" && (
                   <div>
-                    <label className="block text-sm font-semibold text-black mb-2">Options</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Options</label>
                     <div className="space-y-2">
                       {newQuestion.options.map((opt, idx) => (
                         <div key={idx} className="flex items-center gap-2">
-                          <span className="text-sm font-semibold text-red-700">
-                            {String.fromCharCode(65 + idx)}.
+                          <span className="w-6 h-6 rounded-full bg-red-100 text-red-700 text-gray-800 placeholder-text-gray-600 flex items-center justify-center text-xs font-semibold">
+                            {String.fromCharCode(65 + idx)}
                           </span>
                           <input
                             type="text"
@@ -1381,7 +1514,7 @@ export default function QuizzesPage() {
                               setNewQuestion({ ...newQuestion, options: newOptions });
                             }}
                             placeholder={`Option ${String.fromCharCode(65 + idx)}`}
-                            className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                            className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                           />
                           <button
                             type="button"
@@ -1404,13 +1537,13 @@ export default function QuizzesPage() {
                         </div>
                       ))}
                     </div>
-                    <p className="text-xs text-black mt-2">Click the checkmark to mark the correct answer</p>
+                    <p className="text-xs text-gray-500 mt-2">Click the checkmark to mark the correct answer</p>
                   </div>
                 )}
 
                 {newQuestion.type === "true_false" && (
                   <div>
-                    <label className="block text-sm font-semibold text-black mb-2">Correct Answer</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Correct Answer</label>
                     <div className="flex gap-3">
                       <button
                         type="button"
@@ -1440,13 +1573,13 @@ export default function QuizzesPage() {
 
                 {newQuestion.type === "fill_blank" && (
                   <div>
-                    <label className="block text-sm font-semibold text-black mb-2">Correct Answer</label>
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">Correct Answer</label>
                     <input
                       type="text"
                       value={newQuestion.fillBlankAnswer}
                       onChange={(e) => setNewQuestion({ ...newQuestion, fillBlankAnswer: e.target.value })}
                       placeholder="Enter the correct answer"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-black placeholder-black focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                     />
                   </div>
                 )}
@@ -1456,14 +1589,18 @@ export default function QuizzesPage() {
                   <select
                     value={newQuestion.source}
                     onChange={(e) => setNewQuestion({ ...newQuestion, source: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   >
                     <option value="">None</option>
-                    {lessons.map((lesson) => (
-                      <option key={lesson.id} value={lesson.id}>
-                        {lesson.title}
-                      </option>
-                    ))}
+                    {[...lessons]
+                      .sort((a, b) =>
+                        a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" })
+                      )
+                      .map((lesson) => (
+                        <option key={lesson.id} value={lesson.id}>
+                          {lesson.title}
+                        </option>
+                      ))}
                   </select>
                 </div>
 
@@ -1473,7 +1610,7 @@ export default function QuizzesPage() {
                   </div>
                 )}
 
-                <div className="flex gap-3 pt-4">
+                <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
                     type="button"
                     onClick={() => setCreateQuestionModalOpen(false)}
@@ -1483,7 +1620,7 @@ export default function QuizzesPage() {
                   </button>
                   <button
                     type="submit"
-                    className="flex-1 bg-red-600 hover:bg-red-700 text-white text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50"
                   >
                     {editingBankQuestion ? "Save changes" : "Create & Add to Quiz"}
                   </button>

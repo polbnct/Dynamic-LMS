@@ -95,9 +95,16 @@ export default function StudentDashboard() {
     <div className="min-h-screen bg-white">
       <StudentNavbar currentPage="dashboard" />
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-8">
-          Dashboard
-        </h1>
+        {/* Top Banner Image */}
+        <div className="w-full mb-8">
+          <div className="w-full h-40 sm:h-52 md:h-60 lg:h-72 overflow-hidden rounded-3xl shadow-xl">
+            <img
+              src="/dashboard_image.svg"
+              alt="Dashboard Banner"
+              className="w-full h-full object-cover"
+            />
+          </div>
+        </div>
 
         {/* My Courses */}
         <div className="mb-8">

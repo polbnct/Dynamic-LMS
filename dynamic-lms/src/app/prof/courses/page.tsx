@@ -11,15 +11,15 @@ export default function ProfCoursesPage() {
   const [error, setError] = useState("");
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Professor Navbar - same courses as dashboard */}
       <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
 
       {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold bg-red-600 hover:bg-red-700 text-white bg-clip-text text-transparent mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             My Courses
           </h1>
           <p className="text-gray-600">Manage your courses and view enrolled students</p>
@@ -57,7 +57,7 @@ export default function ProfCoursesPage() {
           <>
             {courses.length === 0 ? (
               <div className="text-center py-16">
-                <div className="inline-flex items-center justify-center w-24 h-24 bg-red-50 rounded-full mb-4">
+                <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
                   <svg
                     className="w-12 h-12 text-red-600"
                     fill="none"
@@ -84,16 +84,15 @@ export default function ProfCoursesPage() {
                     key={course.id}
                     className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
                   >
-                    <Link href={`/prof/courses/${course.id}`} className="block">
+                    <Link href={`/prof/courses/${course.id}/content`} className="block">
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1">
                           <h3 className="text-xl font-bold text-gray-800 group-hover:text-red-600 transition-colors">
                             {course.name}
                           </h3>
                           <p className="text-sm text-gray-500 mt-1">{course.code}</p>
-                          <p className="text-xs text-gray-400 mt-1">Course code: {course.code}</p>
                         </div>
-                        <div className="w-16 h-16 bg-red-50 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                           <svg
                             className="w-8 h-8 text-red-600"
                             fill="none"

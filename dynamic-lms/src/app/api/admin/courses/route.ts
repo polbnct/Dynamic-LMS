@@ -4,6 +4,16 @@ import { requireAdmin } from "@/lib/auth/requireAdmin";
 
 export const dynamic = "force-dynamic";
 
+function generateLegacyClassroomCode(): string {
+  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
+  let code = "";
+  for (let i = 0; i < 3; i++) {
+    code += letters[Math.floor(Math.random() * letters.length)];
+  }
+  code += String(Math.floor(Math.random() * 10000)).padStart(4, "0");
+  return code;
+}
+
 function jsonError(message: string, status: number) {
   return NextResponse.json({ error: message }, { status });
 }
@@ -89,15 +99,32 @@ export async function POST(request: NextRequest) {
 
     if (!name) return jsonError("name is required", 400);
     if (!code) return jsonError("code is required", 400);
-    const { data: course, error } = await admin
+    const insertPayload = {
+      name,
+      code,
+      professor_id: professorId,
+    };
+
+    let { data: course, error } = await admin
       .from("courses")
-      .insert({
-        name,
-        code,
-        professor_id: professorId,
-      })
+      .insert(insertPayload)
       .select("id, name, code, professor_id, created_at")
       .single();
+
+    // Backward compatibility: some databases still enforce NOT NULL on classroom_code.
+    if (error?.message?.includes("classroom_code") && error?.message?.includes("not-null")) {
+      const fallbackPayload = {
+        ...insertPayload,
+        classroom_code: generateLegacyClassroomCode(),
+      };
+      const retry = await admin
+        .from("courses")
+        .insert(fallbackPayload)
+        .select("id, name, code, professor_id, created_at")
+        .single();
+      course = retry.data;
+      error = retry.error;
+    }
 
     if (error) return jsonError(error.message, 500);
     return NextResponse.json({ course }, { status: 201 });

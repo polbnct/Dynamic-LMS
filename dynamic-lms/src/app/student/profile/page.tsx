@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import StudentNavbar from "@/utils/StudentNavbar";
 
 export default function StudentProfile() {
   const router = useRouter();
@@ -26,15 +26,6 @@ export default function StudentProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
-
-  const handleLogout = async () => {
-    try {
-      const supabase = createClient();
-      await supabase.auth.signOut();
-    } finally {
-      router.push("/login");
-    }
-  };
 
   // Load current student profile from Supabase (users + students tables)
   useEffect(() => {
@@ -111,15 +102,14 @@ export default function StudentProfile() {
 
   const validateProfileForm = () => {
     const newErrors: Record<string, string> = {};
-    const normalizedEmail = formData.email.trim().toLowerCase().replace(/\s+/g, "");
 
     if (!formData.name.trim()) {
       newErrors.name = "Name is required.";
     }
 
-    if (!normalizedEmail) {
+    if (!formData.email.trim()) {
       newErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail)) {
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = "Please enter a valid email address.";
     }
 
@@ -144,10 +134,11 @@ export default function StudentProfile() {
 
     if (!passwordData.newPassword.trim()) {
       newErrors.newPassword = "New password is required.";
-    } else if (passwordData.newPassword.length < 8) {
+    } else if(passwordData.newPassword.length < 8) {
       newErrors.newPassword = "Password must be at least 8 characters long.";
+    } else if (passwordData.currentPassword === passwordData.newPassword) {
+    newErrors.newPassword = "New password must be different from the old password.";
     }
-
     if (!passwordData.confirmPassword.trim()) {
       newErrors.confirmPassword = "Please confirm your new password.";
     } else if (passwordData.newPassword !== passwordData.confirmPassword) {
@@ -175,24 +166,19 @@ export default function StudentProfile() {
         throw new Error("Not authenticated");
       }
 
-      const normalizedEmail = formData.email.trim().toLowerCase().replace(/\s+/g, "");
-      const name = formData.name.trim();
-      const emailChanged = normalizedEmail && normalizedEmail !== user.email;
+      // Update basic profile info in users table
+      const updates: any = {
+        name: formData.name.trim(),
+      };
+      // Only attempt to change email if it actually changed
+      if (formData.email.trim() && formData.email.trim() !== user.email) {
+        updates.email = formData.email.trim();
+      }
 
-      // Update name/email on the server so Auth + public.users stay in sync,
-      // and so email changes don't trigger confirmation emails.
-      if (name || emailChanged) {
-        const res = await fetch("/api/profile", {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name,
-            email: emailChanged ? normalizedEmail : undefined,
-          }),
-        });
-        const json = await res.json().catch(() => ({}));
-        if (!res.ok) {
-          throw new Error(json?.error || "Failed to update profile.");
+      if (Object.keys(updates).length > 0) {
+        const { error: userError } = await supabase.from("users").update(updates).eq("id", user.id);
+        if (userError) {
+          throw userError;
         }
       }
 
@@ -209,6 +195,14 @@ export default function StudentProfile() {
       if (studentError) {
         throw studentError;
       }
+
+      // Optionally sync auth profile name/email (email change may require confirmation)
+      await supabase.auth.updateUser({
+        email: updates.email,
+        data: { name: updates.name },
+      }).catch(() => {
+        // Ignore auth update failures; users table is still updated
+      });
 
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
@@ -283,58 +277,12 @@ export default function StudentProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Modern Navbar */}
-      <nav className="bg-white/80 backdrop-blur-sm border-b border-gray-200 shadow-sm sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            {/* Brand */}
-            <div className="flex items-center">
-              <span className="text-xl font-bold text-red-700">
-                LohikAral
-              </span>
-            </div>
-
-            {/* Nav Items */}
-            <div className="flex items-center gap-4">
-              <Link
-                href="/student/profile"
-                className="px-4 py-2 text-sm font-semibold text-red-600 bg-red-50 rounded-lg transition-colors"
-              >
-                Profile
-              </Link>
-              <Link
-                href="/student"
-                className="px-4 py-2 text-sm font-semibold text-gray-700 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                Courses
-              </Link>
-              <button
-                onClick={handleLogout}
-                className="flex items-center gap-2 px-4 py-2 text-sm font-semibold text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors"
-              >
-                <svg
-                  className="w-5 h-5"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
-                  />
-                </svg>
-                Logout
-              </button>
-            </div>
-          </div>
-        </div>
-      </nav>
+    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
+      {/* Navbar */}
+      <StudentNavbar currentPage="profile" />
 
       {/* Main Content */}
-      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+      <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         {loadingProfile && (
           <div className="mb-6 bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6">
             <div className="flex items-center gap-3 text-gray-600">
@@ -346,7 +294,7 @@ export default function StudentProfile() {
 
         {/* Header */}
         <div className="mb-8">
-          <h1 className="text-4xl font-bold text-red-700 mb-2">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Profile Settings
           </h1>
           <p className="text-gray-600">Manage your account information and preferences</p>
@@ -373,13 +321,13 @@ export default function StudentProfile() {
         )}
 
         {/* Profile Information Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8 mb-6">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-2xl font-bold text-gray-800">Personal Information</h2>
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Personal Information</h2>
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                className="hidden sm:flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
               >
                 <svg
                   className="w-5 h-5"
@@ -400,7 +348,7 @@ export default function StudentProfile() {
           </div>
 
           <form onSubmit={handleProfileSubmit} className="space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 sm:gap-6">
               {/* Full Name */}
               <div>
                 <label htmlFor="name" className="block text-sm font-semibold text-gray-700 mb-2">
@@ -429,7 +377,7 @@ export default function StudentProfile() {
                     value={formData.name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -469,7 +417,7 @@ export default function StudentProfile() {
                     value={formData.email}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -509,7 +457,7 @@ export default function StudentProfile() {
                     value={formData.studentId}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -549,7 +497,7 @@ export default function StudentProfile() {
                     value={formData.phone}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -589,7 +537,7 @@ export default function StudentProfile() {
                     value={formData.year}
                     onChange={handleInputChange}
                     disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
+                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
@@ -601,19 +549,42 @@ export default function StudentProfile() {
 
             {/* Action Buttons */}
             {isEditing && (
-              <div className="flex gap-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 hover:from-red-500 hover:to-rose-500 cursor-pointer"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-800 rounded-xl font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   Cancel
+                </button>
+              </div>
+            )}
+            {!isEditing && (
+              <div className="pt-4 border-t border-gray-200 sm:hidden">
+                <button
+                  onClick={() => setIsEditing(true)}
+                  className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
+                >
+                  <svg
+                    className="w-5 h-5"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
+                    />
+                  </svg>
+                  Edit Profile
                 </button>
               </div>
             )}
@@ -621,10 +592,10 @@ export default function StudentProfile() {
         </div>
 
         {/* Password Change Card */}
-        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8">
-          <div className="flex items-center justify-between mb-6">
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-2xl font-bold text-gray-800">Password</h2>
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Password</h2>
               <p className="text-sm text-gray-600 mt-1">
                 Change your password to keep your account secure
               </p>
@@ -632,7 +603,7 @@ export default function StudentProfile() {
             {!showPasswordSection && (
               <button
                 onClick={() => setShowPasswordSection(true)}
-                className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                className="flex w-full sm:w-auto items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer "
               >
                 <svg
                   className="w-5 h-5"
@@ -654,7 +625,7 @@ export default function StudentProfile() {
 
           {showPasswordSection && (
             <form onSubmit={handlePasswordSubmit} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-1 gap-6">
+              <div className="grid grid-cols-1 gap-4 sm:gap-6">
                 {/* Current Password */}
                 <div>
                   <label
@@ -685,7 +656,7 @@ export default function StudentProfile() {
                       type="password"
                       value={passwordData.currentPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.currentPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Enter your current password"
@@ -726,7 +697,7 @@ export default function StudentProfile() {
                       type="password"
                       value={passwordData.newPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.newPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Enter your new password"
@@ -768,7 +739,7 @@ export default function StudentProfile() {
                       type="password"
                       value={passwordData.confirmPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.confirmPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Confirm your new password"
@@ -781,10 +752,10 @@ export default function StudentProfile() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex gap-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500"
                 >
                   Update Password
                 </button>
@@ -799,7 +770,7 @@ export default function StudentProfile() {
                     });
                     setErrors({});
                   }}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-800 rounded-xl font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
                 >
                   Cancel
                 </button>
