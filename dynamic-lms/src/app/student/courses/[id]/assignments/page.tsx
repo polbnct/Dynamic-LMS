@@ -257,7 +257,7 @@ export default function StudentAssignmentsPage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to Courses
+            Back to Dashboard
           </Link>
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
