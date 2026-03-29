@@ -211,9 +211,9 @@ export default function ClasslistPage() {
               </p>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead>
+            <div className="max-h-[500px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-red-200">
+              <table className="w-full relative">
+                <thead className= "sticky top-0 bg-white z-10">
                   <tr className="border-b border-gray-200">
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
                     <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
