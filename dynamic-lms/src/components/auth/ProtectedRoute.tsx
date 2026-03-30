@@ -16,25 +16,40 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
   const supabase = createClient();
 
   useEffect(() => {
+    let cancelled = false;
+
     async function checkAuth() {
       try {
-        // Check if user is authenticated
         const {
           data: { user },
+          error: authError,
         } = await supabase.auth.getUser();
 
+        if (cancelled) return;
+
+        if (authError) {
+          console.error("ProtectedRoute getUser:", authError.message);
+        }
+
+        // Only treat missing user as logged out — not DB/network errors from role lookups.
         if (!user) {
           router.push("/login");
           return;
         }
 
-        // Check user role
         if (requiredRole === "professor") {
-          const { data: profData } = await supabase
+          const { data: profData, error: profError } = await supabase
             .from("professors")
             .select("id")
             .eq("user_id", user.id)
             .maybeSingle();
+
+          if (cancelled) return;
+          if (profError) {
+            console.error("ProtectedRoute professors:", profError.message);
+            setLoading(false);
+            return;
+          }
 
           if (profData) {
             setAuthorized(true);
@@ -42,12 +57,18 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             return;
           }
 
-          // Check users table as fallback
-          const { data: userData } = await supabase
+          const { data: userData, error: userRowError } = await supabase
             .from("users")
             .select("role")
             .eq("id", user.id)
             .maybeSingle();
+
+          if (cancelled) return;
+          if (userRowError) {
+            console.error("ProtectedRoute users (prof):", userRowError.message);
+            setLoading(false);
+            return;
+          }
 
           if (userData?.role === "professor") {
             setAuthorized(true);
@@ -55,15 +76,20 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             return;
           }
 
-          // Not a professor, redirect to student dashboard
           router.push("/student/dashboard");
         } else {
-          // Required role is student
-          const { data: studentData } = await supabase
+          const { data: studentData, error: studentError } = await supabase
             .from("students")
             .select("id")
             .eq("user_id", user.id)
             .maybeSingle();
+
+          if (cancelled) return;
+          if (studentError) {
+            console.error("ProtectedRoute students:", studentError.message);
+            setLoading(false);
+            return;
+          }
 
           if (studentData) {
             setAuthorized(true);
@@ -71,12 +97,18 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             return;
           }
 
-          // Check users table as fallback
-          const { data: userData } = await supabase
+          const { data: userData, error: userRowError } = await supabase
             .from("users")
             .select("role")
             .eq("id", user.id)
             .maybeSingle();
+
+          if (cancelled) return;
+          if (userRowError) {
+            console.error("ProtectedRoute users (student):", userRowError.message);
+            setLoading(false);
+            return;
+          }
 
           if (userData?.role === "student") {
             setAuthorized(true);
@@ -84,16 +116,19 @@ export default function ProtectedRoute({ children, requiredRole }: ProtectedRout
             return;
           }
 
-          // Not a student, redirect to professor dashboard
           router.push("/prof");
         }
       } catch (error) {
         console.error("Auth check error:", error);
-        router.push("/login");
+        if (!cancelled) setLoading(false);
+        // Do not send users to login on unexpected errors (often transient / RLS / network).
       }
     }
 
     checkAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [router, requiredRole, supabase]);
 
   if (loading) {
