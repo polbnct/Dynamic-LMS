@@ -270,7 +270,7 @@ export default function StudentContentPage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to Courses
+            Back to Dashboard
           </Link>
           <div>
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
@@ -323,20 +323,23 @@ export default function StudentContentPage() {
                       return (
                       <div
                         key={lesson.id}
-                        className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-4 sm:p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-amber-200 bg-amber-50/50"}`}
+                        className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-4 sm:p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-gray-200 opacity-80"}`}
                       >
-                        <div className="flex flex-col items-start justify-between gap-4">
-                          <div className="flex-1">
+                        <div className="flex flex-col gap-2">
+                          <div className="w-full">
                             <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{lesson.title}</h3>
                             {!isUnlocked && (
-                              <p className="text-amber-800 text-sm font-medium mb-2">
+                              <p className="text-amber-800 text-sm font-medium mb-1">
                                 Complete the previous lesson&apos;s study aid with at least 70% to unlock.
                               </p>
                             )}
                             {lesson.description && (
                               <p className="text-gray-600 mb-4 break-words">{lesson.description}</p>
                             )}
-                            <div className="flex items-center gap-4 mt-4 flex-wrap">
+                            </div>
+                            
+                            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
+                              <div className="w-full sm:w-auto">
                               {lesson.pdfUrl && (
                                 isUnlocked ? (
                                   <a
@@ -358,6 +361,9 @@ export default function StudentContentPage() {
                                   </span>
                                 )
                               )}
+                            </div>
+
+                            <div className="w-full sm:w-auto">
                               {isUnlocked ? (
                                 <button
                                   onClick={() => handleStudyAid(lesson)}
@@ -374,10 +380,10 @@ export default function StudentContentPage() {
                                   Study Aid (locked)
                                 </span>
                               )}
+                              </div>
                             </div>
                           </div>
                         </div>
-                      </div>
                     ); })}
                   </div>
                 </div>
