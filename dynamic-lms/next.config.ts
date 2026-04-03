@@ -2,8 +2,14 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   async redirects() {
-    // No custom redirects; student routes use /student/courses/... directly.
-    return [];
+    // Legacy URLs: course pages moved under /student/dashboard only.
+    return [
+      {
+        source: "/student/courses/:path*",
+        destination: "/student/dashboard/:path*",
+        permanent: true,
+      },
+    ];
   },
 };
 

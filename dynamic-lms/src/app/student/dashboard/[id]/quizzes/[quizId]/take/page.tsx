@@ -144,7 +144,7 @@ export default function TakeQuizPage() {
       }));
 
       await submitQuizAnswers(attemptId, answerArray);
-      router.push(`/student/courses/${courseId}/quizzes`);
+      router.push(`/student/dashboard/${courseId}/quizzes`);
     } catch (err: any) {
       console.error("Error submitting quiz:", err);
       setError(err.message || "Failed to submit quiz");
@@ -285,7 +285,7 @@ export default function TakeQuizPage() {
         {/* Submit button */}
         <div className="mt-8 flex gap-4">
           <Link
-            href={`/student/courses/${courseId}/quizzes`}
+            href={`/student/dashboard/${courseId}/quizzes`}
             className="flex-1 px-6 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors text-center"
           >
             Cancel
