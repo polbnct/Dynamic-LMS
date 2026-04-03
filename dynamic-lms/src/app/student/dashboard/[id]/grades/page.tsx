@@ -147,7 +147,7 @@ export default function StudentGradesPage() {
             <h1 className="text-4xl font-bold text-gray-900 mb-2">
               Grades
             </h1>
-              <p className="text-gray-600">
+              <p className="text-gray-600 truncate">
                 {course?.name} ({course?.code}) • {totalGrades} attempt{totalGrades !== 1 ? "s" : ""}
               </p>
           </div>
@@ -195,9 +195,12 @@ export default function StudentGradesPage() {
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
                       >
                         <div className="flex items-start justify-between mb-4">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-1">
-                              <h3 className="text-xl font-bold text-gray-800">{item.title}</h3>
+                              <h3 className="text-xl font-bold text-gray-800 truncate"
+                              title={item.title}
+                              >
+                                {item.title}</h3>
                               <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
                                 {typeLabels[item.type]}
                               </span>
@@ -245,9 +248,12 @@ export default function StudentGradesPage() {
                               </div>
 
                               {attempt.feedback && attempt.feedback.trim() && (
-                                <div className="mt-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-gray-700">
+                                <div className="mt-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-gray-700 min-w-0">
                                   <div className="text-xs font-semibold text-red-700 mb-1">Feedback</div>
-                                  <div className="whitespace-pre-wrap">{attempt.feedback}</div>
+                                  <div className="whitespace-pre-wrap"
+                                  title={attempt.feedback}
+                                  >
+                                    {attempt.feedback}</div>
                                 </div>
                               )}
                             </div>

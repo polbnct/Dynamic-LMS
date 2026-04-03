@@ -116,8 +116,8 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                                 onClick={() => setCoursesDropdownOpen(false)}
                                 className="block p-4 hover:bg-rose-50"
                             >
-                              <h4 className="font-semibold text-gray-800">{course.name}</h4>
-                              <p className="text-sm text-gray-600">{course.code}</p>
+                              <h4 className="font-semibold text-gray-800 truncate" title={course.name}>{course.name}</h4>
+                              <p className="text-sm text-gray-600 truncate" title={course.code}>{course.code}</p>
                             </Link>
                           ))}
                         </div>

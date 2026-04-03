@@ -276,7 +276,7 @@ export default function StudentContentPage() {
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
               Course Content
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 break-words">
+            <p className="text-sm sm:text-base text-gray-600 truncate">
               {course?.name} ({course?.code}) • {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}
             </p>
           </div>
@@ -327,7 +327,8 @@ export default function StudentContentPage() {
                       >
                         <div className="flex flex-col gap-2">
                           <div className="w-full">
-                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{lesson.title}</h3>
+                            <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}
+                            >{lesson.title}</h3>
                             {!isUnlocked && (
                               <p className="text-amber-800 text-sm font-medium mb-1">
                                 Complete the previous lesson&apos;s study aid with at least 70% to unlock.
@@ -352,7 +353,7 @@ export default function StudentContentPage() {
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                     </svg>
                                     View PDF
-                                    {lesson.pdfFileName && <span className="text-gray-500 font-normal">({lesson.pdfFileName})</span>}
+                                    {lesson.pdfFileName && <span className="text-gray-500 font-normal truncate">({lesson.pdfFileName})</span>}
                                   </a>
                                 ) : (
                                   <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm border border-gray-300 cursor-not-allowed">

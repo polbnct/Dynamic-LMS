@@ -323,7 +323,7 @@ export default function StudentProfile() {
         {/* Profile Information Card */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
-            <h2 className="text-xl sm:text-2xl font-bold text-gray-800">Personal Information</h2>
+            <h2 className="text-xl sm:text-2xl font-bold text-gray-800 min-w-0 break-words">Personal Information</h2>
             {!isEditing && (
               <button
                 onClick={() => setIsEditing(true)}

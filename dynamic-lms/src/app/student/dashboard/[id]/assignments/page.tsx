@@ -263,7 +263,7 @@ export default function StudentAssignmentsPage() {
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
               Assignments
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 break-words">
+            <p className="text-sm sm:text-base text-gray-600 truncate">
               {course?.name} ({course?.code}) • {totalAssignments} assignment{totalAssignments !== 1 ? "s" : ""}
             </p>
           </div>
@@ -319,7 +319,8 @@ export default function StudentAssignmentsPage() {
                         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                           <div className="min-w-0 flex-1">
                             <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
-                              <h3 className="break-words text-lg font-bold text-gray-800 sm:text-xl">{assignment.title}</h3>
+                              <h3 className="break-words text-lg font-bold text-gray-800 sm:text-xl truncate" title={assignment.title}
+                              >{assignment.title}</h3>
                               {assignment.submitted && (
                                 <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
                                   Submitted
@@ -327,7 +328,8 @@ export default function StudentAssignmentsPage() {
                               )}
                             </div>
                             {assignment.description && (
-                              <p className="mb-4 break-words text-gray-600">{assignment.description}</p>
+                              <p className="mb-4 break-words text-gray-600 truncate" title={assignment.description}
+                              >{assignment.description}</p>
                             )}
                             <div className="flex flex-col gap-3 text-sm text-gray-600">
                               {assignment.pdfUrl ? (

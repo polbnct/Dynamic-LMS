@@ -178,7 +178,7 @@ export default function StudentQuizzesPage() {
             <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
               Quizzes
             </h1>
-            <p className="text-sm sm:text-base text-gray-600 break-words">
+            <p className="text-sm sm:text-base text-gray-600 truncate">
               {course?.name} ({course?.code}) • {totalQuizzes} quiz{totalQuizzes !== 1 ? "zes" : ""}
             </p>
           </div>
@@ -231,9 +231,10 @@ export default function StudentQuizzesPage() {
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
                       >
                         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                          <div className="flex-1">
+                          <div className="flex-1 min-w-0">
                             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 break-words">{quiz.title}</h3>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate" title={quiz.title}
+                              >{quiz.title}</h3>
                               {quiz.taken && (
                                 <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
                                   Completed
@@ -379,7 +380,7 @@ export default function StudentQuizzesPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
-              <h2 className="text-lg sm:text-xl font-bold text-gray-800 break-words min-w-0">
+              <h2 className="text-lg sm:text-xl font-bold text-gray-800 min-w-0 flex-1 truncate" title={resultModalQuizName}>
                 Quiz Result: {resultModalQuizName}
               </h2>
               <button
@@ -391,7 +392,7 @@ export default function StudentQuizzesPage() {
                 </svg>
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6 min-w-0">
               {resultModalLoading ? (
                 <div className="flex justify-center py-12">
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
@@ -439,22 +440,27 @@ export default function StudentQuizzesPage() {
                         >
                           <div className="flex items-start gap-2">
                             <span
-                              className={`flex-shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
+                              className={`shrink-0 w-7 h-7 rounded-full flex items-center justify-center text-sm font-bold ${
                                 a.isCorrect ? "bg-green-500 text-white" : "bg-red-500 text-white"
                               }`}
                             >
                               {a.isCorrect ? "✓" : "✗"}
                             </span>
                             <div className="flex-1 min-w-0">
-                              <p className="font-medium text-gray-800 break-words">
+                              <p className="font-medium text-gray-800 break-words whitespace-normal">
                                 {idx + 1}. {a.questionText}
                               </p>
                               <p className="text-sm text-gray-600 mt-1 break-words">
-                                Your answer: <span className="font-medium break-all">{userDisplay}</span>
+                                Your answer: <span className="font-medium break-all" title={userDisplay}
+                                >{userDisplay}</span>
                               </p>
                               {!a.isCorrect && resultModalRevealCorrect && a.correctAnswer !== undefined && (
                                 <p className="text-sm text-green-700 mt-0.5 break-words">
-                                  Correct answer: <span className="font-medium break-all">{correctDisplay}</span>
+                                  Correct answer: <span 
+                                  className="font-medium break-all"
+                                  title={correctDisplay}
+                                  >
+                                    {correctDisplay}</span>
                                 </p>
                               )}
                             </div>

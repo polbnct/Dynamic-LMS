@@ -19,7 +19,7 @@ export default function StudentCourseNavbar({
   const navItems = [
     {
       name: "Content",
-      href: `/student/dashboard/${courseId}/content`,
+      href: `/student/courses/${courseId}/content`,
       key: "content" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -34,7 +34,7 @@ export default function StudentCourseNavbar({
     },
     {
       name: "Assignments",
-      href: `/student/dashboard/${courseId}/assignments`,
+      href: `/student/courses/${courseId}/assignments`,
       key: "assignments" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -49,7 +49,7 @@ export default function StudentCourseNavbar({
     },
     {
       name: "Quizzes",
-      href: `/student/dashboard/${courseId}/quizzes`,
+      href: `/student/courses/${courseId}/quizzes`,
       key: "quizzes" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -64,7 +64,7 @@ export default function StudentCourseNavbar({
     },
     {
       name: "Grades",
-      href: `/student/dashboard/${courseId}/grades`,
+      href: `/student/courses/${courseId}/grades`,
       key: "grades" as const,
       icon: (
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -84,15 +84,15 @@ export default function StudentCourseNavbar({
       <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {/* Course Info */}
         {(courseName || courseCode) && (
-          <div className="border-b border-rose-100 py-2 sm:py-4">
-            <Link
-              href={`/student/dashboard/${courseId}/content`}
-              className="block break-words text-xs sm:text-sm text-gray-600 transition-colors hover:text-red-600"
-            >
+          <div className="border-b border-rose-100 py-2 sm:py-4 min-w-0">
+            <div
+              className="block truncate max-w-full text-xs sm:text-sm text-gray-600"
+              title={`${courseCode ? courseCode + " • " : ""}${courseName ?? ""}`}
+              >
               {courseCode && <span className="font-medium">{courseCode}</span>}
               {courseName && courseCode && " • "}
               {courseName && <span>{courseName}</span>}
-            </Link>
+            </div>
           </div>
         )}
 

@@ -121,8 +121,11 @@ export default function StudentDashboard() {
                   href={`/student/dashboard/${course.id}/content`}
                   className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg border border-rose-100 p-6 hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-1"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1">{course.name}</h3>
-                  <p className="text-sm text-gray-500">{course.code}</p>
+                  <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate"
+                  title={course.name}
+                  > {course.name}
+                </h3>
+                  <p className="text-sm text-gray-500 truncate">{course.code}</p>
                 </Link>
               ))}
             </div>
@@ -142,10 +145,12 @@ export default function StudentDashboard() {
                     href={`/student/dashboard/${assignment.course_id}/assignments`}
                     className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-gray-800">{assignment.title}</h4>
-                        <p className="text-sm text-gray-500">
+                    <div className="flex items-center justify-between gap-3 min-w-0">
+                      <div className ="min-w-0 flex-1">
+                        <h4 className="font-semibold text-gray-800 truncate" title={assignment.title}>
+                          {assignment.title}
+                        </h4>
+                        <p className="text-sm text-gray-500 break-words">
                           Due:{" "}
                           {assignment.due_date
                             ? new Date(assignment.due_date).toLocaleString("en-PH", {
@@ -156,7 +161,7 @@ export default function StudentDashboard() {
                             : "No due date"}
                         </p>
                       </div>
-                      <span className="text-xs font-semibold text-rose-600">View assignment</span>
+                      <span className="shrink-0 text-xs font-semibold text-rose-600">View assignment</span>
                     </div>
                   </Link>
                 ))}
@@ -177,10 +182,11 @@ export default function StudentDashboard() {
                     href={`/student/dashboard/${quiz.course_id}/quizzes`}
                     className="block bg-white/90 backdrop-blur-sm rounded-xl shadow-lg border border-rose-100 p-4 hover:shadow-xl hover:-translate-y-0.5 transition-all duration-200"
                   >
-                    <div className="flex items-center justify-between">
-                      <div>
-                        <h4 className="font-semibold text-gray-800">{quiz.name}</h4>
-                        <p className="text-sm text-gray-500">
+                    <div className="flex items-center justify-between gap-3 min-w-0">
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-semibold text-gray-800 truncate" title={quiz.name}
+                        > {quiz.name} </h4>
+                        <p className="text-sm text-gray-500 break-words">
                           Locks:{" "}
                           {quiz.due_date
                             ? new Date(quiz.due_date).toLocaleString("en-PH", {
