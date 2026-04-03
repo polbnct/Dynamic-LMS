@@ -86,14 +86,11 @@ export default function CourseNavbar({
         {/* Course Info */}
         {(courseName || courseCode) && (
           <div className="pt-2 sm:pt-4 pb-2 border-b border-rose-100">
-            <Link
-              href={`/prof/courses/${courseId}/classlist`}
-              className="block break-words text-xs sm:text-sm text-gray-600 hover:text-red-600 transition-colors"
-            >
+            <div className="block truncate text-xs sm:text-sm text-gray-600">
               {courseCode && <span className="font-medium">{courseCode}</span>}
               {courseName && courseCode && " • "}
               {courseName && <span>{courseName}</span>}
-            </Link>
+            </div>
           </div>
         )}
 

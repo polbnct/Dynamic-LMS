@@ -153,11 +153,11 @@ export default function ClasslistPage() {
             Back to Dashboard
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
+            <div className="flex-1 min-w-0 ">
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Classlist
               </h1>
-              <p className="text-sm sm:text-base text-gray-600 break-words">{course.name} ({course.code})</p>
+              <p className="text-sm sm:text-base text-gray-600 truncate">{course.name} ({course.code})</p>
             </div>
             <div className="text-left sm:text-right">
               <div className="text-sm text-gray-600">Total Students</div>
@@ -211,41 +211,53 @@ export default function ClasslistPage() {
               </p>
             </div>
           ) : (
-            <div className="max-h-[500px] overflow-y-auto overflow-x-auto scrollbar-thin scrollbar-thumb-red-200">
-              <table className="w-full relative">
+            <div className="max-h-[500px] overflow-y-auto overflow-x-auto lg:overflow-x-visible scrollbar-thin scrollbar-thumb-red-200">
+              <table className="w-full min-w-[920px] lg:min-w-0 table-fixed relative">
                 <thead className= "sticky top-0 bg-white z-10">
                   <tr className="border-b border-gray-200">
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Student ID</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Enrolled Date</th>
-                    <th className="text-left py-3 px-4 text-sm font-semibold text-gray-700">Actions</th>
+                    <th className="w-[30%] text-left py-3 px-4 text-sm font-semibold text-gray-700">Name</th>
+                    <th className="w-[30%] text-left py-3 px-4 text-sm font-semibold text-gray-700">Email</th>
+                    <th className="w-[16%] text-left py-3 px-4 text-sm font-semibold text-gray-700">Student ID</th>
+                    <th className="w-[14%] text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Enrolled Date</th>
+                    <th className="w-[10%] text-left py-3 px-4 text-sm font-semibold text-gray-700 whitespace-nowrap">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {filteredStudents.map((student) => (
                     <tr key={student.id} className="hover:bg-red-50/50 transition-colors">
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
-                          <div className="w-10 h-10 bg-gradient-to-br from-red-100 to-rose-100 rounded-full flex items-center justify-center">
+                      <td className="py-4 px-4 align-top">
+                        <div className="flex items-center gap-3 min-w-0">
+                          <div className="w-10 h-10 shrink-0 flex-none bg-gradient-to-br from-red-100 to-rose-100 rounded-full flex items-center justify-center">
                             <span className="text-red-600 font-semibold">
                               {student.name.charAt(0).toUpperCase()}
                             </span>
                           </div>
-                          <span className="font-medium text-gray-800">{student.name}</span>
+                          <span className="font-medium text-gray-800 truncate" title={student.name}>
+                            {student.name}</span>
                         </div>
                       </td>
-                      <td className="py-4 px-4 text-gray-600">{student.email}</td>
-                      <td className="py-4 px-4 text-gray-600">{student.studentId || "N/A"}</td>
-                      <td className="py-4 px-4 text-gray-600">
+                      <td className="py-4 px-4 text-gray-600 align-top">
+                      <span className="block truncate" title={student.email}>
+                        {student.email}
+                        </span> 
+                      </td>
+
+                      <td className="py-4 px-4 text-gray-600 align-top">
+                        <span className="block truncate"
+                          title={student.studentId}>
+                            {student.studentId || "N/A"}
+                        </span>
+                      </td>
+
+                      <td className="py-4 px-4 text-gray-600 align-top whitespace-nowrap">
                         {new Date(student.enrolledAt).toLocaleDateString("en-US", {
                           year: "numeric",
                           month: "short",
                           day: "numeric",
                         })}
                       </td>
-                      <td className="py-4 px-4">
-                        <div className="flex items-center gap-3">
+                      <td className="py-4 px-4 align-top whitespace-nowrap">
+                        <div className="flex items-center gap-3 shrink-0">
                           <button
                             onClick={async () => {
                               if (!student.studentDbId) return;
@@ -283,13 +295,6 @@ export default function ClasslistPage() {
                           >
                             View Profile
                           </button>
-                          <button
-                            type="button"
-                            disabled
-                            className="text-gray-400 font-medium text-sm cursor-not-allowed"
-                          >
-                            {enrollmentManagedByAdmin ? "Admin-managed" : "Remove"}
-                          </button>
                         </div>
                       </td>
                     </tr>
@@ -324,11 +329,11 @@ export default function ClasslistPage() {
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
-              <div>
+              <div className="min-w-0">
                 <h2 className="text-xl font-bold text-gray-800">Student profile</h2>
-                <p className="text-gray-600 text-sm mt-1">{selectedStudent.name}</p>
+                <p className="text-gray-600 text-sm mt-1 truncate">{selectedStudent.name}</p>
                 {selectedStudent.email && (
-                  <p className="text-gray-500 text-sm">{selectedStudent.email}</p>
+                  <p className="text-gray-500 text-sm truncate">{selectedStudent.email}</p>
                 )}
               </div>
               <button
@@ -362,13 +367,13 @@ export default function ClasslistPage() {
                         {profileGrades.map((g) => (
                           <li
                             key={g.id}
-                            className="flex items-center justify-between py-2 px-3 bg-gray-50 rounded-lg border border-gray-100"
+                            className="flex items-center justify-between gap-3 py-2 px-3 bg-gray-50 rounded-lg border border-gray-100"
                           >
                             <div>
-                              <span className="font-medium text-gray-800">{g.title}</span>
-                              <span className="ml-2 text-xs text-gray-500 capitalize">({g.type})</span>
+                              <span className="block truncate font-medium text-gray-800">{g.title}</span>
+                              <span className="text-xs text-gray-500 capitalize">({g.type})</span>
                             </div>
-                            <div className="flex items-center gap-3">
+                            <div className="flex items-center gap-3 shrink-0">
                               <span className="text-sm text-gray-600">
                                 {g.score}/{g.maxScore}
                               </span>
@@ -398,7 +403,7 @@ export default function ClasslistPage() {
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
                             {a.title}
-                            <span className="text-red-600 text-xs capitalize">({a.category})</span>
+                            <span className="text-red-600 text-xs capitalize shrink-0">({a.category})</span>
                           </li>
                         ))}
                       </ul>
@@ -422,7 +427,10 @@ export default function ClasslistPage() {
                             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-                            {q.name}
+
+                            <span className="min-w-0 flex-1 truncate" title={q.name}>
+                              {q.name}
+                            </span>
                           </li>
                         ))}
                       </ul>

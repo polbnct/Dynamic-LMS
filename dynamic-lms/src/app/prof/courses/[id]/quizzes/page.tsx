@@ -593,7 +593,7 @@ export default function QuizzesPage() {
             }}
             className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
           >
-            + New
+            + Create
           </button>
         </div>
 
@@ -659,7 +659,7 @@ export default function QuizzesPage() {
                 <select
                   value={bankSourceFilter}
                   onChange={(e) => setBankSourceFilter(e.target.value)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 shadow-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
+                  className="w-full min-w-0 max-w-full truncate rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 shadow-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
                 >
                   <option value="all">All sources</option>
                   <option value="manual">Created manually (no lesson)</option>
@@ -801,15 +801,15 @@ export default function QuizzesPage() {
                       </svg>
                     </button>
                   </div>
-                  <p className="mb-2 break-words text-sm font-medium text-gray-800">{question.question}</p>
+                  <p className="mb-2 break-words whitespace-normal text-sm font-medium text-gray-800">{question.question}</p>
                   {question.type === "multiple_choice" && question.options && (
                     <div className="mt-2 space-y-1">
                       {question.options.map((opt, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs text-gray-600">
+                        <div key={idx} className="flex items-center gap-2 text-xs text-gray-600 min-w-0">
                           <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-xs text-white">
                             {String.fromCharCode(65 + idx)}
                           </span>
-                          <span className={idx === question.correctAnswer ? "font-semibold text-green-600" : ""}>
+                          <span className={`min-w-0 line-clamp-4 ${idx === question.correctAnswer ? "font-semibold text-green-600" : ""}`}>
                             {opt}
                           </span>
                           {idx === question.correctAnswer && (
@@ -910,11 +910,13 @@ export default function QuizzesPage() {
             Back to Dashboard
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Quizzes
               </h1>
-              <p className="text-sm sm:text-base text-gray-600 break-words">
+              <p className="text-sm sm:text-base text-gray-600 truncate" 
+              title={course.name}
+              >
                 {course?.name} ({course?.code}) • {totalQuizzes} quiz{totalQuizzes !== 1 ? "zes" : ""}
               </p>
             </div>
@@ -971,8 +973,11 @@ export default function QuizzesPage() {
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
               >
                 <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
-                  <div className="flex-1">
-                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{quiz.name}</h3>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate"
+                    title={quiz.name}
+                    >
+                      {quiz.name}</h3>
                     <p className="text-gray-600 text-sm">
                       Type: {quiz.type.replace("_", " ")} • {quiz.questions.length} question{quiz.questions.length !== 1 ? "s" : ""}
                     </p>
@@ -1095,11 +1100,11 @@ export default function QuizzesPage() {
       {createQuizModalOpen && (
         <>
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-0 lg:p-4"
+          className="fixed inset-0 z-50 flex items-start justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4"
           onClick={handleCancel}
         >
           <div
-            className="bg-white flex flex-col w-full h-[100dvh] max-h-[100dvh] overflow-hidden rounded-none shadow-none lg:h-auto lg:max-h-[90vh] lg:max-w-7xl lg:rounded-2xl lg:shadow-2xl"
+            className="bg-white flex flex-col w-full max-w-full h-auto max-h-[80dvh] overflow-hidden rounded-2xl shadow-2xl mt-20 sm:mt-24 lg:mt-0 lg:max-h-[90vh] lg:max-w-7xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Modal Header — desktop matches original card header */}
@@ -1122,7 +1127,7 @@ export default function QuizzesPage() {
             {/* Modal Content */}
             <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
               {/* Main: full scroll on mobile (bank opens in its own overlay); sidebar unchanged on lg */}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6 max-lg:flex-1 max-lg:min-h-0 max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch] lg:max-h-none">
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6 pb-6 sm:pb-6 max-lg:flex-1 max-lg:min-h-0 max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch] lg:max-h-none">
                 {/* Quiz Name and Type */}
                 <div className="mb-4 space-y-3 max-lg:space-y-2.5 lg:mb-6 lg:space-y-4">
                   <div>
@@ -1201,14 +1206,14 @@ export default function QuizzesPage() {
 
                 {/* Selected Questions Section */}
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4 max-lg:flex-col max-lg:items-stretch max-lg:gap-2">
-                    <h3 className="text-lg font-bold text-gray-800">
+                  <div className="flex items-center justify-between mb-4 gap-2 min-w-0">
+                    <h3 className="text-lg font-bold text-gray-800 truncate">
                       Selected Questions ({selectedQuestions.length})
                     </h3>
                     {selectedQuestions.length > 0 && (
                       <button
                         onClick={() => setSelectedQuestions([])}
-                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                        className="shrink-0 text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium"
                       >
                         Clear All
                       </button>
@@ -1220,7 +1225,7 @@ export default function QuizzesPage() {
                       <p className="text-gray-500">No questions selected yet. Choose questions from the quiz bank.</p>
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-64 overflow-y-auto max-lg:max-h-[min(40vh,16rem)] max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
+                    <div className="space-y-3 max-h-[30vh] overflow-y-auto max-lg:max-h-[32vh] max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
                       {selectedQuestions.map((question, index) => (
                         <div
                           key={question.id}
@@ -1304,12 +1309,12 @@ export default function QuizzesPage() {
                       <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500">
                         No students found for retake management.
                       </div>
-                    ) : (
-                      <div className="space-y-2 max-h-56 overflow-y-auto max-lg:max-h-[min(38vh,14rem)] max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
+                    ) : ( 
+                      <div className="max-h-[32vh] overflow-y-auto overscroll-y-contain rounded-xl border border-gray-200 bg-gray-50/40 p-2 max-lg:max-h-[28vh] max-lg:[-webkit-overflow-scrolling:touch]">
                         {retakeRows.map((r) => (
                           <div
                             key={r.studentDbId}
-                            className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-center justify-between gap-3 max-lg:flex-col max-lg:items-stretch"
+                            className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-3 min-w-0"
                           >
                             <div className="min-w-0 flex-1">
                               <p className="font-semibold text-gray-800 truncate max-lg:break-words max-lg:whitespace-normal">{r.name}</p>
@@ -1366,7 +1371,7 @@ export default function QuizzesPage() {
                                   setError(e.message || "Failed to grant retake");
                                 }
                               }}
-                              className="shrink-0 px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 max-lg:w-full max-lg:min-h-11 max-lg:py-2.5 max-lg:text-sm"
+                              className="shrink-0 self-start px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 sm:text-sm"
                             >
                               Grant retake
                             </button>
@@ -1414,7 +1419,7 @@ export default function QuizzesPage() {
             </div>
 
             {/* Modal Footer */}
-            <div className="border-t border-gray-200 bg-gray-50 p-3 sm:p-6 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-3">
+            <div className="sticky bottom-0 border-t border-gray-200 bg-gray-50 p-3 sm:p-6 max-lg:pb-[max(0.75rem,env(safe-area-inset-bottom))] max-lg:pt-3">
               <div className="flex flex-col gap-2 sm:flex-row sm:gap-3">
                 <button
                   type="button"
@@ -1436,11 +1441,11 @@ export default function QuizzesPage() {
         </div>
         {mobileQuestionBankOpen && (
           <div
-            className="fixed inset-0 z-[60] flex items-stretch justify-center bg-black/50 backdrop-blur-sm lg:hidden"
+            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 lg:hidden"
             onClick={() => setMobileQuestionBankOpen(false)}
           >
             <div
-              className="flex h-full w-full max-h-[100dvh] flex-col overflow-hidden bg-white"
+              className="flex w-full max-w-lg max-h-[75vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl -translate-y-6 sm:-translate-y-10"
               onClick={(e) => e.stopPropagation()}
             >
               <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-3 py-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
@@ -1484,7 +1489,7 @@ export default function QuizzesPage() {
               </div>
               
               {/* Question Type Selector */}
-              <div className="mb-6">
+              <div className="mb-6 flex min-h-0 flex-1 flex-col">
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Question Type</label>
                 <select
                   value={generateQuestionType}

@@ -128,9 +128,10 @@ export default function ProfessorNavbar({
                                 className="block p-4 hover:bg-red-50 transition-colors"
                               >
                                 <div className="flex items-start justify-between">
-                                  <div className="flex-1">
-                                    <h4 className="font-semibold text-gray-800">{course.name}</h4>
-                                    <p className="text-sm text-gray-600 mt-1">{course.code}</p>
+                                  <div className="flex-1 min-w-0">
+                                    <h4 className="font-semibold text-gray-800 truncate" title={course.name}
+                                    >{course.name}</h4>
+                                    <p className="text-sm text-gray-600 mt-1 truncate">{course.code}</p>
                                     {course.studentsCount !== undefined && (
                                       <p className="text-xs text-gray-500 mt-1">
                                         {course.studentsCount} student{course.studentsCount !== 1 ? "s" : ""}

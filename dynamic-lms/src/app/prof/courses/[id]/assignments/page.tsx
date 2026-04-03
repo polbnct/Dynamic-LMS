@@ -337,11 +337,13 @@ export default function AssignmentsPage() {
             Back to Dashboard
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Assignments
               </h1>
-              <p className="text-sm sm:text-base text-gray-600 break-words">
+              <p className="text-sm sm:text-base text-gray-600 truncate" 
+              title={course.name}
+              >
                 {course?.name} ({course?.code}) • {totalAssignments} assignment{totalAssignments !== 1 ? "s" : ""}
               </p>
             </div>
@@ -405,7 +407,7 @@ export default function AssignmentsPage() {
                       >
                         <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
                           <div className="flex items-start gap-4 flex-1 min-w-0">
-                            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
+                            <div className="shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
                               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -415,10 +417,16 @@ export default function AssignmentsPage() {
                                 />
                               </svg>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{assignment.title}</h3>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" 
+                                title={assignment.title}
+                              >
+                                {assignment.title}</h3>
                               {assignment.description && (
-                                <p className="text-gray-600 mb-3 break-words">{assignment.description}</p>
+                                <p className="text-gray-600 mb-3 truncate" 
+                                title={assignment.description}
+                                >
+                                  {assignment.description}</p>
                               )}
                               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                                 {assignment.pdfUrl && (

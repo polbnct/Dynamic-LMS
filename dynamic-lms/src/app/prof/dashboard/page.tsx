@@ -119,15 +119,17 @@ export default function ProfessorDashboard() {
                 {courses.map((course) => (
                   <div
                     key={course.id}
-                    className="group bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+                    className="group min-w-0 iverflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
                   >
-                    <Link href={`/prof/courses/${course.id}/content`} className="block">
+                    <Link href={`/prof/courses/${course.id}/content`} className="block min-w-0">
                       <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1">
-                          <h3 className="text-xl font-bold text-gray-800 group-hover:text-red-600 transition-colors">
+                        <div className="flex-1 min-w-0">
+                          <h3 className="text-xl font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate" 
+                          title={course.name}
+                          >
                             {course.name}
                           </h3>
-                          <p className="text-sm text-gray-500 mt-1">{course.code}</p>
+                          <p className="text-sm text-gray-500 mt-1 truncate">{course.code}</p>
                         </div>
                         <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
                           <svg

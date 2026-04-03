@@ -557,17 +557,17 @@ export default function ContentPage() {
             Back to Dashboard
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <div>
+            <div className="flex-1 min-w-0">
               <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words">
                 Course Content
               </h1>
-              <p className="text-sm sm:text-base text-gray-600 break-words">
+              <p className="text-sm sm:text-base text-gray-600 truncate" title={course.name}>
                 {course?.name} ({course?.code}) • {totalLessons} lesson{totalLessons !== 1 ? "s" : ""}
               </p>
             </div>
             <button
               onClick={() => setAddLessonModalOpen(true)}
-              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200"
+              className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 cursor-pointer"
             >
               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path
@@ -649,8 +649,10 @@ export default function ContentPage() {
                                 />
                               </svg>
                             </div>
-                            <div className="flex-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 break-words">{lesson.title}</h3>
+                            <div className="flex-1 min-w-0">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}
+                              >
+                                {lesson.title}</h3>
                               {lesson.description && (
                                 <p className="text-gray-600 mb-3 break-words">{lesson.description}</p>
                               )}

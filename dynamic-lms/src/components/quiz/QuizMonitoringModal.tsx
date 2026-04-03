@@ -168,11 +168,13 @@ export default function QuizMonitoringModal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start sm:items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <h2 className="text-xl sm:text-2xl font-bold text-gray-900 break-words">
               Quiz attempts & activity logs
             </h2>
-            <p className="text-gray-600 text-sm mt-1 break-words">{quizName}</p>
+            <p className="text-gray-600 text-sm mt-1 truncate" title={quizName}
+             > {quizName}
+            </p>
           </div>
           <button onClick={onClose} className="text-gray-400 hover:text-gray-600 transition-colors shrink-0">
             <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
