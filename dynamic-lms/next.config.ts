@@ -9,6 +9,11 @@ const nextConfig: NextConfig = {
         destination: "/student/dashboard/:path*",
         permanent: true,
       },
+      {
+        source: "/prof/courses",
+        destination: "/prof/dashboard",
+        permanent: true,
+      },
     ];
   },
 };

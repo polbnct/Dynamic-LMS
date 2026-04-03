@@ -241,7 +241,7 @@ export default function ProfessorNavbar({
             Profile
           </Link>
           <Link
-            href="/prof/courses"
+            href="/prof/dashboard"
             className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
             onClick={() => setMobileMenuOpen(false)}
           >

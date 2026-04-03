@@ -323,7 +323,7 @@ export default function AssignmentsPage() {
         {/* Page Header */}
         <div className="mb-8">
           <Link
-            href="/prof/courses"
+            href="/prof/dashboard"
             className="inline-flex items-center gap-2 text-gray-600 hover:text-red-600 mb-4 transition-colors"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -334,7 +334,7 @@ export default function AssignmentsPage() {
                 d="M15 19l-7-7 7-7"
               />
             </svg>
-            Back to Courses
+            Back to Dashboard
           </Link>
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
