@@ -1137,6 +1137,7 @@ export default function QuizzesPage() {
                     <input
                       id="quizName"
                       type="text"
+                      maxLength={64}
                       value={quizName}
                       onChange={(e) => setQuizName(e.target.value)}
                       placeholder="Enter quiz name"

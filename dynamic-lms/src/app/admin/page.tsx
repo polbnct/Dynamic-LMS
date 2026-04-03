@@ -305,7 +305,7 @@ export default function AdminDashboardPage() {
     setSuccess("");
     setCreateCourseForm({
       name: "",
-      code: generateCourseCode(),
+      code: "",
       professor_id: "",
     });
     setCreateCourseOpen(true);
@@ -664,11 +664,11 @@ export default function AdminDashboardPage() {
                   key={c.id}
                   className="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm hover:shadow-md transition"
                 >
-                  <div className="flex items-start justify-between gap-4">
+                  <div className="flex items-start justify-between gap-4 min-w-0">
                     <button
                       type="button"
                       onClick={() => openManageCourse(c)}
-                      className="text-left flex-1"
+                      className="text-left flex-1 min-w-0"
                     >
                       <div className="min-w-0">
                         <div className="text-lg font-extrabold truncate text-gray-900">{c.name}</div>
@@ -680,7 +680,7 @@ export default function AdminDashboardPage() {
                         </div>
                       </div>
                     </button>
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-end gap-2 shrink-0">
                       <div className="shrink-0 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
                         {c.studentsCount} student{c.studentsCount !== 1 ? "s" : ""}
                       </div>
@@ -688,7 +688,7 @@ export default function AdminDashboardPage() {
                         type="button"
                         disabled={deletingCourseId === c.id}
                         onClick={() => handleDeleteCourse(c.id)}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className="w-full sm:w-auto text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
                       >
                         {deletingCourseId === c.id ? "Deleting…" : "Delete"}
                       </button>
@@ -713,7 +713,7 @@ export default function AdminDashboardPage() {
                   className="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-2 rounded-xl shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
                   disabled={createProfessorSaving}
                 >
-                  Create professor
+                  Create Professor
                 </button>
               </div>
               <div className="divide-y divide-rose-50">
@@ -723,7 +723,7 @@ export default function AdminDashboardPage() {
                       <div className="font-extrabold truncate text-gray-900">{p.name}</div>
                       <div className="text-sm text-gray-600 truncate">{p.email}</div>
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
                       <button
                         type="button"
                         onClick={() =>
@@ -734,15 +734,15 @@ export default function AdminDashboardPage() {
                             kind: "professor",
                           })
                         }
-                        className="text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50"
+                        className="w-full sm:w-auto text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 transition-colors hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer"
                       >
-                        Manage account
+                        Manage Account
                       </button>
                       <button
                         type="button"
                         disabled={deletingProfessorId === p.id}
                         onClick={() => handleDeleteProfessor(p.id)}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className="w-full sm:w-auto text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
                       >
                         {deletingProfessorId === p.id ? "Deleting…" : "Delete"}
                       </button>
@@ -765,11 +765,11 @@ export default function AdminDashboardPage() {
                     <div className="min-w-0">
                       <div className="font-extrabold truncate text-gray-900">{s.name}</div>
                       <div className="text-sm text-gray-600 truncate">{s.email}</div>
-                    </div>
-                    <div className="flex items-center gap-3">
                       <div className="text-xs text-gray-500 font-mono">
                         {s.student_id}
                       </div>
+                    </div>
+                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto shrink-0">
                       <button
                         type="button"
                         onClick={() =>
@@ -780,15 +780,16 @@ export default function AdminDashboardPage() {
                             kind: "student",
                           })
                         }
-                        className="text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 hover:bg-gray-50"
+                        className="w-full sm:w-auto text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 transition-colors hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer"
                       >
                         Manage account
                       </button>
+
                       <button
                         type="button"
                         disabled={deletingStudentId === s.id}
                         onClick={() => handleDeleteStudent(s.id)}
-                        className="text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className="w-full sm:w-auto text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
                       >
                         {deletingStudentId === s.id ? "Deleting…" : "Delete"}
                       </button>
@@ -825,7 +826,7 @@ export default function AdminDashboardPage() {
                 <button
                   type="button"
                   onClick={closeCreateCourse}
-                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700"
+                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 cursor-pointer"
                 >
                   Close
                 </button>
@@ -837,6 +838,7 @@ export default function AdminDashboardPage() {
                 <label className="text-sm font-semibold text-gray-700">Course name</label>
                 <input
                   value={createCourseForm.name}
+                  maxLength={64}
                   onChange={(e) => setCreateCourseForm((p) => ({ ...p, name: e.target.value }))}
                   className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
                   placeholder="e.g. Data Structures"
@@ -844,13 +846,14 @@ export default function AdminDashboardPage() {
                 />
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
                 <div>
                   <label className="text-sm font-semibold text-gray-700">Course code</label>
                   <input
                     value={createCourseForm.code}
                     onChange={(e) => setCreateCourseForm((p) => ({ ...p, code: e.target.value }))}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-mono outline-none focus:border-red-400 focus:bg-white"
+                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
+                    placeholder="Set course code here"
                   />
                 </div>
               </div>
@@ -870,28 +873,25 @@ export default function AdminDashboardPage() {
                   ))}
                 </select>
               </div>
-
-              <div className="flex flex-col-reverse sm:flex-row sm:items-center sm:justify-between gap-3 pt-1">
+              
+              <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 w-full">
                 <button
                   type="button"
-                  onClick={() => {
-                    setCreateCourseForm((p) => ({
-                      ...p,
-                      code: generateCourseCode(),
-                    }));
-                  }}
-                  className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700"
+                  onClick={closeCreateCourse}
+                  disabled={creatingCourse}
+                  className="w-full sm:flex-1 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 disabled:opacity-60 cursor-pointer"
                 >
-                  Regenerate code
+                  Cancel
                 </button>
+                
                 <button
                   type="submit"
                   disabled={creatingCourse}
-                  className="rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
+                  className="w-full sm:flex-1 rounded-2xl bg-red-600 px-5 py-3 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60 cursor-pointer"
                 >
                   {creatingCourse ? "Creating…" : "Create"}
                 </button>
-              </div>
+                </div>
             </form>
           </div>
         </div>
@@ -910,7 +910,7 @@ export default function AdminDashboardPage() {
             <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-xl font-black text-gray-900">Manage account</div>
+                  <div className="text-xl font-black text-gray-900">Manage Account</div>
                   <div className="mt-1 text-sm text-gray-600">
                     {manageAccountUser.kind === "professor" ? "Professor" : "Student"}:{" "}
                     <span className="font-semibold text-gray-900">{manageAccountUser.name}</span>{" "}
@@ -927,7 +927,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            <div className="p-6 space-y-4">
+            <div className="p-6 space-y-4 min-w-0">
               {manageAccountError && (
                 <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                   {manageAccountError}
@@ -939,11 +939,12 @@ export default function AdminDashboardPage() {
                 </div>
               )}
 
-              <form onSubmit={handleAdminManageAccountSave} className="space-y-4">
-                <div>
+              <form onSubmit={handleAdminManageAccountSave} className="space-y-4 min-w-0">
+                <div className="min-w-0">
                   <label className="block text-sm font-semibold text-gray-700">Name</label>
                   <input
                     type="text"
+                    maxLength={64}
                     value={manageName}
                     onChange={(e) => setManageName(e.target.value)}
                     className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
@@ -952,10 +953,11 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-semibold text-gray-700">Email</label>
                   <input
                     type="email"
+                    maxLength={64}
                     value={manageEmail}
                     onChange={(e) => setManageEmail(e.target.value)}
                     className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
@@ -964,7 +966,7 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-semibold text-gray-700">New password</label>
                   <input
                     type="password"
@@ -977,7 +979,7 @@ export default function AdminDashboardPage() {
                   <p className="mt-1 text-xs text-gray-500">Leave blank to keep the current password.</p>
                 </div>
 
-                <div>
+                <div className="min-w-0">
                   <label className="block text-sm font-semibold text-gray-700">Confirm password</label>
                   <input
                     type="password"
@@ -991,20 +993,20 @@ export default function AdminDashboardPage() {
                   />
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 pt-2 w-full">
                   <button
                     type="button"
                     onClick={closeManageAccount}
-                    className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
+                    className="w-full sm:flex-1 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={manageAccountSaving}
-                    className="rounded-2xl bg-red-600 hover:bg-red-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                    className="w-full sm:flex-1 rounded-2xl bg-red-600 hover:bg-red-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60"
                   >
-                    {manageAccountSaving ? "Saving…" : "Update password"}
+                    {manageAccountSaving ? "Saving…" : "Update"}
                   </button>
                 </div>
               </form>
@@ -1026,7 +1028,7 @@ export default function AdminDashboardPage() {
             <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-xl font-black text-gray-900">Create professor</div>
+                  <div className="text-xl font-black text-gray-900">Create Professor</div>
                   <div className="mt-1 text-sm text-gray-600">This will create an auth user and a professors profile.</div>
                 </div>
                 <button
@@ -1056,6 +1058,7 @@ export default function AdminDashboardPage() {
                   <label className="block text-sm font-semibold text-gray-700">Name</label>
                   <input
                     type="text"
+                    maxLength={64}
                     value={createProfessorForm.name}
                     onChange={(e) => setCreateProfessorForm((p) => ({ ...p, name: e.target.value }))}
                     className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
@@ -1069,6 +1072,7 @@ export default function AdminDashboardPage() {
                   <label className="block text-sm font-semibold text-gray-700">Email</label>
                   <input
                     type="email"
+                    maxLength={128}
                     value={createProfessorForm.email}
                     onChange={(e) => setCreateProfessorForm((p) => ({ ...p, email: e.target.value }))}
                     className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
@@ -1092,19 +1096,19 @@ export default function AdminDashboardPage() {
                   <p className="mt-1 text-xs text-gray-500">Password will be set for the created professor.</p>
                 </div>
 
-                <div className="flex items-center justify-end gap-3 pt-2">
+                <div className="flex flex-col items-center justify-end gap-2 pt-2 sm:flex-row w-full sm:justify-end">
                   <button
                     type="button"
                     onClick={closeCreateProfessor}
                     disabled={createProfessorSaving}
-                    className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full sm:flex-1 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={createProfessorSaving}
-                    className="rounded-2xl bg-red-600 hover:bg-red-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full sm:flex-1 rounded-2xl bg-red-600 hover:bg-red-700 px-5 py-2 text-sm font-semibold text-white disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     {createProfessorSaving ? "Creating…" : "Create"}
                   </button>
@@ -1138,7 +1142,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={closeManageCourse}
-                    className="rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
+                    className="w-full sm:w-auto rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
                   >
                     Close
                   </button>
@@ -1146,7 +1150,7 @@ export default function AdminDashboardPage() {
               </div>
             </div>
 
-            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:flex-1 sm:overflow-hidden">
+            <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:flex-1 sm:overflow-hidden min-w-0">
               <div className="space-y-4">
                 <div className="rounded-3xl border border-rose-100 bg-rose-50 p-5">
                   <div className="text-sm font-bold text-gray-800">Course details</div>
@@ -1155,6 +1159,7 @@ export default function AdminDashboardPage() {
                       <label className="block text-xs font-semibold text-gray-700 mb-1">Name</label>
                       <input
                         value={editCourseForm.name}
+                        maxLength={64}
                         onChange={(e) => setEditCourseForm((p) => ({ ...p, name: e.target.value }))}
                         className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-400"
                       />
@@ -1164,6 +1169,8 @@ export default function AdminDashboardPage() {
                       <input
                         value={editCourseForm.code}
                         onChange={(e) => setEditCourseForm((p) => ({ ...p, code: e.target.value }))}
+                        maxLength={16}
+                        placeholder="e.g TUPD9126"
                         className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-red-400"
                       />
                     </div>
@@ -1207,7 +1214,7 @@ export default function AdminDashboardPage() {
                       </div>
                     </div>
 
-                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto">
+                    <div className="flex flex-col sm:flex-row gap-2 w-full sm:w-auto ">
                       <select
                         value={selectedStudentToAdd}
                         onChange={(e) => setSelectedStudentToAdd(e.target.value)}
@@ -1242,8 +1249,8 @@ export default function AdminDashboardPage() {
                   ) : (
                     <div className="divide-y divide-rose-50">
                       {manageEnrollments.map((en) => (
-                        <div key={en.id} className="px-5 py-4 flex items-center justify-between gap-3">
-                          <div className="min-w-0">
+                        <div key={en.id} className="px-5 py-4 flex items-center justify-between gap-3 min-w-0">
+                          <div className="min-w-0 flex-1">
                             <div className="font-extrabold truncate text-gray-900">
                               {en.student?.name || "Unknown Student"}
                             </div>

@@ -1253,6 +1253,7 @@ export default function ContentPage() {
                     <input
                       id="lessonName"
                       type="text"
+                      maxLength={56}
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Enter lesson name"
@@ -1428,6 +1429,7 @@ export default function ContentPage() {
                 <input
                   id="editLessonName"
                   type="text"
+                  maxLength={56}
                   value={editLessonForm.title}
                   onChange={(e) => setEditLessonForm((p) => ({ ...p, title: e.target.value }))}
                   className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"

@@ -578,6 +578,7 @@ export default function AssignmentsPage() {
                     <input
                       id="assignmentName"
                       type="text"
+                      maxLength={64}
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Enter assignment name"
@@ -595,6 +596,7 @@ export default function AssignmentsPage() {
                   <div className="relative">
                     <textarea
                       id="description"
+                      maxLength={512}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Write assignment description or instructions..."
