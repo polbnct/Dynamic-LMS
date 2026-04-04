@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import { getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function StudentJoinCoursePage() {
   const router = useRouter();
@@ -13,6 +14,8 @@ export default function StudentJoinCoursePage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+
+  useSyncMessagesToToast(error, success);
 
   const handleJoin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -71,17 +74,6 @@ export default function StudentJoinCoursePage() {
               Join course
             </button>
           </form>
-
-          {error && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-xl text-sm">
-              {error}
-            </div>
-          )}
-          {success && (
-            <div className="mt-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-xl text-sm">
-              {success}
-            </div>
-          )}
 
           <p className="mt-6 text-center text-sm text-gray-500">
             <Link href="/student/dashboard" className="text-rose-600 hover:underline">

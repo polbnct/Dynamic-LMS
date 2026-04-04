@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useSyncMessagesToToast, useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
@@ -28,6 +29,7 @@ interface LessonWithUI extends Lesson {
 export default function StudentContentPage() {
   const params = useParams();
   const courseId = params.id as string;
+  const { error: toastError } = useToast();
 
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<LessonWithUI[]>([]);
@@ -47,6 +49,8 @@ export default function StudentContentPage() {
     { lesson_id: string; question_type: string; score: number; max_score: number }[]
   >([]);
 
+  useSyncMessagesToToast(studyAidSubmitError ?? "", "");
+
   useEffect(() => {
     async function fetchCourse() {
       try {
@@ -63,12 +67,13 @@ export default function StudentContentPage() {
         setStudyAidAttempts(attempts);
       } catch (err) {
         console.error("Error fetching course:", err);
+        toastError(err instanceof Error ? err.message : "Failed to load course content.");
       } finally {
         setLoading(false);
       }
     }
     fetchCourse();
-  }, [courseId]);
+  }, [courseId, toastError]);
 
   const isSummaryQuestion = (q: StudyAidQuestion) =>
     q.type === "summary" ||
@@ -90,6 +95,7 @@ export default function StudentContentPage() {
       setStudyAidQuestions(shuffleArray(questions));
     } catch (err) {
       console.error("Error loading study aid:", err);
+      toastError(err instanceof Error ? err.message : "Failed to load study aid.");
     } finally {
       setStudyAidLoading(false);
     }
@@ -545,12 +551,6 @@ export default function StudentContentPage() {
               {studyAidType === "multiple_choice" && currentQuestion && currentQuestion.options && (
                 <div className="text-center py-4 sm:py-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
-                  {studyAidSubmitError && (
-                    <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                      {studyAidSubmitError}
-                      <p className="mt-1 text-xs">Ensure the study_aid_attempts table exists in Supabase (see src/migrations/add-study-aid-attempts.sql).</p>
-                    </div>
-                  )}
                   {studyAidScoreSubmitted && (
                     <p className="mb-4 text-lg font-semibold text-red-700">
                       Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
@@ -640,12 +640,6 @@ export default function StudentContentPage() {
               {studyAidType === "fill_blank" && currentQuestion && (
                 <div className="text-center py-8">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Fill in the blank</h3>
-                  {studyAidSubmitError && (
-                    <div className="mb-4 p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm">
-                      {studyAidSubmitError}
-                      <p className="mt-1 text-xs">Ensure the study_aid_attempts table exists in Supabase (see src/migrations/add-study-aid-attempts.sql).</p>
-                    </div>
-                  )}
                   {studyAidScoreSubmitted && (
                     <p className="mb-4 text-lg font-semibold text-red-700">
                       Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.

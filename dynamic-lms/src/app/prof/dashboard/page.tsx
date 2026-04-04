@@ -5,11 +5,14 @@ import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function ProfessorDashboard() {
   const { courses, handledCourses, loading, error: contextError, refetch } = useProfessorCourses();
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
+  const combinedError = error || contextError || "";
+  useSyncMessagesToToast(combinedError, success);
   // Professors can no longer edit or delete courses; this is admin-only now.
 
   return (
@@ -41,46 +44,6 @@ export default function ProfessorDashboard() {
           </h1>
           <p className="text-gray-600">Manage your courses and students</p>
         </div>
-
-        {/* Success Message */}
-        {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
-            <svg
-              className="w-5 h-5 text-green-600 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {success}
-          </div>
-        )}
-
-        {/* Error Message */}
-        {(error || contextError) && (
-          <div className="mb-6 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-            <svg
-              className="w-5 h-5 text-red-600 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {error || contextError}
-          </div>
-        )}
 
         {/* Loading State */}
         {loading && (

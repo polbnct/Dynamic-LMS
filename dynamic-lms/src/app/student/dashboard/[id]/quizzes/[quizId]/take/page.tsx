@@ -7,6 +7,7 @@ import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 import { getQuizzes, submitQuizAnswers } from "@/lib/supabase/queries/quizzes";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 import type { Question } from "@/lib/supabase/queries/quizzes";
 
 export default function TakeQuizPage() {
@@ -24,6 +25,8 @@ export default function TakeQuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
+
+  useSyncMessagesToToast(error, "");
 
   // Lightweight activity logging: track when the quiz tab gains/loses focus (alt-tab / tab switch)
   // ONLY while the student is actually on the quiz-taking page with questions loaded.
@@ -179,8 +182,11 @@ export default function TakeQuizPage() {
         <StudentNavbar currentPage="courses" />
         <StudentCourseNavbar courseId={courseId} currentPage="quizzes" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl">
-            {error || "Quiz not found"}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-gray-700">
+            <p className="mb-4">This quiz is unavailable.</p>
+            <Link href={`/student/dashboard/${courseId}/quizzes`} className="font-semibold text-red-600 hover:underline">
+              Back to quizzes
+            </Link>
           </div>
         </main>
       </div>
@@ -299,11 +305,6 @@ export default function TakeQuizPage() {
           </button>
         </div>
 
-        {error && (
-          <div className="mt-4 bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-            {error}
-          </div>
-        )}
       </main>
     </div>
   );

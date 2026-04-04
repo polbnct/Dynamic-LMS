@@ -4,6 +4,7 @@ import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 async function getServerRole(): Promise<string | null> {
   const res = await fetch("/api/auth/role", { method: "GET" });
@@ -14,12 +15,14 @@ async function getServerRole(): Promise<string | null> {
 function LoginPageInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
-  const [rememberMe, setRememberMe] = useState(false);
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+
+  useSyncMessagesToToast(error, "");
 
   // Check if user is already logged in
   useEffect(() => {
@@ -67,14 +70,17 @@ function LoginPageInner() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
-    setLoading(true);
-
+    
     // Validation
     if (!email || !password) {
-      setError("Please enter both email and password.");
-      setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Please enter both email and password.");
+      }, 0);
       return;
     }
+
+    setLoading(true);
 
     try {
       // Sign in with Supabase Auth
@@ -147,21 +153,16 @@ function LoginPageInner() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-red-50">
-      {/* Decorative background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-25 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-36 w-72 h-72 bg-red-200 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-96 h-96 bg-amber-100 rounded-full mix-blend-multiply filter blur-xl opacity-30 animate-blob animation-delay-4000"></div>
-      </div>
-
+    <div className="flex min-h-screen items-center justify-center bg-[#f8f8f8]">
       <div className="relative w-full max-w-[min(100%,900px)] mx-auto px-4 lg:px-0">
-        <div className="overflow-hidden rounded-3xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-2xl">
+        <div className="overflow-hidden rounded-2xl border border-white/40 bg-white/85 backdrop-blur-sm shadow-2xl">
           <div className="grid gap-0 lg:grid-cols-2">
             {/* Image panel */}
             <section className="relative hidden lg:block">
               <div className="h-full w-full max-h-[calc(100vh-2rem)]">
-                <img src="/login_Image.jpeg" alt="Welcome to LohikAral" className="h-full w-full object-cover" />
+                <img src="/login_Image.jpeg" 
+                alt="Welcome to LohikAral" 
+                className="h-full w-full object-cover brightness-95 opacity-90" />
               </div>
             </section>
 
@@ -169,6 +170,13 @@ function LoginPageInner() {
             <section className="p-8 sm:p-10 max-w-xl mx-auto lg:mx-0 lg:max-w-none">
               {/* Logo/Branding section */}
               <div className="text-center mb-8">
+                <div className="mx-auto mb-4 h-14 w-14 flex items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
+                <img
+                  src="/logo.png"
+                  alt="LohikAral Logo"
+                  className="h-8 w-8 object-contain"
+                />
+                </div>
                 <h1 className="text-3xl font-bold bg-gradient-to-r from-red-700 via-rose-600 to-red-500 bg-clip-text text-transparent mb-2">
                   Welcome Back
                 </h1>
@@ -203,7 +211,7 @@ function LoginPageInner() {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                  className="w-full pl-10 pr-16 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   autoComplete="email"
                 />
               </div>
@@ -232,48 +240,22 @@ function LoginPageInner() {
                 </div>
                 <input
                   id="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter your password"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-white"
+                  className="w-full pl-10 pr-16 py-3 border border-gray-300 rounded-2xl text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   autoComplete="current-password"
                 />
-              </div>
-            </div>
-
-            {/* Remember me */}
-            <div className="flex items-center justify-between">
-              <label className="flex items-center cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={rememberMe}
-                  onChange={(e) => setRememberMe(e.target.checked)}
-                  className="h-4 w-4 cursor-pointer rounded border-gray-300 text-red-600 focus:ring-red-500"
-                />
-                <span className="ml-2 text-sm text-gray-600">Remember me</span>
-              </label>
-            </div>
-
-            {/* Error message */}
-            {error && (
-              <div className="flex items-center gap-2 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                <svg
-                  className="w-5 h-5 text-red-600"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 pr-4 flex items-center text-sm text-gray-500 hover:text-gray-700"
                 >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {error}
+                  {showPassword ? "Hide" : "Show"}
+                </button>
               </div>
-            )}
+            </div>
 
             {/* Submit button */}
             <button

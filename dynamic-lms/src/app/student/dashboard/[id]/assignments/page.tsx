@@ -8,6 +8,7 @@ import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 import { getAssignments, getAssignmentSubmissions, getAssignmentPDFUrl, submitAssignment } from "@/lib/supabase/queries/assignments";
 import type { Assignment } from "@/lib/supabase/queries/assignments";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 interface AssignmentWithUI extends Assignment {
   pdfUrl?: string;
@@ -36,6 +37,8 @@ export default function StudentAssignmentsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState("");
   const [submitSuccess, setSubmitSuccess] = useState("");
+
+  useSyncMessagesToToast(submitError, submitSuccess);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files && e.target.files[0]) {
@@ -609,18 +612,6 @@ export default function StudentAssignmentsPage() {
                   <p className="mt-2 break-all text-sm text-gray-600">{submissionFile.name}</p>
                 )}
               </div>
-
-              {submitError && (
-                <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 break-words">
-                  {submitError}
-                </div>
-              )}
-
-              {submitSuccess && (
-                <div className="rounded-xl border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700 break-words">
-                  {submitSuccess}
-                </div>
-              )}
 
               <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:pt-4">
                 <button

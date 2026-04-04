@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
@@ -30,6 +31,7 @@ export default function StudentQuizzesPage() {
   const params = useParams();
   const rawId = params.id as string | undefined;
   const courseId = typeof rawId === "string" && rawId !== "undefined" ? rawId : "";
+  const { error: toastError } = useToast();
 
   const [course, setCourse] = useState<any>(null);
   const [quizzes, setQuizzes] = useState<QuizWithUI[]>([]);
@@ -44,6 +46,7 @@ export default function StudentQuizzesPage() {
     async function fetchCourse() {
       if (!courseId) {
         console.error("StudentQuizzesPage: invalid course id from route params", rawId);
+        toastError("Invalid course link.");
         setLoading(false);
         return;
       }
@@ -107,12 +110,13 @@ export default function StudentQuizzesPage() {
         setQuizzes(quizzesWithResults);
       } catch (err) {
         console.error("Error fetching course:", err);
+        toastError(err instanceof Error ? err.message : "Failed to load quizzes.");
       } finally {
         setLoading(false);
       }
     }
     fetchCourse();
-  }, [courseId, rawId]);
+  }, [courseId, rawId, toastError]);
 
   // Group quizzes by category
   const quizzesByCategory = {
@@ -331,6 +335,7 @@ export default function StudentQuizzesPage() {
                                     setResultData(withAnswers ?? null);
                                   } catch (err) {
                                     console.error(err);
+                                    toastError(err instanceof Error ? err.message : "Failed to load quiz results.");
                                   } finally {
                                     setResultModalLoading(false);
                                   }

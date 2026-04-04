@@ -3,6 +3,7 @@
 import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 type AdminCourse = {
   id: string;
@@ -130,6 +131,10 @@ export default function AdminDashboardPage() {
   const professorOptions = useMemo(() => professors.slice().sort((a, b) => a.name.localeCompare(b.name)), [professors]);
   const studentOptions = useMemo(() => students.slice().sort((a, b) => a.name.localeCompare(b.name)), [students]);
 
+  useSyncMessagesToToast(error, success);
+  useSyncMessagesToToast(manageAccountError, manageAccountSuccess);
+  useSyncMessagesToToast(createProfessorError, createProfessorSuccess);
+
   const openManageAccount = (u: { userId: string; name: string; email: string; kind: "professor" | "student" }) => {
     setManageAccountUser(u);
     setManageName(u.name || "");
@@ -152,7 +157,6 @@ export default function AdminDashboardPage() {
     setCreateProfessorOpen(false);
     setCreateProfessorForm({ name: "", email: "", password: "" });
     setCreateProfessorError("");
-    setCreateProfessorSuccess("");
   };
 
   const handleCreateProfessor = async (e: React.FormEvent) => {
@@ -270,6 +274,7 @@ export default function AdminDashboardPage() {
       setManageAccountSuccess(wantsPasswordChange ? "Account updated (name, email, password)." : "Account updated (name, email).");
       setManagePassword("");
       setManagePasswordConfirm("");
+      setManageAccountOpen(false)
     } catch (e: any) {
       setManageAccountError(e?.message || "Failed to update account.");
     } finally {
@@ -418,6 +423,7 @@ export default function AdminDashboardPage() {
       setSuccess("Course details updated.");
       setCourses((prev) => prev.map((c) => (c.id === manageCourse.id ? { ...c, ...res.course } : c)));
       setManageCourse((prev) => (prev ? { ...prev, ...res.course } : prev));
+      setManageCourse(null);
     } catch (e: any) {
       setError(e?.message || "Failed to update course.");
     } finally {
@@ -571,7 +577,7 @@ export default function AdminDashboardPage() {
   };
 
   return (
-    <div className="min-h-screen bg-white text-gray-900">
+    <div className="min-h-screen bg-[#f8f8f8] text-gray-900">
       <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
         <div className="flex items-center justify-between gap-2 sm:gap-3 pb-4 sm:pb-5 border-b border-gray-200">
           <div className="min-w-0">
@@ -634,23 +640,6 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
-
-        {(error || success) && (
-          <div className="mt-6 space-y-2">
-            {error && (
-              <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-                <span className="mt-0.5 h-2 w-2 rounded-full bg-red-500" />
-                <span>{error}</span>
-              </div>
-            )}
-            {success && (
-              <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
-                <span className="mt-0.5 h-2 w-2 rounded-full bg-emerald-500" />
-                <span>{success}</span>
-              </div>
-            )}
-          </div>
-        )}
 
         <div className="mt-6">
           {loading ? (
@@ -928,17 +917,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="p-6 space-y-4 min-w-0">
-              {manageAccountError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {manageAccountError}
-                </div>
-              )}
-              {manageAccountSuccess && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {manageAccountSuccess}
-                </div>
-              )}
-
               <form onSubmit={handleAdminManageAccountSave} className="space-y-4 min-w-0">
                 <div className="min-w-0">
                   <label className="block text-sm font-semibold text-gray-700">Name</label>
@@ -1042,17 +1020,6 @@ export default function AdminDashboardPage() {
             </div>
 
             <div className="p-6 space-y-4">
-              {createProfessorError && (
-                <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
-                  {createProfessorError}
-                </div>
-              )}
-              {createProfessorSuccess && (
-                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">
-                  {createProfessorSuccess}
-                </div>
-              )}
-
               <form onSubmit={handleCreateProfessor} className="space-y-4">
                 <div>
                   <label className="block text-sm font-semibold text-gray-700">Name</label>

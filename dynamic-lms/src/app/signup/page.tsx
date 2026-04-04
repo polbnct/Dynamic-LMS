@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -14,9 +15,15 @@ export default function SignupPage() {
     role: "student",
   });
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
   const router = useRouter();
   const supabase = createClient();
+  const[showPassword, setShowPassword] = useState(false);
+  const[showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+
+  useSyncMessagesToToast(error, success);
 
   const generateStudentId = () => {
     const year = new Date().getFullYear();
@@ -27,24 +34,76 @@ export default function SignupPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
+    setSuccess("");
     setLoading(true);
 
     // Validation
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
-      setError("Please fill in all fields.");
       setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Please fill in all fields.");
+      }, 0);
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
-      setError("Passwords do not match.");
       setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Passwords do not match.");
+      }, 0);
       return;
     }
 
-    if (formData.password.length < 8) {
-      setError("Password must be at least 8 characters long.");
+    if (!isValidEmail) {
       setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Please enter a valid email address.");
+      }, 0);
+      return;
+    }
+
+    const password = formData.password;
+
+    const hasUppercase = /[A-Z]/.test(password);
+    const hasSymbol = /[^A-Za-z0-9]/.test(password);
+    const hasMinLength = password.length >= 8;
+
+    if (!hasMinLength) {
+      setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Password must be at least 8 characters long!");
+      }, 0);
+      return;
+    }
+
+    if (!hasUppercase && !hasSymbol) {
+      setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Password must include at least 1 uppercase and 1 symbol!");
+      }, 0);
+      return;
+    }
+
+    if (!hasUppercase) {
+      setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Password must include at least 1 uppercase!");
+      }, 0);
+      return;
+    }
+
+    if (!hasSymbol) {
+      setLoading(false);
+      setError("");
+      setTimeout(() => {
+        setError("Password must include at least 1 symbol!");
+      }, 0);
       return;
     }
 
@@ -134,8 +193,7 @@ export default function SignupPage() {
 
       if (signInError) {
         console.error("Auto-login error:", signInError);
-        // Even if auto-login fails, account is created - redirect to login
-        setError("Account created successfully! Please log in.");
+        setSuccess("Account created successfully! Please log in.");
         setTimeout(() => {
           router.push("/login");
         }, 2000);
@@ -148,8 +206,7 @@ export default function SignupPage() {
         return;
       }
 
-      // Fallback: redirect to login
-      setError("Account created successfully! Please log in.");
+      setSuccess("Account created successfully! Please log in.");
       setTimeout(() => {
         router.push("/login");
       }, 2000);
@@ -177,27 +234,20 @@ export default function SignupPage() {
   };
 
   return (
-    <div className="relative flex min-h-screen w-full overflow-hidden items-center justify-center bg-gradient-to-br from-red-50 via-white to-rose-50 py-12 px-4 sm:px-6 lg:px-8">
-      {/* Decorative background elements */}
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-rose-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob"></div>
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-red-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-2000"></div>
-        <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 w-80 h-80 bg-red-300 rounded-full mix-blend-multiply filter blur-xl opacity-20 animate-blob animation-delay-4000"></div>
-      </div>
-
+    <div className="relative flex min-h-screen w-full overflow-hidden items-center justify-center bg-[#f8f8f8] py-12 px-4 sm:px-6 lg:px-8">
      <div className="relative w-full max-w-md mx-4">
       {/* Main card */}
       <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-2xl p-8 border border-white/20">
         
         {/* Logo/Branding section */}
-        <div className="text-center mb-8">
+        <div className="text-center mb-6">
 
           {/* Logo + Name */}
-          <div className="flex flex-col items-center justify-center mb-6">
+          <div className="flex flex-col items-center mb-6">
             <img
               src="/logo.png"
               alt="Logo"
-              className="w-20 h-20 rounded-xl shadow-lg mb-2"
+              className="w-16 h-16 rounded-xl shadow-lg mb-2"
             />
           </div>
 
@@ -208,7 +258,7 @@ export default function SignupPage() {
 
           {/* Subtitle */}
           <p className="text-gray-500 text-sm">
-            Join the platform and begin your learning experience
+            Sign up below and begin your learning experience
           </p>
 
         </div>
@@ -240,10 +290,11 @@ export default function SignupPage() {
                   id="name"
                   name="name"
                   type="text"
+                  maxLength={64}
                   value={formData.name}
                   onChange={handleChange}
                   placeholder="Enter your full name"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400   focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   autoComplete="name"
                 />
               </div>
@@ -274,16 +325,15 @@ export default function SignupPage() {
                   id="email"
                   name="email"
                   type="email"
+                  maxLength={64}
                   value={formData.email}
                   onChange={handleChange}
                   placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   autoComplete="email"
                 />
               </div>
             </div>
-
-            {/* Role selection removed (professors must be created by admin). */}
 
             {/* Password field */}
             <div>
@@ -309,15 +359,22 @@ export default function SignupPage() {
                 <input
                   id="password"
                   name="password"
-                  type="password"
+                  type={showPassword ? "text" : "password"}
+                  maxLength={64}
                   value={formData.password}
                   onChange={handleChange}
                   placeholder="Create a password"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                  className="w-full pl-10 pr-16 py-3 border border-gray-300 rounded-2xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   autoComplete="new-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 hover:text-gray-700"
+                >
+                  {showPassword ? "Hide" : "Show"}
+                </button>
               </div>
-              <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters</p>
             </div>
 
             {/* Confirm Password field */}
@@ -344,35 +401,23 @@ export default function SignupPage() {
                 <input
                   id="confirmPassword"
                   name="confirmPassword"
-                  type="password"
+                  type={showConfirmPassword ? "text" : "password"}
+                  maxLength={64}
                   value={formData.confirmPassword}
                   onChange={handleChange}
                   placeholder="Confirm your password"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                  className="w-full pl-10 pr-16 py-3 border border-gray-300 rounded-2xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                   autoComplete="new-password"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
+                  className="absolute inset-y-0 right-0 pr-3 flex items-center text-sm text-gray-500 hover:text-gray-700"
+                >
+                  {showConfirmPassword? "Hide" : "Show"}
+                </button>
               </div>
             </div>
-
-            {/* Error message */}
-            {error && (
-              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-                <svg
-                  className="w-5 h-5 text-red-600 flex-shrink-0"
-                  fill="none"
-                  stroke="currentColor"
-                  viewBox="0 0 24 24"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                  />
-                </svg>
-                {error}
-              </div>
-            )}
 
             {/* Submit button */}
             <button

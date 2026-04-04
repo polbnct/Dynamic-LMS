@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { createClient } from "@/lib/supabase/client";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 interface ProfileData {
   name: string;
@@ -29,6 +30,9 @@ export default function ProfProfile() {
   const [passwordSaving, setPasswordSaving] = useState(false);
   const [passwordError, setPasswordError] = useState("");
   const [passwordSuccess, setPasswordSuccess] = useState("");
+
+  useSyncMessagesToToast(error, success);
+  useSyncMessagesToToast(passwordError, passwordSuccess);
 
   const fetchProfile = async () => {
     const supabase = createClient();
@@ -215,17 +219,6 @@ export default function ProfProfile() {
           <p className="text-gray-600">Manage your account information</p>
         </div>
 
-        {error && (
-          <div className="mb-6 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
-            {error}
-          </div>
-        )}
-        {success && (
-          <div className="mb-6 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-green-700 text-sm">
-            {success}
-          </div>
-        )}
-
         {loading ? (
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-8 flex items-center justify-center min-h-[200px]">
             <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
@@ -309,17 +302,6 @@ export default function ProfProfile() {
 
             <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-8">
               <h2 className="text-2xl font-bold text-gray-800 mb-6">Change Password</h2>
-
-              {passwordError && (
-                <div className="mb-4 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
-                  {passwordError}
-                </div>
-              )}
-              {passwordSuccess && (
-                <div className="mb-4 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-green-700 text-sm">
-                  {passwordSuccess}
-                </div>
-              )}
 
               <form onSubmit={handlePasswordSubmit} className="space-y-5">
                 <div>

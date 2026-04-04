@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
 import { getStudentCourses, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 import { getAssignments } from "@/lib/supabase/queries/assignments";
@@ -9,6 +10,7 @@ import { getQuizzes } from "@/lib/supabase/queries/quizzes";
 import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 
 export default function StudentDashboard() {
+  const { error: toastError } = useToast();
   const [courses, setCourses] = useState<CourseWithStudents[]>([]);
   const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
   const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
@@ -71,12 +73,13 @@ export default function StudentDashboard() {
         }
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
+        toastError(err instanceof Error ? err.message : "Failed to load dashboard.");
       } finally {
         setLoading(false);
       }
     }
     fetchData();
-  }, []);
+  }, [toastError]);
 
   if (loading) {
     return (

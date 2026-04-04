@@ -7,8 +7,10 @@ import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 import { getQuestions } from "@/lib/supabase/queries/quizzes";
 import type { Question } from "@/lib/supabase/queries/quizzes";
+import { useToast } from "@/components/feedback/ToastProvider";
 
 export default function AssessmentBankPage() {
+  const { error: toastError } = useToast();
   const { handledCourses } = useProfessorCourses();
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
@@ -28,11 +30,13 @@ export default function AssessmentBankPage() {
         setQuestions(questionsData);
       } catch (err) {
         console.error("Error fetching questions:", err);
+        toastError(err instanceof Error ? err.message : "Failed to load assessment bank.");
       } finally {
         setLoading(false);
       }
     }
     fetchQuestions();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only; toastError is stable
   }, []);
 
   // Filter questions

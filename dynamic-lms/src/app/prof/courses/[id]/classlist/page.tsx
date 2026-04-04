@@ -11,6 +11,7 @@ import { getStudentGrades } from "@/lib/supabase/queries/grades";
 import type { Grade } from "@/lib/supabase/queries/grades";
 import { getAssignments } from "@/lib/supabase/queries/assignments";
 import { getQuizzes } from "@/lib/supabase/queries/quizzes";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 interface Student {
   id: string;
@@ -38,6 +39,8 @@ export default function ClasslistPage() {
   const [profileLoading, setProfileLoading] = useState(false);
   const { handledCourses } = useProfessorCourses();
   const enrollmentManagedByAdmin = true;
+
+  useSyncMessagesToToast(error, "");
 
   useEffect(() => {
     async function fetchCourseData() {
@@ -100,21 +103,11 @@ export default function ClasslistPage() {
         <ProfessorNavbar currentPage="courses" handledCourses={handledCourses} />
         <CourseNavbar courseId={courseId} currentPage="classlist" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-            <svg
-              className="w-5 h-5 text-red-600 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {error || "Course not found"}
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center text-gray-700">
+            <p className="mb-4">This class list could not be loaded.</p>
+            <Link href="/prof" className="font-semibold text-red-600 hover:underline">
+              Back to dashboard
+            </Link>
           </div>
         </main>
       </div>

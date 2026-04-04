@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import StudentNavbar from "@/utils/StudentNavbar";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function StudentProfile() {
   const router = useRouter();
@@ -26,6 +27,8 @@ export default function StudentProfile() {
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
   const [isEditing, setIsEditing] = useState(false);
+
+  useSyncMessagesToToast("", success);
 
   // Load current student profile from Supabase (users + students tables)
   useEffect(() => {
@@ -299,26 +302,6 @@ export default function StudentProfile() {
           </h1>
           <p className="text-gray-600">Manage your account information and preferences</p>
         </div>
-
-        {/* Success Message */}
-        {success && (
-          <div className="mb-6 bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2 animate-fade-in">
-            <svg
-              className="w-5 h-5 text-green-600 flex-shrink-0"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-              />
-            </svg>
-            {success}
-          </div>
-        )}
 
         {/* Profile Information Card */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">

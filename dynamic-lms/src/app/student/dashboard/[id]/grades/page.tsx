@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
+import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
@@ -12,6 +13,7 @@ import type { Grade } from "@/lib/supabase/queries/grades";
 export default function StudentGradesPage() {
   const params = useParams();
   const courseId = params.id as string;
+  const { error: toastError } = useToast();
 
   const [course, setCourse] = useState<any>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
@@ -32,12 +34,13 @@ export default function StudentGradesPage() {
         setGrades(Array.isArray(gradesData) ? gradesData : []);
       } catch (err) {
         console.error("Error fetching course:", err);
+        toastError(err instanceof Error ? err.message : "Failed to load grades.");
       } finally {
         setLoading(false);
       }
     }
     fetchCourse();
-  }, [courseId]);
+  }, [courseId, toastError]);
 
   // Group grades by category, then by underlying assessment (assignment/quiz)
   type GradeItem = {

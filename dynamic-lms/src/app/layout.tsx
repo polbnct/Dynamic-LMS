@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Lato, Geist_Mono } from "next/font/google";
+import { AppProviders } from "@/components/AppProviders";
 import "./globals.css";
 
 const latoSans = Lato({
@@ -32,7 +33,7 @@ export default function RootLayout({
       <body
         className={`${latoSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <AppProviders>{children}</AppProviders>
       </body>
     </html>
   );

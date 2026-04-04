@@ -7,6 +7,7 @@ import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
+import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 import { getLessons, createLesson, updateLesson, deleteLesson, uploadLessonPDF, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import {
@@ -254,6 +255,8 @@ export default function ContentPage() {
   const [studyAidSaving, setStudyAidSaving] = useState(false);
   const { handledCourses } = useProfessorCourses();
   const [creatingLesson, setCreatingLesson] = useState(false);
+
+  useSyncMessagesToToast(error, success);
 
   const orderedStudyAidQuestions = useMemo(() => {
     const typePriority: Record<StudyAidQuestion["type"], number> = {
@@ -823,23 +826,6 @@ export default function ContentPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-              {error && (
-                <div className="flex items-center gap-2 rounded-xl bg-red-50 border border-red-200 px-4 py-3 text-red-700 text-sm">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {error}
-                </div>
-              )}
-              {success && (
-                <div className="flex items-center gap-2 rounded-xl bg-green-50 border border-green-200 px-4 py-3 text-green-700 text-sm">
-                  <svg className="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  {success}
-                </div>
-              )}
-
               {/* Current study aid — card */}
               <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
                 <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
@@ -1334,46 +1320,6 @@ export default function ContentPage() {
                   <p className="mt-1 text-xs text-gray-500">Upload a PDF file for this lesson</p>
                 </div>
 
-                {/* Error Message */}
-                {error && (
-                  <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-red-600 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {error}
-                  </div>
-                )}
-
-                {/* Success Message */}
-                {success && (
-                  <div className="bg-green-50 border border-green-200 text-green-700 px-4 py-3 rounded-xl text-sm flex items-center gap-2">
-                    <svg
-                      className="w-5 h-5 text-green-600 flex-shrink-0"
-                      fill="none"
-                      stroke="currentColor"
-                      viewBox="0 0 24 24"
-                    >
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                      />
-                    </svg>
-                    {success}
-                  </div>
-                )}
-
                 {/* Action Buttons */}
                 <div className="flex flex-col sm:flex-row gap-3 pt-4">
                   <button
@@ -1472,12 +1418,6 @@ export default function ContentPage() {
                   </p>
                 )}
               </div>
-
-              {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
-                  {error}
-                </div>
-              )}
 
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button
