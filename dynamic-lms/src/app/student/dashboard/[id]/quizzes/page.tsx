@@ -11,6 +11,16 @@ import { getQuizzes, getQuizResults, getQuizAttemptWithAnswers } from "@/lib/sup
 import type { Quiz } from "@/lib/supabase/queries/quizzes";
 import type { QuizResultWithAnswers } from "@/lib/supabase/queries/quizzes";
 
+const QUIZ_CATEGORIES = ["prelim", "midterm", "finals"] as const;
+
+function normalizeQuizCategory(
+  raw: Quiz["category"]
+): (typeof QUIZ_CATEGORIES)[number] {
+  return raw && QUIZ_CATEGORIES.includes(raw as (typeof QUIZ_CATEGORIES)[number])
+    ? raw
+    : "prelim";
+}
+
 interface QuizWithUI extends Quiz {
   title: string;
   description?: string;
@@ -88,7 +98,7 @@ export default function StudentQuizzesPage() {
             return {
               ...quiz,
               title: quiz.name,
-              category: "prelim" as const, // Default category
+              category: normalizeQuizCategory(quiz.category),
               createdAt: quiz.created_at,
               dueDate: quiz.due_date,
               timeLimit: quiz.time_limit,

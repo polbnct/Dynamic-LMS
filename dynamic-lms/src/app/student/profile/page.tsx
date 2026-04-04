@@ -357,6 +357,7 @@ export default function StudentProfile() {
                     id="name"
                     name="name"
                     type="text"
+                    maxLength={64}
                     value={formData.name}
                     onChange={handleInputChange}
                     disabled={!isEditing}
@@ -397,6 +398,7 @@ export default function StudentProfile() {
                     id="email"
                     name="email"
                     type="email"
+                    maxLength={64}
                     value={formData.email}
                     onChange={handleInputChange}
                     disabled={!isEditing}

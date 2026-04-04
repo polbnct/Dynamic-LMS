@@ -16,6 +16,12 @@ export default function StudentDashboard() {
   const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const getCourseName = (courseId: string) => {
+    return courses.find (c => c.id === courseId)?.name || "Unknown Course";
+  };
+
+  
+
   useEffect(() => {
     async function fetchData() {
       try {
@@ -124,11 +130,44 @@ export default function StudentDashboard() {
                   href={`/student/dashboard/${course.id}/content`}
                   className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg border border-rose-100 p-6 hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-1"
                 >
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate"
-                  title={course.name}
-                  > {course.name}
-                </h3>
-                  <p className="text-sm text-gray-500 truncate">{course.code}</p>
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                  <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate flex-1" title={course.name}> 
+                    {course.name}
+                  </h3>
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="w-8 h-8 text-gray-700 ml-2 shrink-0"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={1.8}
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M12 6.253v11.494m0-11.494C10.832 5.477 9.246 5 7.5 5A3.5 3.5 0 004 8.5v9A3.5 3.5 0 017.5 14c1.746 0 3.332.477 4.5 1.253m0-9C13.168 5.477 14.754 5 16.5 5A3.5 3.5 0 0120 8.5v9A3.5 3.5 0 0016.5 14c-1.746 0-3.332.477-4.5 1.253"
+                    />
+                  </svg>
+                  </div>
+                  <p className="text-sm text-gray-500 truncate">
+                    {course.code}
+                  </p>
+                  <p className="text-xs text-gray-500 truncate mt-1">
+                    {course.professorName || "No instructor"}
+                  </p>
+                  <div className="mt-4 grid grid-cols-3 border border-gray-200 rounded-xl overflow-hidden divide-x divide-gray-200">
+                  <span className="py-3 text-center text-xs font-medium text-gray-700">
+                    {course.lessonsCount|| 0} Lessons
+                  </span>
+
+                  <span className="py-3 text-center text-xs font-medium text-gray-700">
+                    {course.assignmentsCount || 0} Assignments
+                  </span>
+
+                  <span className="py-3 text-center text-xs font-medium text-gray-700">
+                    {course.quizzesCount || 0} Quizzes
+                  </span>
+                  </div>
                 </Link>
               ))}
             </div>
@@ -150,6 +189,9 @@ export default function StudentDashboard() {
                   >
                     <div className="flex items-center justify-between gap-3 min-w-0">
                       <div className ="min-w-0 flex-1">
+                        <p className="text-xs text-gray-800 truncate">
+                          {getCourseName(assignment.course_id)}
+                        </p>
                         <h4 className="font-semibold text-gray-800 truncate" title={assignment.title}>
                           {assignment.title}
                         </h4>
@@ -187,6 +229,9 @@ export default function StudentDashboard() {
                   >
                     <div className="flex items-center justify-between gap-3 min-w-0">
                       <div className="min-w-0 flex-1">
+                        <p className="text-xs text-gray-800 truncate">
+                          {getCourseName(quiz.course_id)}
+                        </p>
                         <h4 className="font-semibold text-gray-800 truncate" title={quiz.name}
                         > {quiz.name} </h4>
                         <p className="text-sm text-gray-500 break-words">

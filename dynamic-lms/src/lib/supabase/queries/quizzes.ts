@@ -18,6 +18,7 @@ export interface Quiz {
   course_id: string;
   name: string;
   type: "mixed" | "multiple_choice" | "true_false" | "fill_blank" | null;
+  category?: "prelim" | "midterm" | "finals";
   time_limit?: number;
   due_date?: string;
   max_attempts?: number | null;
@@ -305,6 +306,7 @@ export async function createQuiz(
   quizData: {
     name: string;
     type: "mixed" | "multiple_choice" | "true_false" | "fill_blank";
+    category?: "prelim" | "midterm" | "finals";
     time_limit?: number;
     due_date?: string;
     max_attempts?: number | null;
@@ -334,6 +336,7 @@ export async function createQuiz(
   const insertData: any = {
     course_id: courseId.trim(),
     name: quizData.name.trim(),
+    ...(quizData.category && { category: quizData.category }),
     ...(quizData.time_limit && { time_limit: quizData.time_limit }),
     ...(quizData.due_date && { due_date: quizData.due_date }),
     ...(Object.prototype.hasOwnProperty.call(quizData, "max_attempts") && {
@@ -462,6 +465,7 @@ export async function updateQuiz(
   updates: {
     name?: string;
     type?: "mixed" | "multiple_choice" | "true_false" | "fill_blank";
+    category?: "prelim" | "midterm" | "finals";
     time_limit?: number;
     due_date?: string | null;
     max_attempts?: number | null;
@@ -476,6 +480,7 @@ export async function updateQuiz(
     .update({
       ...(updates.name != null && { name: updates.name }),
       ...(updates.type != null && { type: dbType }),
+      ...(updates.category != null && { category: updates.category }),
       ...(updates.time_limit != null && { time_limit: updates.time_limit }),
       ...(Object.prototype.hasOwnProperty.call(updates, "due_date") && { due_date: updates.due_date ?? null }),
       ...(Object.prototype.hasOwnProperty.call(updates, "max_attempts") && {

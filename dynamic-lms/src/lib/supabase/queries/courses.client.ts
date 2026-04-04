@@ -15,6 +15,9 @@ export interface CourseWithStudents extends Course {
   students: any[];
   studentsCount: number;
   professorName?: string;
+  lessonsCount?: number;
+  assignmentsCount?: number;
+  quizzesCount?: number;
 }
 
 // Get professor's courses (client-side)
@@ -43,6 +46,27 @@ export async function getProfessorCourses(professorId: string): Promise<CourseWi
         .from("enrollments")
         .select("*", { count: "exact", head: true })
         .eq("course_id", course.id);
+      
+      const[
+        {count: lessonsCount},
+        {count: assignmentsCount},
+        {count : quizzesCount},
+      ] = await Promise.all([
+        supabase
+        .from("lessons")
+        .select("*", {count: "exact", head: true})
+        .eq("course_id", course.id),
+
+        supabase
+          .from("assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("course_id", course.id),
+
+        supabase
+          .from("quizzes")
+          .select("*", { count: "exact", head: true })
+          .eq("course_id", course.id),
+      ]);
 
       // Get professor name from users table
       let professorName = "Unknown Professor";
@@ -70,10 +94,12 @@ export async function getProfessorCourses(professorId: string): Promise<CourseWi
         students: [],
         studentsCount: count || 0,
         professorName,
+                lessonsCount: lessonsCount || 0,
+        assignmentsCount: assignmentsCount || 0,
+        quizzesCount: quizzesCount ||0,
       };
     })
   );
-
   return coursesWithCounts;
 }
 
@@ -123,14 +149,35 @@ export async function getCourseById(courseId: string): Promise<CourseWithStudent
     console.warn("Error fetching professor name:", err);
   }
 
-  return {
-    ...course,
-    students: [],
-    studentsCount: count || 0,
-    professorName,
-  };
-}
+  const [
+    { count: lessonsCount },
+    { count: assignmentsCount },
+    { count: quizzesCount },
+      ] = await Promise.all([
+        supabase
+          .from("lessons")
+          .select("*", { count: "exact", head: true })
+          .eq("course_id", courseId),
+        supabase
+          .from("assignments")
+          .select("*", { count: "exact", head: true })
+          .eq("course_id", courseId),
+        supabase
+          .from("quizzes")
+          .select("*", { count: "exact", head: true })
+          .eq("course_id", courseId),
+      ]);
 
+      return {
+        ...course,
+        students: [],
+        studentsCount: count || 0,
+        professorName,
+        lessonsCount: lessonsCount || 0,
+        assignmentsCount: assignmentsCount || 0,
+        quizzesCount: quizzesCount || 0,
+      };
+    }
 // Course creation is now admin-only. Professors cannot create courses from the client.
 // This stub is kept only so existing imports (including older call sites) compile; it will always throw at runtime.
 export async function createCourse(
@@ -147,7 +194,15 @@ export async function getStudentCourses(studentId: string): Promise<CourseWithSt
 
   const { data: enrollments, error } = await supabase
     .from("enrollments")
-    .select("*, courses(*)")
+    .select(`
+      *, courses(
+      id,
+      name,
+      code,
+      professor_id,
+      created_at
+      )
+    `)
     .eq("student_id", studentId);
 
   if (error) {
@@ -186,21 +241,43 @@ export async function getStudentCourses(studentId: string): Promise<CourseWithSt
         console.warn("Error fetching professor name:", err);
       }
 
-      // Get enrollment count
       const { count } = await supabase
-        .from("enrollments")
-        .select("*", { count: "exact", head: true })
-        .eq("course_id", course.id);
+      .from("enrollments")
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", course.id);
 
-      return {
-        ...course,
-        professorName,
-        students: [],
-        studentsCount: count || 0,
-      };
-    })
-  );
+  // Get counts
+  const [
+    { count: lessonsCount },
+    { count: assignmentsCount },
+    { count: quizzesCount },
+  ] = await Promise.all([
+    supabase
+      .from("lessons")
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", course.id),
 
+    supabase
+      .from("assignments")
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", course.id),
+
+    supabase
+      .from("quizzes")
+      .select("*", { count: "exact", head: true })
+      .eq("course_id", course.id),
+  ]);
+
+  return {
+    ...course,
+    professorName,
+    students: [],
+    studentsCount: count || 0,
+    lessonsCount: lessonsCount || 0,
+    assignmentsCount: assignmentsCount || 0,
+    quizzesCount: quizzesCount || 0,
+  };
+    }));
   return coursesWithDetails.filter((c) => c !== null) as CourseWithStudents[];
 }
 

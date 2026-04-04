@@ -317,11 +317,11 @@ export default function StudentAssignmentsPage() {
                       return (
                       <div
                         key={assignment.id}
-                        className="rounded-2xl border border-gray-200 bg-white/80 p-4 shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl sm:p-6"
+                        className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl sm:p-6"
                       >
                         <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                           <div className="min-w-0 flex-1">
-                            <div className="mb-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:gap-3">
+                            <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                               <h3 className="break-words text-lg font-bold text-gray-800 sm:text-xl truncate" title={assignment.title}
                               >{assignment.title}</h3>
                               {assignment.submitted && (
@@ -331,10 +331,10 @@ export default function StudentAssignmentsPage() {
                               )}
                             </div>
                             {assignment.description && (
-                              <p className="mb-4 break-words text-gray-600 truncate" title={assignment.description}
+                              <p className="mb-2 break-words text-gray-600 leading-relaxed line-clamp-2" title={assignment.description}
                               >{assignment.description}</p>
                             )}
-                            <div className="flex flex-col gap-3 text-sm text-gray-600">
+                            <div className="flex flex-col gap-2 text-sm text-gray-600">
                               {assignment.pdfUrl ? (
                                 <a
                                   href={assignment.pdfUrl}
@@ -351,7 +351,7 @@ export default function StudentAssignmentsPage() {
                                 <span className="break-all text-gray-600">{assignment.pdfFileName}</span>
                               ) : null}
                               {assignment.dueDate && (
-                                <div className="flex items-start gap-2">
+                                <div className="flex items-center gap-2">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
                                       strokeLinecap="round"

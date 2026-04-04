@@ -34,7 +34,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     const trimmed = message?.trim();
     if (!trimmed) return;
 
-    const duration = kind === "error" ? 6500 : 4500;
+    const duration = kind === "error" ? 4000 : 4500;
 
     setToasts((current) => {
       const existing = current.find(
@@ -53,7 +53,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
 
         return current;
       }
-      
+
       const id = ++idRef.current;
 
       timeoutsRef.current[id] = window.setTimeout(() => {
@@ -71,7 +71,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="pointer-events-none fixed right-0 top-0 z-[300] flex w-full max-w-md flex-col gap-2 p-4 sm:p-5"
+        className="pointer-events-none fixed inset-x-0 top-4 sm:top-16 z-[300] flex w-full max-w-md mx-auto flex-col gap-2 px-4 sm:top-4 sm:right-4 sm:left-auto sm:mx-0 sm:px-0"
         aria-live="polite"
         aria-relevant="additions text"
       >
@@ -79,11 +79,11 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
           <div
             key={t.id}
             role="alert"
-            className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg animate-[toast-in_0.25s_ease-out] ${
+            className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg shadow-red-100z animate-[toast-in_0.25s_ease-out] ${
               t.kind === "success"
-                ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                ? "border-emerald-300 bg-emerald-100 text-emerald-800"
                 : t.kind === "error"
-                  ? "border-red-200 bg-red-50 text-red-900"
+                  ? "border-red-300 bg-red-100 text-red-800"
                   : "border-sky-200 bg-sky-50 text-sky-900"
             }`}
           >
@@ -93,7 +93,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               ) : t.kind === "error" ? (
-                <svg className="h-5 w-5 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <svg className="h-5 w-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               ) : (

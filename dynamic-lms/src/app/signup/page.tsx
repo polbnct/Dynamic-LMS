@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -23,8 +22,6 @@ export default function SignupPage() {
   const[showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
 
-  useSyncMessagesToToast(error, success);
-
   const generateStudentId = () => {
     const year = new Date().getFullYear();
     const random = Math.floor(Math.random() * 10000).toString().padStart(4, "0");
@@ -40,28 +37,19 @@ export default function SignupPage() {
     // Validation
     if (!formData.name || !formData.email || !formData.password || !formData.confirmPassword) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Please fill in all fields.");
-      }, 0);
+      setError("Please fill in all fields.");
       return;
     }
 
     if (formData.password !== formData.confirmPassword) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Passwords do not match.");
-      }, 0);
+      setError("Passwords do not match.");
       return;
     }
 
     if (!isValidEmail) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Please enter a valid email address.");
-      }, 0);
+      setError("Please enter a valid email address.");
       return;
     }
 
@@ -73,37 +61,25 @@ export default function SignupPage() {
 
     if (!hasMinLength) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Password must be at least 8 characters long!");
-      }, 0);
+      setError("Password must be at least 8 characters long!");
       return;
     }
 
     if (!hasUppercase && !hasSymbol) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Password must include at least 1 uppercase and 1 symbol!");
-      }, 0);
+      setError("Password must include at least 1 uppercase and 1 symbol!");
       return;
     }
 
     if (!hasUppercase) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Password must include at least 1 uppercase!");
-      }, 0);
+      setError("Password must include at least 1 uppercase!");
       return;
     }
 
     if (!hasSymbol) {
       setLoading(false);
-      setError("");
-      setTimeout(() => {
-        setError("Password must include at least 1 symbol!");
-      }, 0);
+      setError("Password must include at least 1 symbol!");
       return;
     }
 
@@ -243,11 +219,11 @@ export default function SignupPage() {
         <div className="text-center mb-6">
 
           {/* Logo + Name */}
-          <div className="flex flex-col items-center mb-6">
+          <div className="mx-auto mb-4 h-14 w-14 flex items-center justify-center rounded-xl border border-gray-200 bg-white shadow-sm">
             <img
               src="/logo.png"
               alt="Logo"
-              className="w-16 h-16 rounded-xl shadow-lg mb-2"
+              className="w-8 h-8 object-contain"
             />
           </div>
 
@@ -417,6 +393,9 @@ export default function SignupPage() {
                   {showConfirmPassword? "Hide" : "Show"}
                 </button>
               </div>
+                {error && (
+                  <p className="mt-1 text-sm text-red-500">{error}</p>
+                )}
             </div>
 
             {/* Submit button */}

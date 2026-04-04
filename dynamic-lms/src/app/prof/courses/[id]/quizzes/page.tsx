@@ -83,6 +83,7 @@ export default function QuizzesPage() {
   // Form state
   const [quizName, setQuizName] = useState("");
   const [quizType, setQuizType] = useState<"mixed" | "multiple_choice" | "true_false" | "fill_blank">("mixed");
+  const [quizCategory, setQuizCategory] = useState<"prelim" | "midterm" | "finals">("prelim");
   const [quizDueDate, setQuizDueDate] = useState("");
   const [quizMaxAttempts, setQuizMaxAttempts] = useState<string>("1");
   const [quizPointsPerQuestion, setQuizPointsPerQuestion] = useState<string>("10");
@@ -426,6 +427,7 @@ export default function QuizzesPage() {
         await updateQuiz(editingQuiz.id, {
           name: quizName.trim(),
           type: quizType,
+          category: quizCategory,
           due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) : null,
           max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
           points_per_question: quizPointsPerQuestion.trim()
@@ -440,6 +442,7 @@ export default function QuizzesPage() {
         setEditingQuiz(null);
         setQuizName("");
         setQuizType("mixed");
+        setQuizCategory ("prelim");
         setQuizDueDate("");
         setQuizMaxAttempts("1");
         setSelectedQuestions([]);
@@ -455,6 +458,7 @@ export default function QuizzesPage() {
         {
           name: quizName.trim(),
           type: quizType,
+          category: quizCategory,
           due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) ?? undefined : undefined,
           max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
           points_per_question: quizPointsPerQuestion.trim()
@@ -880,6 +884,17 @@ export default function QuizzesPage() {
   }
 
   const totalQuizzes = quizzes.length;
+  const quizzesByCategory = {
+    prelim: quizzes.filter((q) => q.category === "prelim"),
+    midterm: quizzes.filter((q) => q.category === "midterm"),
+    finals: quizzes.filter((q) => q.category === "finals"),
+  };
+
+  const categoryLabels = {
+    prelim: "Prelim",
+    midterm: "Midterm",
+    finals: "Finals",
+  };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
@@ -969,8 +984,22 @@ export default function QuizzesPage() {
             </div>
           </div>
         ) : (
+        <div className="space-y-6 sm:space-y-8">
+          {(["prelim", "midterm", "finals"] as const).map((category) => {
+            const categoryQuizzes = quizzesByCategory[category];
+            if (categoryQuizzes.length === 0) return null;
+
+            return (
+              <div key={category}>
+                <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
+                  <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
+                  <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
+                    {categoryQuizzes.length} quiz{categoryQuizzes.length !== 1 ? "zes" : ""}
+                  </span>
+              </div>
+              
           <div className="space-y-4">
-            {quizzes.map((quiz) => (
+            {categoryQuizzes.map((quiz) => (
               <div
                 key={quiz.id}
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
@@ -1015,6 +1044,7 @@ export default function QuizzesPage() {
                         setEditingQuiz(quiz);
                         setQuizName(quiz.name);
                         setQuizType(quiz.type ?? "mixed");
+                        setQuizCategory(quiz.category ?? "prelim");
                         setQuizDueDate(quiz.due_date ? utcIsoToManilaInput(quiz.due_date) : "");
                         setQuizMaxAttempts(quiz.max_attempts != null ? String(quiz.max_attempts) : "");
                         setQuizPointsPerQuestion(
@@ -1097,7 +1127,12 @@ export default function QuizzesPage() {
               </div>
             ))}
           </div>
-        )}
+        </div>
+      );
+    })}
+</div>
+    
+    )}
 
       {/* Create / Edit Quiz Modal (also includes Manage Retakes when editing) */}
       {createQuizModalOpen && (
@@ -1156,13 +1191,31 @@ export default function QuizzesPage() {
                     <select
                       id="quizType"
                       value={quizType}
-                      onChange={(e) => setQuizType(e.target.value as QuestionType)}
+                      onChange={(e) =>
+                        setQuizType(e.target.value as "mixed" | "multiple_choice" | "true_false" | "fill_blank")
+                      }
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer max-lg:min-h-11 max-lg:text-base"
                     >
                       <option value="mixed">Mixed (Any Type)</option>
                       <option value="multiple_choice">Multiple Choice</option>
                       <option value="true_false">True or False</option>
                       <option value="fill_blank">Fill in the Blank</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label htmlFor="quizCategory" className="block text-sm font-semibold text-gray-700 mb-2">
+                      Category <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      id="quizCategory"
+                      value={quizCategory}
+                      onChange={(e) => setQuizCategory(e.target.value as "prelim" | "midterm" | "finals")}
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
+                    >
+                      <option value="prelim">Prelim</option>
+                      <option value="midterm">Midterm</option>
+                      <option value="finals">Finals</option>
                     </select>
                   </div>
 
@@ -1385,9 +1438,7 @@ export default function QuizzesPage() {
                     )}
                   </div>
                 )}
-
               </div>
-
               {/* Quiz bank sidebar (desktop only; mobile uses full-screen overlay) */}
               <div className="hidden min-h-0 w-full flex-col overflow-hidden border-t border-gray-200/90 bg-gradient-to-b from-rose-50/40 via-gray-50/90 to-gray-100/70 lg:flex lg:w-96 lg:flex-none lg:border-l lg:border-t-0 lg:bg-gray-50 lg:from-transparent lg:via-transparent lg:to-transparent">
                 {renderQuestionBankPanel()}
@@ -1720,11 +1771,10 @@ export default function QuizzesPage() {
             </div>
           </div>
         )}
-      </main>
 
       {/* Quiz attempts & activity logs modal */}
       {monitoringQuizId && (
-        <QuizMonitoringModal
+        <QuizMonitoringModal  
           quizId={monitoringQuizId}
           quizName={monitoringQuizName}
           isOpen={!!monitoringQuizId}
@@ -1734,7 +1784,7 @@ export default function QuizzesPage() {
           }}
         />
       )}
-
+      </main>
     </div>
   );
 }

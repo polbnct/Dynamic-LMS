@@ -4,7 +4,6 @@ import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 async function getServerRole(): Promise<string | null> {
   const res = await fetch("/api/auth/role", { method: "GET" });
@@ -21,8 +20,6 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
-
-  useSyncMessagesToToast(error, "");
 
   // Check if user is already logged in
   useEffect(() => {
@@ -73,10 +70,7 @@ function LoginPageInner() {
     
     // Validation
     if (!email || !password) {
-      setError("");
-      setTimeout(() => {
-        setError("Please enter both email and password.");
-      }, 0);
+      setError("Please enter both email and passsword!");
       return;
     }
 
@@ -255,6 +249,9 @@ function LoginPageInner() {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
+              {error && (
+                <p className="mt-1 text-sm text-red-500">{error}</p>
+              )}
             </div>
 
             {/* Submit button */}
