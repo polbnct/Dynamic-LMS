@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
@@ -15,6 +15,17 @@ export default function StudentDashboard() {
   const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
   const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
+  const [search, setSearch] = useState("");
+  
+  const isSearching = search.trim().length > 0;
+
+  const filteredCourses = useMemo(() => {
+  return courses.filter((course) =>
+    (course.name + " " + course.code + " " + (course.professorName || ""))
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+}, [courses, search]);
 
   const getCourseName = (courseId: string) => {
     return courses.find (c => c.id === courseId)?.name || "Unknown Course";
@@ -117,14 +128,54 @@ export default function StudentDashboard() {
 
         {/* My Courses */}
         <div className="mb-8">
+          <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">My Courses</h2>
+          <div className="w-full sm:w-98 flex items-center rounded-2xl border border-red-200 bg-white px-3 py-2 shadow-sm focus-within:border-red-400 focus-within:ring-4 focus-within:ring-red-100 transition">
+      <svg
+        className="h-5 w-5 text-gray-400 ml-2"
+        fill="none"
+        stroke="currentColor"
+        viewBox="0 0 24 24"
+      >
+        <path
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          strokeWidth={2}
+          d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"
+        />
+      </svg>
+
+            <input
+              type="text"
+              placeholder="Search by course name, code, or instructor"
+              className="min-w-0 flex-1 bg-transparent px-3 py-2 text-sm text-gray-700 outline-none"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+            />
+
+            {isSearching && (
+              <button
+                onClick={() => setSearch("")}
+                className="ml-2 shrink-0 border-l border-red-100 pl-3 text-sm font-medium text-red-600 hover:text-red-700 transition"
+              >
+                Clear
+              </button>
+            )}
+          </div>
+        </div>
           {courses.length === 0 ? (
             <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-12 text-center">
-              <p className="text-gray-600">No courses enrolled yet</p>
+              <p className="text-gray-600">
+                No courses enrolled yet
+              </p>
+            </div>
+          ) : filteredCourses.length === 0 ? (
+            <div className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-xl border border-rose-100 p-12 text-center">
+              <p className="text-gray-600">No matching courses found</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {courses.slice(0, 6).map((course) => (
+              {filteredCourses.slice(0, 6).map((course) => (
                 <Link
                   key={course.id}
                   href={`/student/dashboard/${course.id}/content`}

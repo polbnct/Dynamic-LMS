@@ -1136,7 +1136,7 @@ export default function AdminDashboardPage() {
                       <input
                         value={editCourseForm.code}
                         onChange={(e) => setEditCourseForm((p) => ({ ...p, code: e.target.value }))}
-                        maxLength={16}
+                        maxLength={32}
                         placeholder="e.g TUPD9126"
                         className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-red-400"
                       />

@@ -7,7 +7,6 @@ import StudentNavbar from "@/utils/StudentNavbar";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function StudentProfile() {
-  const router = useRouter();
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [formData, setFormData] = useState({
     name: "",
@@ -15,6 +14,12 @@ export default function StudentProfile() {
     studentId: "",
     phone: "",
     year: "",
+  });
+
+  const [showPasswords, setShowPasswords] = useState({
+    current: false,
+    new: false,
+    confirm: false,
   });
 
   const [passwordData, setPasswordData] = useState({
@@ -26,9 +31,16 @@ export default function StudentProfile() {
   const [showPasswordSection, setShowPasswordSection] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [success, setSuccess] = useState("");
+  const [toastError, setToastError] = useState("");
+  const showErrorToast = (message: string) => {
+  setToastError("");
+  setTimeout(() => {
+    setToastError(message);
+    }, 0);
+  };
   const [isEditing, setIsEditing] = useState(false);
 
-  useSyncMessagesToToast("", success);
+  useSyncMessagesToToast(toastError, success);
 
   // Load current student profile from Supabase (users + students tables)
   useEffect(() => {
@@ -110,12 +122,6 @@ export default function StudentProfile() {
       newErrors.name = "Name is required.";
     }
 
-    if (!formData.email.trim()) {
-      newErrors.email = "Email is required.";
-    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      newErrors.email = "Please enter a valid email address.";
-    }
-
     if (!formData.studentId.trim()) {
       newErrors.studentId = "Student ID is required.";
     }
@@ -129,27 +135,46 @@ export default function StudentProfile() {
   };
 
   const validatePasswordForm = () => {
-    const newErrors: Record<string, string> = {};
-
     if (!passwordData.currentPassword.trim()) {
-      newErrors.currentPassword = "Current password is required.";
+      showErrorToast("Current password is required.");
+      return false;
     }
 
     if (!passwordData.newPassword.trim()) {
-      newErrors.newPassword = "New password is required.";
-    } else if(passwordData.newPassword.length < 8) {
-      newErrors.newPassword = "Password must be at least 8 characters long.";
-    } else if (passwordData.currentPassword === passwordData.newPassword) {
-    newErrors.newPassword = "New password must be different from the old password.";
-    }
-    if (!passwordData.confirmPassword.trim()) {
-      newErrors.confirmPassword = "Please confirm your new password.";
-    } else if (passwordData.newPassword !== passwordData.confirmPassword) {
-      newErrors.confirmPassword = "Passwords do not match.";
+      showErrorToast("New password is required.");
+      return false;
     }
 
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
+    if (passwordData.newPassword.length < 8) {
+      showErrorToast("Password must be at least 8 characters long.");
+      return false;
+    }
+
+    if (!/[A-Z]/.test(passwordData.newPassword)) {
+       showErrorToast("Password must include at least one uppercase letter.");
+      return false;
+    }
+
+    if (!/[^A-Za-z0-9]/.test(passwordData.newPassword)) {
+       showErrorToast("Password must include at least one symbol.");
+      return false;
+    }
+
+    if (passwordData.currentPassword === passwordData.newPassword) {
+       showErrorToast("New password must be different from the old password.");
+      return false;
+    }
+
+    if (!passwordData.confirmPassword.trim()) {
+       showErrorToast("Please confirm your new password.");
+      return false;
+    }
+
+    if (passwordData.newPassword !== passwordData.confirmPassword) {
+       showErrorToast("Passwords do not match.");
+      return false;
+    }
+    return true;
   };
 
   const handleProfileSubmit = async (e: React.FormEvent) => {
@@ -169,43 +194,52 @@ export default function StudentProfile() {
         throw new Error("Not authenticated");
       }
 
-      // Update basic profile info in users table
-      const updates: any = {
-        name: formData.name.trim(),
-      };
-      // Only attempt to change email if it actually changed
-      if (formData.email.trim() && formData.email.trim() !== user.email) {
-        updates.email = formData.email.trim();
-      }
+      const trimmedName = formData.name.trim();
 
-      if (Object.keys(updates).length > 0) {
-        const { error: userError } = await supabase.from("users").update(updates).eq("id", user.id);
-        if (userError) {
-          throw userError;
+        const { error: authMetaError } = await supabase.auth.updateUser({
+          data: { name: trimmedName },
+        });
+
+        if (authMetaError) {
+          throw authMetaError;
         }
+
+      const { error: userError } = await supabase
+        .from("users")
+        .update({
+          name: trimmedName,
+        })
+        .eq("id", user.id);
+      if (userError) {
+        throw userError;
       }
 
-      // Update student profile fields (students table)
       const studentUpdates: Record<string, any> = {
         student_id: formData.studentId.trim(),
         phone: formData.phone.trim(),
         graduation_year: formData.year.trim(),
       };
+
       const { error: studentError } = await supabase
         .from("students")
         .update(studentUpdates)
         .eq("user_id", user.id);
+
       if (studentError) {
         throw studentError;
       }
 
-      // Optionally sync auth profile name/email (email change may require confirmation)
-      await supabase.auth.updateUser({
-        email: updates.email,
-        data: { name: updates.name },
-      }).catch(() => {
-        // Ignore auth update failures; users table is still updated
-      });
+      const { data: refreshedUserRow } = await supabase
+        .from("users")
+        .select("name, email")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setFormData((prev) => ({
+        ...prev,
+        name: refreshedUserRow?.name || trimmedName,
+        email: refreshedUserRow?.email || prev.email,
+      }));
 
       setSuccess("Profile updated successfully!");
       setIsEditing(false);
@@ -222,6 +256,8 @@ export default function StudentProfile() {
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSuccess("");
+    setToastError("");
+    setErrors({});
 
     if (!validatePasswordForm()) {
       return;
@@ -243,7 +279,7 @@ export default function StudentProfile() {
         password: passwordData.currentPassword,
       });
       if (signInErr) {
-        setErrors((prev) => ({ ...prev, currentPassword: "Current password is incorrect." }));
+        showErrorToast("Current password is incorrect")
         return;
       }
 
@@ -271,13 +307,43 @@ export default function StudentProfile() {
     }
   };
 
-  const handleCancel = () => {
-    // Reset form data (in real app, fetch from server)
-    setIsEditing(false);
-    setShowPasswordSection(false);
-    setErrors({});
-    setSuccess("");
-  };
+      const handleCancel = async () => {
+      try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          const { data: userRow } = await supabase
+            .from("users")
+            .select("name, email")
+            .eq("id", user.id)
+            .maybeSingle();
+
+          const { data: studentRow } = await supabase
+            .from("students")
+            .select("student_id, phone, graduation_year")
+            .eq("user_id", user.id)
+            .maybeSingle();
+
+          setFormData({
+            name: userRow?.name || user.user_metadata?.name || "",
+            email: userRow?.email || user.email || "",
+            studentId: studentRow?.student_id || "",
+            phone: (studentRow as any)?.phone || "",
+            year: (studentRow as any)?.graduation_year || "",
+          });
+        }
+      } catch (err) {
+        console.error("Failed to reset profile form:", err);
+      }
+
+      setIsEditing(false);
+      setShowPasswordSection(false);
+      setErrors({});
+      setSuccess("");
+    };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
@@ -365,7 +431,7 @@ export default function StudentProfile() {
                       isEditing
                         ? "border-gray-300 bg-gray-50/50 focus:bg-white"
                         : "border-gray-200 bg-gray-100 cursor-not-allowed"
-                    } ${errors.name ? "border-red-300" : ""}`}
+                    }`}
                   />
                 </div>
                 {errors.name && (
@@ -401,17 +467,10 @@ export default function StudentProfile() {
                     maxLength={64}
                     value={formData.email}
                     onChange={handleInputChange}
-                    disabled={!isEditing}
-                    className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600  focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
-                      isEditing
-                        ? "border-gray-300 bg-gray-50/50 focus:bg-white"
-                        : "border-gray-200 bg-gray-100 cursor-not-allowed"
-                    } ${errors.email ? "border-red-300" : ""}`}
-                  />
+                    disabled
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-gray-100 cursor-not-allowed">
+                  </input>
                 </div>
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                )}
               </div>
 
               {/* Student ID */}
@@ -638,18 +697,24 @@ export default function StudentProfile() {
                     <input
                       id="currentPassword"
                       name="currentPassword"
-                      type="password"
+                      type={showPasswords.current ? "text" : "password"}
                       value={passwordData.currentPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-16 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.currentPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Enter your current password"
                     />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords((p) => ({ ...p, current: !p.current }))
+                      }
+                      className="absolute inset-y-0 right-0 w-14 flex items-center justify-center text-sm text-gray-500"
+                    >
+                      {showPasswords.current ? "Hide" : "Show"}
+                    </button>
                   </div>
-                  {errors.currentPassword && (
-                    <p className="mt-1 text-sm text-red-600">{errors.currentPassword}</p>
-                  )}
                 </div>
 
                 {/* New Password */}
@@ -679,19 +744,24 @@ export default function StudentProfile() {
                     <input
                       id="newPassword"
                       name="newPassword"
-                      type="password"
+                      type={showPasswords.new ? "text" : "password"}
                       value={passwordData.newPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-16 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.newPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Enter your new password"
                     />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords((p) => ({ ...p, new: !p.new }))
+                      }
+                      className="absolute inset-y-0 right-0 w-14 flex items-center justify-center text-sm text-gray-500"
+                    >
+                      {showPasswords.new ? "Hide" : "Show"}
+                    </button>
                   </div>
-                  {errors.newPassword && (
-                    <p className="mt-1 text-sm text-red-600">{errors.newPassword}</p>
-                  )}
-                  <p className="mt-1 text-xs text-gray-500">Must be at least 8 characters long</p>
                 </div>
 
                 {/* Confirm Password */}
@@ -721,18 +791,24 @@ export default function StudentProfile() {
                     <input
                       id="confirmPassword"
                       name="confirmPassword"
-                      type="password"
+                      type={showPasswords.confirm ? "text" : "password"}
                       value={passwordData.confirmPassword}
                       onChange={handlePasswordChange}
-                      className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
+                      className={`w-full pl-10 pr-16 py-3 border rounded-xl text-gray-800 placeholder-text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 border-gray-300 bg-gray-50/50 focus:bg-white ${
                         errors.confirmPassword ? "border-red-300" : ""
                       }`}
                       placeholder="Confirm your new password"
                     />
+                    <button
+                      type="button"
+                      onClick={() =>
+                        setShowPasswords((p) => ({ ...p, confirm: !p.confirm }))
+                      }
+                      className="absolute inset-y-0 right-0 w-14 flex items-center justify-center text-sm text-gray-500"
+                    >
+                      {showPasswords.confirm ? "Hide" : "Show"}
+                    </button>
                   </div>
-                  {errors.confirmPassword && (
-                    <p className="mt-1 text-sm text-red-600">{errors.confirmPassword}</p>
-                  )}
                 </div>
               </div>
 

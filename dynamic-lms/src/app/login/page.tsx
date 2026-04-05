@@ -249,9 +249,11 @@ function LoginPageInner() {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
+              <div className="mt-1 min-h-[20px]">
               {error && (
                 <p className="mt-1 text-sm text-red-500">{error}</p>
               )}
+              </div>
             </div>
 
             {/* Submit button */}

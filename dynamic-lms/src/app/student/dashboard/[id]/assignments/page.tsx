@@ -6,7 +6,7 @@ import Link from "next/link";
 import StudentNavbar from "@/utils/StudentNavbar";
 import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
-import { getAssignments, getAssignmentSubmissions, getAssignmentPDFUrl, submitAssignment } from "@/lib/supabase/queries/assignments";
+import { getAssignments, getAssignmentSubmissions, getAssignmentPDFUrl, submitAssignment, getSubmissionFileUrl } from "@/lib/supabase/queries/assignments";
 import type { Assignment } from "@/lib/supabase/queries/assignments";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
@@ -47,11 +47,21 @@ export default function StudentAssignmentsPage() {
     }
   };
 
+  const isPastDue = (dueDate?: string | null) => {
+  if (!dueDate) return false;
+  return new Date().getTime() > new Date(dueDate).getTime();
+  };
+  
   const handleSubmitAssignment = async () => {
     if (!selectedAssignment || !submissionFile) {
       setSubmitError("Please select a file to submit.");
       return;
     }
+
+    if (isPastDue(selectedAssignment.dueDate)) {
+    setSubmitError("This assignment is already past its deadline. Submission is no longer allowed.");
+    return;
+  }
 
     setSubmitting(true);
     setSubmitError("");
@@ -313,6 +323,7 @@ export default function StudentAssignmentsPage() {
                       const submissionCount = assignment.submissionCount ?? 0;
                       const hasLimit = maxSubs != null;
                       const canSubmitMore = !hasLimit || submissionCount < maxSubs;
+                      const pastDue = isPastDue(assignment.dueDate);
 
                       return (
                       <div
@@ -414,10 +425,11 @@ export default function StudentAssignmentsPage() {
                                 setAssignmentForDetails(assignment);
                                 setDetailsModalOpen(true);
                               }}
-                              className="w-full rounded-lg border border-red-600 px-4 py-2 font-semibold text-red-600 transition-all duration-200 hover:bg-red-50"
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 cursor-pointer"
                             >
                               View details
                             </button>
+                            {assignment.submitted && (
                             <button
                               onClick={async () => {
                                 try {
@@ -427,12 +439,55 @@ export default function StudentAssignmentsPage() {
                                     return;
                                   }
 
-                                  // Always re-check latest limit and submission count from DB
-                                  // so professor edits are reflected immediately for students.
+                                  const subs = await getAssignmentSubmissions(studentId, [assignment.id]);
+                                  if (!subs.length) {
+                                    setSubmitError("No submission found.");
+                                    return;
+                                  }
+
+                                  const latest = subs.reduce((acc, s) =>
+                                    new Date(s.submitted_at).getTime() > new Date(acc.submitted_at).getTime()
+                                      ? s
+                                      : acc
+                                  );
+
+                                  // If you already have a file URL function, use it here
+                                  // Example only:
+                                  if (latest.file_path) {
+                                    const url = await getSubmissionFileUrl(latest.file_path);
+                                    window.open(url, "_blank");
+                                  } else {
+                                    setSubmitError("Submission file not available.");
+                                  }
+                                } catch (err) {
+                                  console.error(err);
+                                  setSubmitError("Failed to load submission.");
+                                }
+                              }}
+                              className="w-full rounded-lg border border-gray-300 px-4 py-2 font-semibold text-green-600 hover:bg-green-50 transition-all duration-200 cursor-pointer"
+                            >
+                              View Submission
+                            </button>
+                          )}
+                           <button
+                              disabled={pastDue || !canSubmitMore}
+                              onClick={async () => {
+                                try {
+                                  const studentId = await getCurrentStudentId();
+                                  if (!studentId) {
+                                    setSubmitError("Student not found.");
+                                    return;
+                                  }
+
                                   const latestAssignments = await getAssignments(courseId);
                                   const latest = latestAssignments.find((a) => a.id === assignment.id);
                                   if (!latest) {
                                     setSubmitError("Assignment not found.");
+                                    return;
+                                  }
+
+                                  if (isPastDue(latest.due_date)) {
+                                    setSubmitError("This assignment is already past its deadline. Submission is no longer allowed.");
                                     return;
                                   }
 
@@ -446,6 +501,7 @@ export default function StudentAssignmentsPage() {
                                             : acc
                                         )
                                       : undefined;
+
                                   const latestMax = latest.max_submissions ?? null;
                                   const latestCanSubmit = latestMax == null || latestCount < latestMax;
 
@@ -482,13 +538,19 @@ export default function StudentAssignmentsPage() {
                                   setSubmitError("Failed to check submission limit. Please try again.");
                                 }
                               }}
-                              className="w-full rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2 font-semibold text-white transition-all duration-200 hover:from-red-500 hover:to-rose-500 hover:shadow-lg"
+                              className={`w-full rounded-lg px-4 py-2 font-semibold transition-all duration-200 ${
+                                pastDue
+                                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
+                                  : "bg-red-600 text-white hover:bg-red-500 hover:shadow-lg"
+                              }`}
                             >
-                              {canSubmitMore
-                                ? assignment.submitted
-                                  ? "Submit again"
-                                  : "Submit Assignment"
-                                : "Submission limit reached"}
+                              {pastDue
+                                ? "Deadline passed"
+                                : canSubmitMore
+                                  ? assignment.submitted
+                                    ? "Submit again"
+                                    : "Submit Assignment"
+                                  : "Submission limit reached"}
                             </button>
                           </div>
                         </div>
