@@ -3,7 +3,6 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
-import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
@@ -12,6 +11,13 @@ export default function ProfessorDashboard() {
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
   const combinedError = error || contextError || "";
+  const [search, setSearch] = useState("");
+  const isSearching = search.trim().length > 0;
+  const filteredCourses = React.useMemo(() => {
+    return courses.filter((c) =>
+    (c.name + " " + c.code).toLowerCase().includes(search.toLowerCase())
+    );
+  }, [courses, search]);
   useSyncMessagesToToast(combinedError, success);
   // Professors can no longer edit or delete courses; this is admin-only now.
 
@@ -38,12 +44,54 @@ export default function ProfessorDashboard() {
         </div>
 
         {/* Header */}
-        <div className="mb-8">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
+        <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+
+        {/* Left side */}
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1">
             Welcome Back, Professor!
           </h1>
-          <p className="text-gray-600">Manage your courses and students</p>
+            <p className="text-gray-600">Manage your courses and students</p>
         </div>
+          {/* Right side */}
+            <div className="w-full sm:w-96 flex items-center rounded-2xl border border-red-200 bg-white px-3 py-2 shadow-sm focus-within:border-red-400 focus-within:ring-4 focus-within:ring-red-100 transition">
+              <svg
+                className="h-5 w-5 text-gray-400 ml-2"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M21 21l-4.35-4.35m1.85-5.15a7 7 0 11-14 0 7 7 0 0114 0z"
+                />
+              </svg>
+
+              <input
+                type="text"
+                placeholder="Search by course name or code"
+                className="flex-1 bg-transparent px-3 py-2 text-sm text-gray-700 outline-none"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+              />
+
+              {isSearching && (
+                 <button
+                    onClick={() => setSearch("")}
+                    className="ml-2 shrink-0 border-l border-red-100 pl-3 text-sm font-medium text-red-600 hover:text-red-700 transition"
+                    > 
+                      Clear
+                    </button> 
+                )}
+              </div>
+            </div>
+              {combinedError && (
+                <div className="mb-6 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  {combinedError}
+                </div>
+              )}
 
         {/* Loading State */}
         {loading && (
@@ -55,7 +103,7 @@ export default function ProfessorDashboard() {
         {/* Course Cards Grid */}
         {!loading && (
           <>
-            {courses.length === 0 ? (
+            {filteredCourses.length === 0 ? (
               <div className="text-center py-16">
                 <div className="inline-flex items-center justify-center w-24 h-24 bg-gradient-to-br from-red-100 to-rose-100 rounded-full mb-4">
                   <svg
@@ -72,14 +120,18 @@ export default function ProfessorDashboard() {
                     />
                   </svg>
                 </div>
-                <h3 className="text-xl font-semibold text-gray-800 mb-2">No courses yet</h3>
+                <h3 className="text-xl font-semibold text-gray-800 mb-2">
+                  {isSearching ? "No results found" : "No courses yet"}
+                </h3>
                 <p className="text-gray-600 mb-6">
-                  Courses are created and managed by your admin. Please contact the admin to create a course for you.
+                  {isSearching
+                    ? "Try a different keyword."
+                    : "Courses are created and managed by your admin. Please contact the admin to create a course for you."}
                 </p>
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {courses.map((course) => (
+                {filteredCourses.map((course) => (
                   <div
                     key={course.id}
                     className="group min-w-0 overflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
