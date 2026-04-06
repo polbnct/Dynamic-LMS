@@ -13,10 +13,20 @@ export default function ProfessorDashboard() {
   const combinedError = error || contextError || "";
   const [search, setSearch] = useState("");
   const isSearching = search.trim().length > 0;
+
   const filteredCourses = React.useMemo(() => {
-    return courses.filter((c) =>
+    const filtered = courses.filter((c) =>
     (c.name + " " + c.code).toLowerCase().includes(search.toLowerCase())
     );
+
+  const lastAccessed = localStorage.getItem("lastAccessedCourse");
+  if (!lastAccessed) return filtered;
+
+  return [...filtered].sort((a, b) => {
+    if (a.id === lastAccessed) return -1;
+    if (b.id === lastAccessed) return 1;
+    return 0;
+  });
   }, [courses, search]);
   useSyncMessagesToToast(combinedError, success);
   // Professors can no longer edit or delete courses; this is admin-only now.
@@ -136,7 +146,10 @@ export default function ProfessorDashboard() {
                     key={course.id}
                     className="group min-w-0 overflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
                   >
-                    <Link href={`/prof/courses/${course.id}/content`} className="block min-w-0">
+                    <Link href={`/prof/courses/${course.id}/content`} className="block min-w-0"
+                    onClick={() => {
+                      localStorage.setItem("lastAccessedCourse", course.id);
+                    }}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 min-w-0">
                           <h3 className="text-xl font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate" 

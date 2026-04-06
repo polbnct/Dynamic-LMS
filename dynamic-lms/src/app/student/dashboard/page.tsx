@@ -20,11 +20,20 @@ export default function StudentDashboard() {
   const isSearching = search.trim().length > 0;
 
   const filteredCourses = useMemo(() => {
-  return courses.filter((course) =>
+    const filtered = courses.filter((course) =>
     (course.name + " " + course.code + " " + (course.professorName || ""))
       .toLowerCase()
       .includes(search.toLowerCase())
   );
+
+  const lastAccessed = localStorage.getItem("lastAccessedCourse");
+    if (!lastAccessed) return filtered;
+
+    return [...filtered].sort((a, b) => {
+    if (a.id === lastAccessed) return -1;
+    if (b.id === lastAccessed) return 1;
+    return 0;
+  });
 }, [courses, search]);
 
   const getCourseName = (courseId: string) => {
@@ -180,6 +189,9 @@ export default function StudentDashboard() {
                   key={course.id}
                   href={`/student/dashboard/${course.id}/content`}
                   className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg border border-rose-100 p-6 hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-1"
+                  onClick={() => {
+                  localStorage.setItem("lastAccessedCourse", course.id);
+                }}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
                   <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate flex-1" title={course.name}> 
