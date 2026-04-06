@@ -57,6 +57,7 @@ export default function AssignmentsPage() {
   const [loading, setLoading] = useState(true);
   const [createAssignmentModalOpen, setCreateAssignmentModalOpen] = useState(false);
   const [editingAssignment, setEditingAssignment] = useState<AssignmentWithUI | null>(null);
+  const [editPdfFile, setEditPdfFile] = useState<File | null>(null);
   const [editForm, setEditForm] = useState({
     title: "",
     description: "",
@@ -225,6 +226,18 @@ export default function AssignmentsPage() {
     }
   };
 
+  const handleEditFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files[0]) {
+      const file = e.target.files[0];
+      if (file.type !== "application/pdf") {
+        setError("Please upload a PDF file.");
+        return;
+      }
+      setEditPdfFile(file);
+      setError("");
+    }
+  };
+
   const handleCancel = () => {
     setCreateAssignmentModalOpen(false);
     setFormData({
@@ -249,12 +262,19 @@ export default function AssignmentsPage() {
       const maxSubmissionsValue =
         editForm.maxSubmissions === "unlimited" ? null : Number(editForm.maxSubmissions) || null;
 
+      let pdfPath = editingAssignment.pdf_file_path;
+
+      if(editPdfFile) {
+        pdfPath = await uploadAssignmentPDF(editPdfFile, courseId, editingAssignment.id);
+      }
+
       const updated = await updateAssignment(editingAssignment.id, {
         title: editForm.title.trim(),
         description: editForm.description.trim() || undefined,
         category: editForm.category,
         due_date: editForm.dueDate ? manilaInputToUtcIso(editForm.dueDate) ?? undefined : undefined,
         max_submissions: maxSubmissionsValue,
+        pdf_file_path: pdfPath,
       });
       setAssignments((prev) =>
         prev.map((a) =>
@@ -493,6 +513,7 @@ export default function AssignmentsPage() {
                                       ? "unlimited"
                                       : String(assignment.max_submissions),
                                 });
+                                setEditPdfFile(null);
                               }}
                               className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Edit assignment"
@@ -600,11 +621,11 @@ export default function AssignmentsPage() {
                   <div className="relative">
                     <textarea
                       id="description"
-                      maxLength={512}
+                      maxLength={1024}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Write assignment description or instructions..."
-                      rows={5}
+                      rows={3}
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white resize-none"
                     />
                   </div>
@@ -756,7 +777,7 @@ export default function AssignmentsPage() {
                 Edit Assignment
               </h2>
               <button
-                onClick={() => { setEditingAssignment(null); setError(""); }}
+                onClick={() => { setEditingAssignment(null); setEditPdfFile(null); setError(""); }}
                 className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -826,14 +847,46 @@ export default function AssignmentsPage() {
                   <option value="unlimited">Unlimited</option>
                 </select>
               </div>
-              {editingAssignment.pdfUrl && (
-                <p className="text-sm text-gray-600">
-                  Attached PDF:{" "}
-                  <a href={editingAssignment.pdfUrl} target="_blank" rel="noopener noreferrer" className="text-red-600 hover:underline">
-                    View current PDF
-                  </a>
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Replace current uploaded PDF file
+                </label>
+
+                {editingAssignment.pdfUrl && (
+                  <div className="mb-2 text-sm text-gray-600 truncate"
+                  title={editingAssignment.pdfUrl}>
+                    Current file:{" "}
+                    <a
+                      href={editingAssignment.pdfUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-red-600 hover:underline"
+                    >
+                      View current PDF
+                    </a>
+                    {editingAssignment.pdfFileName && (
+                      <span className="ml-2 text-gray-500">({editingAssignment.pdfFileName})</span>
+                    )}
+                  </div>
+                )}
+
+                <input
+                  type="file"
+                  accept="application/pdf"
+                  onChange={handleEditFileChange}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 bg-gray-50/50 focus:ring-2 focus:ring-red-500 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                />
+
+                {editPdfFile && (
+                  <p className="mt-2 text-sm text-gray-600">
+                    New file selected: {editPdfFile.name}
+                  </p>
+                )}
+
+                <p className="mt-1 text-xs text-gray-500">
+                  Leave this empty if you want to keep the current PDF.
                 </p>
-              )}
+              </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-4">
                 <button
                   type="button"
