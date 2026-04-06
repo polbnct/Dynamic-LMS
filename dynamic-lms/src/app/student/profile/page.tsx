@@ -366,7 +366,7 @@ export default function StudentProfile() {
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2">
             Profile Settings
           </h1>
-          <p className="text-gray-600">Manage your account information and preferences</p>
+          <p className="text-gray-600">Manage your account information</p>
         </div>
 
         {/* Profile Information Card */}

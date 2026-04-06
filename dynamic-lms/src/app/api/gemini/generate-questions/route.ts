@@ -33,6 +33,10 @@ async function checkAvailableModels(): Promise<void> {
 export async function POST(request: NextRequest) {
   try {
     const { lessonId, questionType, count, forStudyAid, studyAidSummary } = await request.json();
+    const safeCount =
+      typeof count === "number" && Number.isFinite(count)
+        ? Math.min(Math.max(count, 1), 10)
+        : 10;
 
     if (!process.env.GEMINI_API_KEY) {
       return NextResponse.json({ error: "Gemini API key not configured" }, { status: 500 });
@@ -101,7 +105,7 @@ Category: ${lesson.category}
 
     // For study aid: summary is one-time (1 summary); fill_blank practice uses normal prompt
     const isSummaryForStudyAid = Boolean(forStudyAid && studyAidSummary);
-    const questionsPerType = isSummaryForStudyAid ? 1 : Math.ceil((count || 5) / typesToGenerate.length);
+    const questionsPerType = isSummaryForStudyAid ? 1 : Math.ceil(safeCount / typesToGenerate.length);
 
     // Generate questions using Gemini API
     const allQuestions = [];
@@ -187,7 +191,7 @@ Category: ${lesson.category}
     }
 
     // Limit to requested count (except for summary which is always 1)
-    const finalQuestions = isSummaryForStudyAid ? allQuestions : allQuestions.slice(0, count || 5);
+    const finalQuestions = isSummaryForStudyAid ? allQuestions : allQuestions.slice(0, safeCount);
 
     return NextResponse.json({ questions: finalQuestions });
   } catch (error: any) {

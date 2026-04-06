@@ -258,6 +258,18 @@ export default function ContentPage() {
 
   useSyncMessagesToToast(error, success);
 
+  const getValidatedStudyAidCount = (
+    type: "summary" | "flashcard" | "multiple_choice" | "fill_blank",
+    count: number
+  ) => {
+    if (type === "summary") return 1;
+
+    const safeCount = Number(count);
+    if (!Number.isFinite(safeCount)) return 10;
+
+    return Math.min(10, Math.max(1, safeCount));
+  };
+
   const orderedStudyAidQuestions = useMemo(() => {
     const typePriority: Record<StudyAidQuestion["type"], number> = {
       summary: 0,
@@ -991,7 +1003,22 @@ export default function ContentPage() {
                           min={1}
                           max={10}
                           value={studyAidGenerateCount}
-                          onChange={(e) => setStudyAidGenerateCount(parseInt(e.target.value, 10) || 5)}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+
+                            if (!Number.isFinite(raw)) {
+                              setStudyAidGenerateCount(10);
+                              return;
+                            }
+
+                            if (raw < 1 || raw > 10) {
+                              setStudyAidGenerateCount(10);
+                              return;
+                            }
+
+                            const clamped = Math.min(10, Math.max(1, raw));
+                            setStudyAidGenerateCount(raw);
+                          }}
                           className="w-full px-4 py-2.5 border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
                         />
                       </div>
@@ -1041,7 +1068,7 @@ export default function ContentPage() {
                                 : studyAidGenerateType === "flashcard"
                                   ? "true_false"
                                   : "multiple_choice",
-                            count: studyAidGenerateType === "summary" ? 1 : studyAidGenerateCount,
+                            count: getValidatedStudyAidCount(studyAidGenerateType, studyAidGenerateCount),
                             forStudyAid: true,
                             studyAidSummary: studyAidGenerateType === "summary",
                           }),

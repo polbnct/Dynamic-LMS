@@ -716,7 +716,7 @@ export default function AssignmentsPage() {
 
                 {/* PDF Upload (Optional) */}
                 <div>
-                  <label htmlFor="pdfFile" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     PDF File <span className="text-gray-500 text-xs">(Optional)</span>
                   </label>
                   <div className="relative">
@@ -1096,7 +1096,27 @@ export default function AssignmentsPage() {
                                 type="number"
                                 min={0}
                                 value={gradeForm.score}
-                                onChange={(e) => setGradeForm((f) => ({ ...f, score: e.target.value }))}
+                                onChange={(e) => {
+                                  const raw = parseInt(e.target.value, 10);
+                                  const max = parseInt(gradeForm.max_score, 10) || 100;
+
+                                  if (!Number.isFinite(raw)) {
+                                    setGradeForm((f) => ({ ...f, score: "0" }));
+                                    return;
+                                  }
+
+                                  if (raw < 0) {
+                                    setGradeForm((f) => ({ ...f, score: "0" }));
+                                    return;
+                                  }
+
+                                  if (raw > max) {
+                                    setGradeForm((f) => ({ ...f, score: String(max) }));
+                                    return;
+                                  }
+
+                                  setGradeForm((f) => ({ ...f, score: String(raw) }));
+                                }}
                                 placeholder="0"
                                 className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
                               />
@@ -1107,8 +1127,28 @@ export default function AssignmentsPage() {
                             <input
                               type="number"
                               min={1}
+                              max={100}
                               value={gradeForm.max_score}
-                              onChange={(e) => setGradeForm((f) => ({ ...f, max_score: e.target.value }))}
+                              onChange={(e) => {
+                              const raw = parseInt(e.target.value, 10);
+
+                                if (!Number.isFinite(raw)) {
+                                  setGradeForm((f) => ({ ...f, max_score: "100" }));
+                                  return;
+                                }
+
+                                if (raw < 1) {
+                                  setGradeForm((f) => ({ ...f, max_score: "1" }));
+                                  return;
+                                }
+
+                                if (raw > 100) {
+                                  setGradeForm((f) => ({ ...f, max_score: "100" }));
+                                  return;
+                                }
+
+                                setGradeForm((f) => ({ ...f, max_score: String(raw) }));
+                              }}
                               placeholder="100"
                               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 placeholder:text-gray-500"
                             />
@@ -1131,8 +1171,8 @@ export default function AssignmentsPage() {
                               type="button"
                               disabled={savingGrade || gradeForm.score === "" || gradeForm.max_score === ""}
                               onClick={async () => {
-                                const score = parseInt(gradeForm.score, 10);
-                                const max_score = parseInt(gradeForm.max_score, 10);
+                                const max_score = Math.min(Math.max(parseInt(gradeForm.max_score, 10) || 100, 1), 100);
+                                const score = Math.min(Math.max(parseInt(gradeForm.score, 10) || 0, 0), max_score);
                                 if (isNaN(score) || isNaN(max_score) || max_score < 1) return;
                                 setSavingGrade(true);
                                 setGradeSuccess("");
