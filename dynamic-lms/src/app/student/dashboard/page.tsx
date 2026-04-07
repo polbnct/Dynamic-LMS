@@ -4,17 +4,16 @@ import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
-import { getStudentCourses, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 import { getAssignments } from "@/lib/supabase/queries/assignments";
 import { getQuizzes } from "@/lib/supabase/queries/quizzes";
-import type { CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { useStudentCourses } from "@/contexts/StudentCoursesContext";
 
 export default function StudentDashboard() {
   const { error: toastError } = useToast();
-  const [courses, setCourses] = useState<CourseWithStudents[]>([]);
+  const { courses, loading: coursesLoading } = useStudentCourses();
   const [upcomingAssignments, setUpcomingAssignments] = useState<any[]>([]);
   const [upcomingQuizzes, setUpcomingQuizzes] = useState<any[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [upcomingLoading, setUpcomingLoading] = useState(true);
   const [search, setSearch] = useState("");
   
   const isSearching = search.trim().length > 0;
@@ -43,69 +42,70 @@ export default function StudentDashboard() {
   
 
   useEffect(() => {
-    async function fetchData() {
+    async function fetchUpcoming() {
+      if (coursesLoading) return;
+
       try {
-        const studentId = await getCurrentStudentId();
-        if (!studentId) {
-          throw new Error("Student not found");
+        const courseIds = courses.map((c) => c.id);
+        if (courseIds.length === 0) {
+          setUpcomingAssignments([]);
+          setUpcomingQuizzes([]);
+          return;
         }
 
-        const coursesData = await getStudentCourses(studentId);
-        setCourses(coursesData);
+        const [allAssignments, allQuizzes] = await Promise.all([
+          Promise.all(courseIds.map((id) => getAssignments(id))),
+          Promise.all(courseIds.map((id) => getQuizzes(id))),
+        ]);
 
-        // Get upcoming assignments & quizzes from all enrolled courses
-        const courseIds = coursesData.map((c) => c.id);
-        if (courseIds.length > 0) {
-          const [allAssignments, allQuizzes] = await Promise.all([
-            Promise.all(courseIds.map((id) => getAssignments(id))),
-            Promise.all(courseIds.map((id) => getQuizzes(id))),
-          ]);
+        // Ensure every upcoming item has a valid course_id by forcing it
+        // to the originating courseId (ignore whatever is on the row).
+        const flattenedAssignments = allAssignments.flatMap((list, index) =>
+          (list || []).map((a: any) => ({
+            ...a,
+            course_id: courseIds[index],
+          }))
+        );
+        const upcomingA = flattenedAssignments
+          .filter((a) => a.course_id)
+          .filter((a) => a.due_date && new Date(a.due_date) > new Date())
+          .sort(
+            (a, b) =>
+              new Date(a.due_date as string).getTime() -
+              new Date(b.due_date as string).getTime()
+          )
+          .slice(0, 5);
+        setUpcomingAssignments(upcomingA);
 
-          // Ensure every upcoming item has a valid course_id by forcing it
-          // to the originating courseId (ignore whatever is on the row).
-          const flattenedAssignments = allAssignments.flatMap((list, index) =>
-            (list || []).map((a: any) => ({
-              ...a,
-              course_id: courseIds[index],
-            }))
-          );
-          const upcomingA = flattenedAssignments
-            .filter((a) => a.course_id)
-            .filter((a) => a.due_date && new Date(a.due_date) > new Date())
-            .sort(
-              (a, b) =>
-                new Date(a.due_date as string).getTime() -
-                new Date(b.due_date as string).getTime()
-            )
-            .slice(0, 5);
-          setUpcomingAssignments(upcomingA);
-
-          const flattenedQuizzes = allQuizzes.flatMap((list, index) =>
-            (list || []).map((q: any) => ({
-              ...q,
-              course_id: courseIds[index],
-            }))
-          );
-          const upcomingQ = flattenedQuizzes
-            .filter((q) => q.course_id)
-            .filter((q) => q.due_date && new Date(q.due_date) > new Date())
-            .sort(
-              (a, b) =>
-                new Date(a.due_date as string).getTime() -
-                new Date(b.due_date as string).getTime()
-            )
-            .slice(0, 5);
-          setUpcomingQuizzes(upcomingQ);
-        }
+        const flattenedQuizzes = allQuizzes.flatMap((list, index) =>
+          (list || []).map((q: any) => ({
+            ...q,
+            course_id: courseIds[index],
+          }))
+        );
+        const upcomingQ = flattenedQuizzes
+          .filter((q) => q.course_id)
+          .filter((q) => q.due_date && new Date(q.due_date) > new Date())
+          .sort(
+            (a, b) =>
+              new Date(a.due_date as string).getTime() -
+              new Date(b.due_date as string).getTime()
+          )
+          .slice(0, 5);
+        setUpcomingQuizzes(upcomingQ);
       } catch (err) {
         console.error("Error fetching dashboard data:", err);
         toastError(err instanceof Error ? err.message : "Failed to load dashboard.");
       } finally {
-        setLoading(false);
+        setUpcomingLoading(false);
       }
     }
-    fetchData();
-  }, [toastError]);
+
+    setUpcomingLoading(true);
+    fetchUpcoming();
+  }, [courses, coursesLoading, toastError]);
+
+  const loading = coursesLoading || upcomingLoading;
 
   if (loading) {
     return (

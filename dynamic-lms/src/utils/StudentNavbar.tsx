@@ -1,10 +1,10 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
-import { getStudentCourses, getCurrentStudentId, type CourseWithStudents } from "@/lib/supabase/queries/courses.client";
+import { useStudentCourses } from "@/contexts/StudentCoursesContext";
 
 interface StudentNavbarProps {
   currentPage?: "profile" | "courses" | "dashboard";
@@ -16,8 +16,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
   const supabase = createClient();
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [enrolledCourses, setEnrolledCourses] = useState<CourseWithStudents[]>([]);
-  const [loading, setLoading] = useState(true);
+  const { courses, loading } = useStudentCourses();
 
   const handleLogout = async () => {
     try {
@@ -33,25 +32,6 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
       alert("Failed to logout. Please try again.");
     }
   };
-
-  useEffect(() => {
-    async function fetchCourses() {
-      try {
-        const studentId = await getCurrentStudentId();
-        if (!studentId) {
-          setLoading(false);
-          return;
-        }
-        const courses = await getStudentCourses(studentId);
-        setEnrolledCourses(courses);
-      } catch (err) {
-        console.error("Error fetching courses:", err);
-      } finally {
-        setLoading(false);
-      }
-    }
-    fetchCourses();
-  }, []);
 
   return (
     <nav className="sticky top-0 z-50 border-b border-rose-100 bg-white/85 shadow-sm backdrop-blur-sm">
@@ -109,7 +89,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                         <div className="p-8 text-center"><div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-red-500"></div></div>
                       ) : (
                         <div className="divide-y divide-rose-50">
-                          {enrolledCourses.map((course) => (
+                          {courses.map((course) => (
                             <Link 
                                 key={course.id} 
                                 href={`/student/dashboard/${course.id}/content`} 

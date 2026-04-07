@@ -3,6 +3,22 @@ import { NextResponse, type NextRequest } from 'next/server'
 
 export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Fast-path public/static routes to avoid unnecessary auth/database work.
+  const publicRoutes = ['/login', '/signup', '/']
+  const isApiRoute = pathname.startsWith('/api/')
+  const isStaticAsset =
+    /\.(png|jpe?g|gif|webp|svg|ico|css|js|map|json|txt|pdf)$/i.test(pathname)
+  const isPublicRoute = publicRoutes.includes(pathname) || isApiRoute || isStaticAsset
+
+  if (isPublicRoute && pathname !== '/login' && pathname !== '/signup') {
+    return NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    })
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -33,15 +49,6 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser()
 
-  // Public routes that don't require authentication
-  const publicRoutes = ['/login', '/signup', '/']
-  const isApiRoute = pathname.startsWith('/api/')
-  // Allow serving uploaded/static assets from `/public` (images, files) without auth redirects.
-  const isStaticAsset =
-    /\.(png|jpe?g|gif|webp|svg|ico|css|js|map|json|txt|pdf)$/i.test(pathname)
-
-  const isPublicRoute = publicRoutes.includes(pathname) || isApiRoute || isStaticAsset
-
   // If accessing a protected route and not authenticated, redirect to login
   if (!isPublicRoute && !user) {
     const redirectUrl = request.nextUrl.clone()
@@ -50,96 +57,64 @@ export async function proxy(request: NextRequest) {
     return NextResponse.redirect(redirectUrl)
   }
 
+  const getRole = async () => {
+    const [{ data: profData }, { data: studentData }, { data: userData }] = await Promise.all([
+      supabase.from('professors').select('id').eq('user_id', user!.id).maybeSingle(),
+      supabase.from('students').select('id').eq('user_id', user!.id).maybeSingle(),
+      supabase.from('users').select('role').eq('id', user!.id).maybeSingle(),
+    ])
+
+    return {
+      isProfessor: Boolean(profData) || userData?.role === 'professor',
+      isStudent: Boolean(studentData) || userData?.role === 'student',
+      role: userData?.role ?? null,
+    }
+  }
+
   // If authenticated and trying to access login/signup, redirect to appropriate dashboard
   if (user && (pathname === '/login' || pathname === '/signup')) {
-    // Check user role
-    const { data: profData } = await supabase
-      .from('professors')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (profData) {
+    const roleInfo = await getRole()
+    if (roleInfo.isProfessor) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/prof'
       return NextResponse.redirect(redirectUrl)
     }
 
-    const { data: studentData } = await supabase
-      .from('students')
-      .select('id')
-      .eq('user_id', user.id)
-      .maybeSingle()
-
-    if (studentData) {
+    if (roleInfo.isStudent) {
       const redirectUrl = request.nextUrl.clone()
       redirectUrl.pathname = '/student/dashboard'
       return NextResponse.redirect(redirectUrl)
     }
 
-    // Fallback to users table
-    const { data: userData } = await supabase
-      .from('users')
-      .select('role')
-      .eq('id', user.id)
-      .maybeSingle()
-
-    if (userData?.role) {
+    if (roleInfo.role) {
       const redirectUrl = request.nextUrl.clone()
-      redirectUrl.pathname = userData.role === 'professor' ? '/prof' : '/student/dashboard'
+      redirectUrl.pathname = roleInfo.role === 'professor' ? '/prof' : '/student/dashboard'
       return NextResponse.redirect(redirectUrl)
     }
   }
 
   // Role-based route protection
   if (user) {
+    const roleInfo =
+      pathname.startsWith('/prof') || pathname.startsWith('/student')
+        ? await getRole()
+        : null
+
     // Check if accessing professor routes
     if (pathname.startsWith('/prof')) {
-      const { data: profData } = await supabase
-        .from('professors')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (!profData) {
-        // Check users table as fallback
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle()
-
-        if (userData?.role !== 'professor') {
-          // Not a professor, redirect to student dashboard
-          const redirectUrl = request.nextUrl.clone()
-          redirectUrl.pathname = '/student/dashboard'
-          return NextResponse.redirect(redirectUrl)
-        }
+      if (!roleInfo?.isProfessor) {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/student/dashboard'
+        return NextResponse.redirect(redirectUrl)
       }
     }
 
     // Check if accessing student routes
     if (pathname.startsWith('/student')) {
-      const { data: studentData } = await supabase
-        .from('students')
-        .select('id')
-        .eq('user_id', user.id)
-        .maybeSingle()
-
-      if (!studentData) {
-        // Check users table as fallback
-        const { data: userData } = await supabase
-          .from('users')
-          .select('role')
-          .eq('id', user.id)
-          .maybeSingle()
-
-        if (userData?.role !== 'student') {
-          // Not a student, redirect to professor dashboard
-          const redirectUrl = request.nextUrl.clone()
-          redirectUrl.pathname = '/prof'
-          return NextResponse.redirect(redirectUrl)
-        }
+      if (!roleInfo?.isStudent) {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/prof'
+        return NextResponse.redirect(redirectUrl)
       }
     }
   }

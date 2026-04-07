@@ -337,12 +337,6 @@ function generateInviteCode(): string {
   return code;
 }
 
-// Get the invite link for a course (client-side; use in browser)
-export function getInviteLink(classroomCode: string): string {
-  if (typeof window === "undefined") return "";
-  return `${window.location.origin}/student/join?code=${encodeURIComponent(classroomCode)}`;
-}
-
 // Course updates (name/code, invite code) are now admin-only and handled via admin APIs.
 
 // Join course by classroom code (client-side)
