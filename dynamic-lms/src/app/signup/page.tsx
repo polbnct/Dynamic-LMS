@@ -4,6 +4,8 @@ import React, { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { isAllowedStudentSignupEmail, STUDENT_SIGNUP_EMAIL_DOMAIN } from "@/lib/auth/student-email";
+import { validateSignupPassword, SIGNUP_PASSWORD_RULES_SUMMARY } from "@/lib/auth/password-policy";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -21,6 +23,7 @@ export default function SignupPage() {
   const[showPassword, setShowPassword] = useState(false);
   const[showConfirmPassword, setShowConfirmPassword] = useState(false);
   const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email);
+  const isEacStudentEmail = isAllowedStudentSignupEmail(formData.email);
 
   const generateStudentId = () => {
     const year = new Date().getFullYear();
@@ -53,33 +56,16 @@ export default function SignupPage() {
       return;
     }
 
-    const password = formData.password;
-
-    const hasUppercase = /[A-Z]/.test(password);
-    const hasSymbol = /[^A-Za-z0-9]/.test(password);
-    const hasMinLength = password.length >= 8;
-
-    if (!hasMinLength) {
+    if (!isAllowedStudentSignupEmail(formData.email)) {
       setLoading(false);
-      setError("Password must be at least 8 characters long!");
+      setError("This email address is not allowed for registration.");
       return;
     }
 
-    if (!hasUppercase && !hasSymbol) {
+    const passwordError = validateSignupPassword(formData.password);
+    if (passwordError) {
       setLoading(false);
-      setError("Password must include at least 1 uppercase and 1 symbol!");
-      return;
-    }
-
-    if (!hasUppercase) {
-      setLoading(false);
-      setError("Password must include at least 1 uppercase!");
-      return;
-    }
-
-    if (!hasSymbol) {
-      setLoading(false);
-      setError("Password must include at least 1 symbol!");
+      setError(passwordError);
       return;
     }
 
@@ -91,7 +77,7 @@ export default function SignupPage() {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          email: formData.email,
+          email: formData.email.trim().toLowerCase(),
           password: formData.password,
           name: formData.name,
           role: "student",
@@ -163,7 +149,7 @@ export default function SignupPage() {
       // If no session from API, try to sign in immediately
       // This should work since email confirmation is disabled
       const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: formData.email,
+        email: formData.email.trim().toLowerCase(),
         password: formData.password,
       });
 
@@ -276,10 +262,10 @@ export default function SignupPage() {
               </div>
             </div>
 
-            {/* Email field */}
+                       {/* Email field */}
             <div>
               <label htmlFor="email" className="block text-sm font-semibold text-gray-700 mb-2">
-                Email Address
+                Email Address <span className="text-gray-500 font-normal text-xs">(@{STUDENT_SIGNUP_EMAIL_DOMAIN} only)</span>
               </label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -304,8 +290,13 @@ export default function SignupPage() {
                   maxLength={64}
                   value={formData.email}
                   onChange={handleChange}
-                  placeholder="Enter your email"
-                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-2xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                                   placeholder={`you@${STUDENT_SIGNUP_EMAIL_DOMAIN}`}
+                  title={`School email must be @${STUDENT_SIGNUP_EMAIL_DOMAIN} (case ignored)`}
+                  className={`w-full pl-10 pr-4 py-3 border rounded-2xl text-gray-900 placeholder:text-gray-400 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white ${
+                    formData.email.length > 0 && !isEacStudentEmail
+                      ? "border-amber-400 focus:border-amber-500"
+                      : "border-gray-300"
+                  }`}
                   autoComplete="email"
                 />
               </div>
@@ -351,6 +342,7 @@ export default function SignupPage() {
                   {showPassword ? "Hide" : "Show"}
                 </button>
               </div>
+              <p className="mt-1 text-xs text-gray-500">{SIGNUP_PASSWORD_RULES_SUMMARY}</p>
             </div>
 
             {/* Confirm Password field */}

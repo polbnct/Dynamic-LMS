@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { cookies } from "next/headers";
+import { isAllowedStudentSignupEmail } from "@/lib/auth/student-email";
+import { validateSignupPassword } from "@/lib/auth/password-policy";
 
 export async function POST(request: NextRequest) {
   try {
@@ -16,6 +18,19 @@ export async function POST(request: NextRequest) {
         { error: "Missing required fields" },
         { status: 400 }
       );
+    }
+
+    const userRole = role === "prof" ? "professor" : "student";
+    if (userRole === "student" && !isAllowedStudentSignupEmail(String(email))) {
+      return NextResponse.json(
+        { error: "This email address is not allowed for registration." },
+        { status: 400 }
+      );
+    }
+
+    const passwordPolicyError = validateSignupPassword(String(password));
+    if (passwordPolicyError) {
+      return NextResponse.json({ error: passwordPolicyError }, { status: 400 });
     }
 
     const cookieStore = await cookies();
@@ -40,7 +55,6 @@ export async function POST(request: NextRequest) {
       }
     );
 
-    const userRole = role === "prof" ? "professor" : "student";
     if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
       return NextResponse.json(
         {

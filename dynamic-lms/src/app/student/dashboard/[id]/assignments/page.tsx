@@ -48,8 +48,38 @@ export default function StudentAssignmentsPage() {
   };
 
   const isPastDue = (dueDate?: string | null) => {
-  if (!dueDate) return false;
-  return new Date().getTime() > new Date(dueDate).getTime();
+    if (!dueDate) return false;
+    return new Date().getTime() > new Date(dueDate).getTime();
+  };
+
+  const openLatestUploadedFile = async (assignmentId: string) => {
+    try {
+      const studentId = await getCurrentStudentId();
+      if (!studentId) {
+        setSubmitError("Student not found.");
+        return;
+      }
+
+      const subs = await getAssignmentSubmissions(studentId, [assignmentId]);
+      if (!subs.length) {
+        setSubmitError("No file is available yet.");
+        return;
+      }
+
+      const latest = subs.reduce((acc, s) =>
+        new Date(s.submitted_at).getTime() > new Date(acc.submitted_at).getTime() ? s : acc
+      );
+
+      if (latest.file_path) {
+        const url = await getSubmissionFileUrl(latest.file_path);
+        window.open(url, "_blank");
+      } else {
+        setSubmitError("File could not be opened.");
+      }
+    } catch (err) {
+      console.error(err);
+      setSubmitError("Something went wrong opening the file.");
+    }
   };
   
   const handleSubmitAssignment = async () => {
@@ -328,15 +358,15 @@ export default function StudentAssignmentsPage() {
                       return (
                       <div
                         key={assignment.id}
-                        className="rounded-2xl border border-gray-200 bg-white/80 p-6 shadow-lg backdrop-blur-sm transition-all duration-200 hover:shadow-xl sm:p-6"
+                        className="rounded-2xl border border-gray-200/90 bg-white/90 p-5 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md sm:p-6"
                       >
-                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between lg:gap-8">
                           <div className="min-w-0 flex-1">
                             <div className="mb-1 flex flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
                               <h3 className="break-words text-lg font-bold text-gray-800 sm:text-xl truncate" title={assignment.title}
                               >{assignment.title}</h3>
                               {assignment.submitted && (
-                                <span className="w-fit rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-700">
+                                <span className="w-fit rounded-full bg-emerald-50 px-2.5 py-0.5 text-xs font-medium text-emerald-800 ring-1 ring-emerald-100">
                                   Submitted
                                 </span>
                               )}
@@ -351,7 +381,7 @@ export default function StudentAssignmentsPage() {
                                   href={assignment.pdfUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex min-w-0 items-start gap-2 break-all font-medium text-red-600 hover:text-red-800"
+                                  className="inline-flex min-w-0 items-start gap-2 break-all text-sm font-medium text-slate-700 underline decoration-slate-300 underline-offset-2 hover:text-red-700 hover:decoration-red-300"
                                 >
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -385,7 +415,7 @@ export default function StudentAssignmentsPage() {
                                 </div>
                               )}
                               {assignment.submittedAt && (
-                                <div className="flex items-start gap-2 text-green-600">
+                                <div className="flex items-start gap-2 text-emerald-700/90">
                                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path
                                       strokeLinecap="round"
@@ -405,71 +435,21 @@ export default function StudentAssignmentsPage() {
                                   </span>
                                 </div>
                               )}
-                              {hasLimit && (
-                                <div className="flex items-center gap-2 text-gray-500">
-                                  <span>
-                                    Submissions used: {submissionCount} / {maxSubs}
-                                  </span>
-                                </div>
-                              )}
-                              {!hasLimit && submissionCount > 0 && (
-                                <div className="flex items-center gap-2 text-gray-500">
-                                  <span>Submissions so far: {submissionCount}</span>
-                                </div>
-                              )}
                             </div>
                           </div>
-                          <div className="flex w-full flex-col gap-3 sm:flex-row lg:ml-4 lg:w-auto lg:min-w-[220px] lg:flex-col">
+                          <div className="flex w-full flex-shrink-0 flex-col gap-2 border-t border-gray-100 pt-4 sm:border-t-0 sm:pt-0 lg:ml-0 lg:w-56 lg:border-l lg:border-gray-100 lg:pl-6 lg:pt-0">
                             <button
+                              type="button"
                               onClick={() => {
                                 setAssignmentForDetails(assignment);
                                 setDetailsModalOpen(true);
                               }}
-                              className="w-full rounded-lg border border-gray-300 px-4 py-2 font-semibold text-red-600 transition-all duration-200 hover:bg-red-50 cursor-pointer"
+                              className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                             >
-                              View details
+                              Details
                             </button>
-                            {assignment.submitted && (
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const studentId = await getCurrentStudentId();
-                                  if (!studentId) {
-                                    setSubmitError("Student not found.");
-                                    return;
-                                  }
-
-                                  const subs = await getAssignmentSubmissions(studentId, [assignment.id]);
-                                  if (!subs.length) {
-                                    setSubmitError("No submission found.");
-                                    return;
-                                  }
-
-                                  const latest = subs.reduce((acc, s) =>
-                                    new Date(s.submitted_at).getTime() > new Date(acc.submitted_at).getTime()
-                                      ? s
-                                      : acc
-                                  );
-
-                                  // If you already have a file URL function, use it here
-                                  // Example only:
-                                  if (latest.file_path) {
-                                    const url = await getSubmissionFileUrl(latest.file_path);
-                                    window.open(url, "_blank");
-                                  } else {
-                                    setSubmitError("Submission file not available.");
-                                  }
-                                } catch (err) {
-                                  console.error(err);
-                                  setSubmitError("Failed to load submission.");
-                                }
-                              }}
-                              className="w-full rounded-lg border border-gray-300 px-4 py-2 font-semibold text-green-600 hover:bg-green-50 transition-all duration-200 cursor-pointer"
-                            >
-                              View Submission
-                            </button>
-                          )}
                            <button
+                              type="button"
                               disabled={pastDue || !canSubmitMore}
                               onClick={async () => {
                                 try {
@@ -538,19 +518,17 @@ export default function StudentAssignmentsPage() {
                                   setSubmitError("Failed to check submission limit. Please try again.");
                                 }
                               }}
-                              className={`w-full rounded-lg px-4 py-2 font-semibold transition-all duration-200 ${
-                                pastDue
-                                  ? "bg-gray-300 text-gray-600 cursor-not-allowed"
-                                  : "bg-red-600 text-white hover:bg-red-500 hover:shadow-lg"
+                              className={`inline-flex h-11 w-full items-center justify-center rounded-lg px-3 text-center text-sm font-semibold shadow-sm transition ${
+                                pastDue || !canSubmitMore
+                                  ? "cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-500"
+                                  : "bg-gradient-to-r from-red-600 to-rose-600 text-white hover:shadow-md"
                               }`}
                             >
                               {pastDue
                                 ? "Deadline passed"
                                 : canSubmitMore
-                                  ? assignment.submitted
-                                    ? "Submit again"
-                                    : "Submit Assignment"
-                                  : "Submission limit reached"}
+                                  ? "Submit"
+                                  : "Limit reached"}
                             </button>
                           </div>
                         </div>
@@ -596,20 +574,66 @@ export default function StudentAssignmentsPage() {
                   <p className="text-gray-700 mt-1">{new Date(assignmentForDetails.dueDate).toLocaleDateString()}</p>
                 </div>
               )}
+              {(() => {
+                const cap = assignmentForDetails.maxSubmissions ?? null;
+                const used = assignmentForDetails.submissionCount ?? 0;
+                const hasCap = cap != null;
+                return (
+                  <div>
+                    <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide">Submissions</p>
+                    <div className="mt-2 space-y-1.5">
+                      <p
+                        className={`tabular-nums text-sm transition-colors ${
+                          hasCap ? "font-semibold text-gray-900" : "text-gray-400"
+                        }`}
+                      >
+                        Submissions used: {hasCap ? `${used} / ${cap}` : "—"}
+                        {!hasCap && (
+                          <span className="ml-1 text-xs font-normal text-gray-400">(no limit set)</span>
+                        )}
+                      </p>
+                      <p
+                        className={`tabular-nums text-sm transition-colors ${
+                          !hasCap ? "font-semibold text-gray-900" : "text-gray-400"
+                        }`}
+                      >
+                        Current submission: {used}
+                      </p>
+                    </div>
+                  </div>
+                );
+              })()}
               {assignmentForDetails.pdfUrl && (
-                <div>
-                  <p className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-2">Attached PDF</p>
+                <div className="rounded-xl border border-slate-200 bg-slate-50/70 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                    Assignment instructions
+                  </p>
                   <a
                     href={assignmentForDetails.pdfUrl}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-red-50 text-red-700 rounded-lg font-medium hover:bg-red-100 transition-colors"
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2 text-sm font-medium text-slate-800 transition-colors hover:border-slate-300 hover:bg-slate-50"
                   >
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="h-5 w-5 shrink-0 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                     </svg>
-                    View PDF {assignmentForDetails.pdfFileName && `(${assignmentForDetails.pdfFileName})`}
+                    View instruction PDF {assignmentForDetails.pdfFileName && `(${assignmentForDetails.pdfFileName})`}
                   </a>
+                </div>
+              )}
+              {assignmentForDetails.submitted && (
+                <div className="rounded-xl border border-rose-200/90 bg-rose-50/50 p-4">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-rose-800/90">Your submission</p>
+                  <button
+                    type="button"
+                    onClick={() => void openLatestUploadedFile(assignmentForDetails.id)}
+                    className="mt-3 inline-flex items-center gap-2 rounded-lg border border-rose-200 bg-white px-4 py-2 text-sm font-medium text-rose-900 transition-colors hover:bg-rose-50/80 hover:border-rose-300"
+                  >
+                    <svg className="h-5 w-5 shrink-0 text-rose-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 10v6m0 0l-3-3m3 3l3-3m2 8H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    View submission
+                  </button>
                 </div>
               )}
             </div>

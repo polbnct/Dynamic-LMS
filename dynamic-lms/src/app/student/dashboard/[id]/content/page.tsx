@@ -420,8 +420,8 @@ export default function StudentContentPage() {
                         key={lesson.id}
                         className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-4 sm:p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-gray-200 opacity-80"}`}
                       >
-                        <div className="flex flex-col gap-2">
-                          <div className="w-full">
+                        <div className="flex flex-col gap-4">
+                          <div className="min-w-0 w-full">
                             <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}
                             >{lesson.title}</h3>
                             {!isUnlocked && (
@@ -435,16 +435,18 @@ export default function StudentContentPage() {
                               <p className="text-gray-600 mb-4 break-words">{lesson.description}</p>
                             )}
                             {isUnlocked && (
-                              <div className="mb-4">
+                              <div className="mb-1">
                                 <button
                                   type="button"
                                   onClick={() => toggleLessonSummary(lesson)}
-                                  className="inline-flex items-center gap-2 text-sm font-semibold text-red-700 hover:text-red-800"
+                                  className="inline-flex w-fit max-w-full items-center gap-2 text-left text-sm font-semibold text-red-700 hover:text-red-800"
                                 >
-                                  <svg className={`w-4 h-4 transition-transform ${expandedLessonIds.has(lesson.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <svg className={`h-4 w-4 shrink-0 transition-transform ${expandedLessonIds.has(lesson.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   </svg>
-                                  {expandedLessonIds.has(lesson.id) ? "Hide lesson summary" : "Show lesson summary"}
+                                  <span className="min-w-0 whitespace-normal">
+                                    {expandedLessonIds.has(lesson.id) ? "Hide lesson summary" : "Show lesson summary"}
+                                  </span>
                                 </button>
                                 {expandedLessonIds.has(lesson.id) && (
                                   <div className="mt-3 p-4 rounded-xl border border-red-100 bg-red-50/60">
@@ -467,54 +469,58 @@ export default function StudentContentPage() {
                                 )}
                               </div>
                             )}
-                            </div>
-                            
-                            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
-                              <div className="w-full sm:w-auto">
-                              {lesson.pdfUrl && (
-                                isUnlocked ? (
-                                  <a
-                                    href={lesson.pdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-100 text-gray-800 hover:bg-gray-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm border border-gray-300"
-                                  >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                    </svg>
-                                    View PDF
-                                    {lesson.pdfFileName && <span className="text-gray-500 font-normal truncate">({lesson.pdfFileName})</span>}
-                                  </a>
-                                ) : (
-                                  <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm border border-gray-300 cursor-not-allowed">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                    View PDF (locked)
-                                  </span>
-                                )
-                              )}
-                            </div>
+                          </div>
 
-                            <div className="w-full sm:w-auto">
-                              {isUnlocked ? (
-                                <button
-                                  onClick={() => handleStudyAid(lesson)}
-                                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
+                          {/* Full-width row below copy: avoids flex-1/min-w-0 crushing the summary next to a fixed sidebar */}
+                          <div className="flex w-full flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
+                            {lesson.pdfUrl &&
+                              (isUnlocked ? (
+                                <a
+                                  href={lesson.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:min-w-[12rem] sm:max-w-md sm:flex-initial"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                   </svg>
-                                  Study Aid
-                                </button>
+                                  <span className="min-w-0 truncate">
+                                    View PDF
+                                    {lesson.pdfFileName && (
+                                      <span className="font-normal text-gray-500"> ({lesson.pdfFileName})</span>
+                                    )}
+                                  </span>
+                                </a>
                               ) : (
-                                <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm cursor-not-allowed">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                  Study Aid (locked)
+                                <span className="inline-flex h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:min-w-[12rem] sm:max-w-md sm:flex-initial">
+                                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  </svg>
+                                  View PDF (locked)
                                 </span>
-                              )}
-                              </div>
-                            </div>
+                              ))}
+                            {isUnlocked ? (
+                              <button
+                                type="button"
+                                onClick={() => handleStudyAid(lesson)}
+                                className="inline-flex h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:w-56 sm:flex-none"
+                              >
+                                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                </svg>
+                                Study Aid
+                              </button>
+                            ) : (
+                              <span className="inline-flex h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:w-56 sm:flex-none">
+                                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                Study Aid (locked)
+                              </span>
+                            )}
                           </div>
                         </div>
+                      </div>
                     ); })}
                   </div>
                 </div>

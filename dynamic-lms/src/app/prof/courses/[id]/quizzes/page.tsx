@@ -14,6 +14,37 @@ import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import QuizMonitoringModal from "@/components/quiz/QuizMonitoringModal";
 
+const BANK_ADD_FADE_MS = 300;
+
+/** Fade in on mount when `active` (used when a row is newly added to the selected list). */
+function FadeInSelectedRow({
+  active,
+  className,
+  children,
+}: {
+  active: boolean;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const [visible, setVisible] = useState(() => !active);
+  useEffect(() => {
+    if (!active) return;
+    const id = requestAnimationFrame(() => {
+      requestAnimationFrame(() => setVisible(true));
+    });
+    return () => cancelAnimationFrame(id);
+  }, [active]);
+  return (
+    <li
+      className={`transition-opacity duration-300 ease-out ${className ?? ""} ${
+        active ? (visible ? "opacity-100" : "opacity-0") : "opacity-100"
+      }`}
+    >
+      {children}
+    </li>
+  );
+}
+
 const MANILA_OFFSET_MS = 8 * 60 * 60 * 1000;
 
 function manilaInputToUtcIso(input: string): string | null {
@@ -95,7 +126,8 @@ export default function QuizzesPage() {
   const [bankQuestionFilter, setBankQuestionFilter] = useState<"all" | QuestionType>("all");
   const [bankSourceFilter, setBankSourceFilter] = useState<"all" | "manual" | string>("all");
   const [deletingQuestionId, setDeletingQuestionId] = useState<string | null>(null);
-  const [mobileQuestionBankOpen, setMobileQuestionBankOpen] = useState(false);
+  const [bankFadeOutIds, setBankFadeOutIds] = useState<Record<string, true>>({});
+  const [selectedFadeInId, setSelectedFadeInId] = useState<string | null>(null);
 
   // Create question form
   const [newQuestion, setNewQuestion] = useState({
@@ -114,6 +146,8 @@ export default function QuizzesPage() {
   // Retake management state (now shown inside the Edit Quiz modal)
   const [retakeRows, setRetakeRows] = useState<any[]>([]);
   const [retakeLoading, setRetakeLoading] = useState(false);
+  const [editQuizTab, setEditQuizTab] = useState<"settings" | "question_bank" | "retakes">("settings");
+  const [grantingAllRetakes, setGrantingAllRetakes] = useState(false);
   const { handledCourses } = useProfessorCourses();
 
   useSyncMessagesToToast(error, success);
@@ -223,14 +257,89 @@ export default function QuizzesPage() {
     });
   }, [filteredBank, bankQuestionFilter, bankSourceFilter]);
 
+  const selectedQuestionsByType = useMemo(
+    () => ({
+      multiple_choice: selectedQuestions.filter((q) => q.type === "multiple_choice"),
+      fill_blank: selectedQuestions.filter((q) => q.type === "fill_blank"),
+      true_false: selectedQuestions.filter((q) => q.type === "true_false"),
+    }),
+    [selectedQuestions]
+  );
+
+  const selectedQuestionIds = useMemo(
+    () => new Set(selectedQuestions.map((q) => q.id)),
+    [selectedQuestions]
+  );
+
+  /** Bank lists exclude questions already on the quiz; they only appear under Selected Questions. */
+  const availableBankByType = useMemo(() => {
+    const avail = displayedBank.filter((q) => !selectedQuestionIds.has(q.id));
+    return {
+      multiple_choice: avail.filter((q) => q.type === "multiple_choice"),
+      fill_blank: avail.filter((q) => q.type === "fill_blank"),
+      true_false: avail.filter((q) => q.type === "true_false"),
+    };
+  }, [displayedBank, selectedQuestionIds]);
+
+  const availableBankCount = useMemo(
+    () => displayedBank.filter((q) => !selectedQuestionIds.has(q.id)).length,
+    [displayedBank, selectedQuestionIds]
+  );
+
   const handleQuestionSelect = (question: Question) => {
-    if (!selectedQuestions.find((q) => q.id === question.id)) {
-      setSelectedQuestions([...selectedQuestions, question]);
-    }
+    setSelectedQuestions((prev) => {
+      if (prev.some((q) => q.id === question.id)) return prev;
+      return [...prev, question];
+    });
+  };
+
+  const handleAddFromBankWithFade = (question: Question) => {
+    if (bankFadeOutIds[question.id] || selectedQuestionIds.has(question.id)) return;
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setBankFadeOutIds((prev) => ({ ...prev, [question.id]: true }));
+      });
+    });
+    window.setTimeout(() => {
+      handleQuestionSelect(question);
+      setSelectedFadeInId(question.id);
+      window.setTimeout(() => setSelectedFadeInId((id) => (id === question.id ? null : id)), 400);
+      setBankFadeOutIds((prev) => {
+        const next = { ...prev };
+        delete next[question.id];
+        return next;
+      });
+    }, BANK_ADD_FADE_MS);
   };
 
   const handleQuestionRemove = (questionId: string) => {
     setSelectedQuestions(selectedQuestions.filter((q) => q.id !== questionId));
+  };
+
+  const openQuestionEditor = (question: Question) => {
+    if (deletingQuestionId === question.id) return;
+    setEditingBankQuestion(question);
+    setNewQuestion({
+      type: question.type as QuestionType,
+      question: question.question,
+      options:
+        question.type === "multiple_choice"
+          ? (question.options?.length ? question.options : ["", "", "", ""])
+          : ["", "", "", ""],
+      correctAnswer:
+        question.type === "multiple_choice"
+          ? (typeof question.correctAnswer === "number"
+              ? question.correctAnswer
+              : Number(question.correctAnswer) || 0)
+          : 0,
+      trueFalseAnswer:
+        question.type === "true_false" ? Boolean(question.correctAnswer) : true,
+      fillBlankAnswer:
+        question.type === "fill_blank" ? String(question.correctAnswer ?? "") : "",
+      source: question.source || "",
+      sourceType: question.sourceType || "lesson",
+    });
+    setCreateQuestionModalOpen(true);
   };
 
   const handleGenerateQuiz = () => {
@@ -422,6 +531,23 @@ export default function QuizzesPage() {
       return;
     }
 
+    const maxAttemptsForSave = quizMaxAttempts.trim()
+      ? Math.min(10, Math.max(1, Math.round(Number(quizMaxAttempts.trim()))))
+      : null;
+    if (quizMaxAttempts.trim() && !Number.isFinite(maxAttemptsForSave as number)) {
+      setError("Max takes must be a number from 1 to 10, or leave blank for unlimited.");
+      return;
+    }
+
+    const pointsRaw = quizPointsPerQuestion.trim();
+    const pointsPerQuestionForSave = pointsRaw
+      ? Math.min(100, Math.max(1, Math.round(Number(pointsRaw))))
+      : 10;
+    if (pointsRaw && !Number.isFinite(pointsPerQuestionForSave)) {
+      setError("Points per question must be a number from 1 to 100.");
+      return;
+    }
+
     try {
       if (editingQuiz) {
         await updateQuiz(editingQuiz.id, {
@@ -429,10 +555,8 @@ export default function QuizzesPage() {
           type: quizType,
           category: quizCategory,
           due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) : null,
-          max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
-          points_per_question: quizPointsPerQuestion.trim()
-            ? Number(quizPointsPerQuestion)
-            : 10,
+          max_attempts: maxAttemptsForSave,
+          points_per_question: pointsPerQuestionForSave,
           reveal_correct_answers: quizRevealCorrectAnswers,
         });
         await setQuizQuestions(editingQuiz.id, questionIds);
@@ -460,10 +584,8 @@ export default function QuizzesPage() {
           type: quizType,
           category: quizCategory,
           due_date: quizDueDate.trim() ? manilaInputToUtcIso(quizDueDate.trim()) ?? undefined : undefined,
-          max_attempts: quizMaxAttempts.trim() ? Number(quizMaxAttempts) : null,
-          points_per_question: quizPointsPerQuestion.trim()
-            ? Number(quizPointsPerQuestion)
-            : 10,
+          max_attempts: maxAttemptsForSave,
+          points_per_question: pointsPerQuestionForSave,
           reveal_correct_answers: quizRevealCorrectAnswers,
         },
         questionIds
@@ -511,9 +633,12 @@ export default function QuizzesPage() {
     setSelectedQuestions([]);
     setRetakeRows([]);
     setRetakeLoading(false);
+    setEditQuizTab("settings");
+    setGrantingAllRetakes(false);
     setError("");
     setSuccess("");
-    setMobileQuestionBankOpen(false);
+    setBankFadeOutIds({});
+    setSelectedFadeInId(null);
   };
 
   const renderQuizAdvancedOptions = () => (
@@ -560,57 +685,166 @@ export default function QuizzesPage() {
           id="quizMaxAttempts"
           type="number"
           min={1}
+          max={10}
           value={quizMaxAttempts}
-          onChange={(e) => setQuizMaxAttempts(e.target.value)}
+          onChange={(e) => {
+            const raw = e.target.value;
+            if (raw === "") {
+              setQuizMaxAttempts("");
+              return;
+            }
+            const n = Number(raw);
+            if (!Number.isFinite(n)) {
+              setQuizMaxAttempts(raw);
+              return;
+            }
+            const clamped = Math.min(10, Math.max(1, Math.round(n)));
+            setQuizMaxAttempts(String(clamped));
+          }}
           placeholder="1"
           className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white max-lg:min-h-10 max-lg:py-2.5 max-lg:text-base"
         />
-        <p className="text-xs text-gray-500 mt-1">Set to blank for unlimited attempts.</p>
+        <p className="text-xs text-gray-500 mt-1">1–10 takes, or leave blank for unlimited.</p>
       </div>
     </>
   );
 
-  const renderQuestionBankPanel = () => (
-    <>
-      <div className="shrink-0 border-b border-gray-200/80 bg-white/95 px-3 py-2 shadow-sm backdrop-blur-sm sm:px-4 lg:p-4">
-        <div className="flex items-start gap-2">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-sm font-bold tracking-tight text-gray-900 lg:text-lg">Question bank</h3>
-            <p className="mt-0.5">
-              <span className="inline-flex items-center rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
-                {displayedBank.length} match{displayedBank.length !== 1 ? "es" : ""}
-              </span>
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => {
-              setEditingBankQuestion(null);
-              setNewQuestion({
-                type: "multiple_choice",
-                question: "",
-                options: ["", "", "", ""],
-                correctAnswer: 0,
-                trueFalseAnswer: true,
-                fillBlankAnswer: "",
-                source: "",
-                sourceType: "lesson",
-              });
-              setCreateQuestionModalOpen(true);
-            }}
-            className="shrink-0 rounded-lg border border-rose-200 bg-white px-2.5 py-1.5 text-xs font-semibold text-rose-700 shadow-sm transition hover:border-rose-300 hover:bg-rose-50"
-          >
-            + Create
-          </button>
-        </div>
+  const renderQuestionBankPanel = (options?: { compact?: boolean }) => {
+    const compact = options?.compact ?? false;
 
-        <div className="mt-2 flex flex-col gap-2 lg:mt-3 lg:gap-2">
+    const openCreateQuestion = () => {
+      setEditingBankQuestion(null);
+      setNewQuestion({
+        type: "multiple_choice",
+        question: "",
+        options: ["", "", "", ""],
+        correctAnswer: 0,
+        trueFalseAnswer: true,
+        fillBlankAnswer: "",
+        source: "",
+        sourceType: "lesson",
+      });
+      setCreateQuestionModalOpen(true);
+    };
+
+    const bankGroups = [
+      { key: "multiple_choice" as const, label: "Multiple Choice", items: availableBankByType.multiple_choice },
+      { key: "fill_blank" as const, label: "Fill in the Blank", items: availableBankByType.fill_blank },
+      { key: "true_false" as const, label: "True or False", items: availableBankByType.true_false },
+    ];
+
+    const renderBankRow = (question: Question, idx: number) => {
+      const fading = Boolean(bankFadeOutIds[question.id]);
+      return (
+        <li
+          key={question.id}
+          className={`border-b border-gray-100 transition-opacity duration-300 ease-out last:border-b-0 ${
+            fading ? "pointer-events-none opacity-0" : "opacity-100"
+          }`}
+        >
+          <div className="px-3 py-2.5">
+            <div className="flex gap-2">
+              <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-[11px] font-semibold text-gray-700">
+                {idx + 1}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs leading-snug text-gray-900 sm:text-sm sm:leading-6 break-words">{question.question}</p>
+                {question.source && (
+                  <p className="mt-1 text-[11px] text-gray-500 sm:text-xs">
+                    {question.sourceType === "lesson" ? "Lesson source" : "PDF source"}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 pl-8">
+              <button
+                type="button"
+                onClick={() => openQuestionEditor(question)}
+                disabled={fading}
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 sm:px-2.5 sm:text-xs"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (deletingQuestionId) return;
+                  if (!confirm("Delete this question? This cannot be undone.")) return;
+                  try {
+                    setDeletingQuestionId(question.id);
+                    await deleteQuestion(question.id);
+                    setQuizBank((prev) => prev.filter((q) => q.id !== question.id));
+                    setFilteredBank((prev) => prev.filter((q) => q.id !== question.id));
+                    setSelectedQuestions((prev) => prev.filter((q) => q.id !== question.id));
+                    setSuccess("Question deleted.");
+                    setTimeout(() => setSuccess(""), 2500);
+                  } catch (err: any) {
+                    console.error("Error deleting question:", err);
+                    setError(err?.message || "Failed to delete question.");
+                  } finally {
+                    setDeletingQuestionId(null);
+                  }
+                }}
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:border-red-200 hover:bg-red-50 hover:text-red-800 disabled:opacity-50 sm:px-2.5 sm:text-xs"
+                disabled={deletingQuestionId === question.id || fading}
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                onClick={() => handleAddFromBankWithFade(question)}
+                disabled={fading}
+                className="rounded-md border border-red-600 bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-700 disabled:opacity-40 sm:px-2.5 sm:text-xs"
+              >
+                Add
+              </button>
+            </div>
+          </div>
+        </li>
+      );
+    };
+
+    const categorySectionClass =
+      "flex min-h-0 flex-col overflow-hidden rounded-xl border border-gray-200 bg-white";
+
+    const categoriesWrapperClass = compact
+      ? "flex min-h-0 flex-1 flex-row gap-3 overflow-x-auto overflow-y-hidden pb-1 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory"
+      : [
+          "flex min-h-0 flex-1 flex-row gap-3 overflow-x-auto overflow-y-hidden pb-1 [-webkit-overflow-scrolling:touch] snap-x snap-mandatory",
+          "md:grid md:grid-cols-3 md:gap-3 md:overflow-x-visible md:overflow-y-visible md:snap-none",
+        ].join(" ");
+
+    const categorySectionWidthClass = compact
+      ? "w-[min(100%,280px)] min-w-[240px] max-w-[280px] shrink-0 snap-start"
+      : "min-w-[260px] max-w-[min(100%,340px)] shrink-0 snap-start md:min-w-0 md:max-w-none md:w-auto md:shrink md:snap-none";
+
+    return (
+      <div className="flex min-h-0 flex-1 flex-col overflow-hidden bg-white">
+        <div className="shrink-0 space-y-3 px-4 pb-3 pt-4">
+          <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+            <div className="flex items-center justify-between gap-3">
+              <h3 className="text-base font-semibold text-gray-900">Question bank</h3>
+              <div className="flex items-center gap-2">
+                <span className="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+                  {availableBankCount} available
+                </span>
+                <button
+                  type="button"
+                  onClick={openCreateQuestion}
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                >
+                  Create
+                </button>
+              </div>
+            </div>
+          </div>
+
           <button
             type="button"
             onClick={handleGenerateQuiz}
-            className="flex min-h-9 w-full items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:shadow-md active:scale-[0.99] lg:min-h-0 lg:py-2.5 lg:text-sm lg:hover:-translate-y-0.5"
+            className="flex w-full min-h-9 items-center justify-center gap-2 rounded-lg border border-red-700 bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
           >
-            <svg className="h-4 w-4 shrink-0 lg:h-5 lg:w-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 strokeLinecap="round"
                 strokeLinejoin="round"
@@ -621,253 +855,84 @@ export default function QuizzesPage() {
             <span className="truncate">Generate more</span>
           </button>
 
-          <details className="group overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm open:shadow-md open:ring-1 open:ring-rose-100/80">
-            <summary className="flex min-h-9 cursor-pointer list-none items-center justify-between gap-2 px-3 py-2 text-xs font-semibold text-gray-800 transition hover:bg-gray-50 [&::-webkit-details-marker]:hidden lg:py-2.5 lg:text-sm">
-              <span className="inline-flex items-center gap-1.5">
-                <svg className="h-3.5 w-3.5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z"
-                  />
-                </svg>
-                Filters
-              </span>
-              <svg
-                className="h-4 w-4 shrink-0 text-gray-500 transition-transform group-open:rotate-180"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Question type</label>
+              <select
+                value={bankQuestionFilter}
+                onChange={(e) => setBankQuestionFilter(e.target.value as "all" | QuestionType)}
+                className="w-full rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-              </svg>
-            </summary>
-            <div className="space-y-2.5 border-t border-gray-100 bg-gray-50/90 p-3">
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Question type
-                </label>
-                <select
-                  value={bankQuestionFilter}
-                  onChange={(e) => setBankQuestionFilter(e.target.value as "all" | QuestionType)}
-                  className="w-full rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 shadow-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
-                >
-                  <option value="all">All types</option>
-                  <option value="multiple_choice">Multiple Choice</option>
-                  <option value="true_false">True or False</option>
-                  <option value="fill_blank">Fill in the Blank</option>
-                </select>
-              </div>
-              <div>
-                <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wide text-gray-500">
-                  Source
-                </label>
-                <select
-                  value={bankSourceFilter}
-                  onChange={(e) => setBankSourceFilter(e.target.value)}
-                  className="w-full min-w-0 max-w-full truncate rounded-lg border border-gray-200 bg-white px-2.5 py-2 text-sm text-gray-900 shadow-sm focus:border-red-400 focus:outline-none focus:ring-2 focus:ring-red-500/30"
-                >
-                  <option value="all">All sources</option>
-                  <option value="manual">Created manually (no lesson)</option>
-                  {sourceFilterOptions.map((sourceOpt) => (
-                    <option key={sourceOpt.id} value={sourceOpt.id}>
-                      Lesson: {sourceOpt.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                <option value="all">All types</option>
+                <option value="multiple_choice">Multiple Choice</option>
+                <option value="true_false">True or False</option>
+                <option value="fill_blank">Fill in the Blank</option>
+              </select>
             </div>
-          </details>
-        </div>
-      </div>
-
-      <div className="flex min-h-0 flex-1 flex-col px-2 pb-2 pt-1.5 sm:px-3 lg:p-4 lg:pt-2">
-        <div className="mb-1.5 shrink-0 px-0.5">
-          <span className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Browse</span>
-        </div>
-        <div className="min-h-0 flex-1 space-y-2 overflow-y-auto overscroll-y-contain rounded-xl border border-gray-200/90 bg-white/95 p-2 shadow-inner [-webkit-overflow-scrolling:touch] [scrollbar-color:rgba(0,0,0,0.2)_transparent] [scrollbar-width:thin] lg:max-h-[min(calc(90vh-14rem),32rem)] [&::-webkit-scrollbar]:w-1.5 [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300">
-          {displayedBank.length === 0 ? (
-            <div className="py-8 text-center text-gray-500">
-              <p>No questions in quiz bank for this type.</p>
-              <button
-                type="button"
-                onClick={() => {
-                  setEditingBankQuestion(null);
-                  setNewQuestion({
-                    type: "multiple_choice",
-                    question: "",
-                    options: ["", "", "", ""],
-                    correctAnswer: 0,
-                    trueFalseAnswer: true,
-                    fillBlankAnswer: "",
-                    source: "",
-                    sourceType: "lesson",
-                  });
-                  setCreateQuestionModalOpen(true);
-                }}
-                className="mt-4 text-sm font-medium text-red-600 hover:text-red-700"
+            <div>
+              <label className="mb-1 block text-xs font-medium text-gray-600">Source</label>
+              <select
+                value={bankSourceFilter}
+                onChange={(e) => setBankSourceFilter(e.target.value)}
+                className="w-full min-w-0 max-w-full truncate rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
               >
-                Create one now
+                <option value="all">All sources</option>
+                <option value="manual">Created manually (no lesson)</option>
+                {sourceFilterOptions.map((sourceOpt) => (
+                  <option key={sourceOpt.id} value={sourceOpt.id}>
+                    Lesson: {sourceOpt.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+        </div>
+
+        <div
+          className={`min-h-0 flex-1 px-4 pb-4 ${compact ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]"}`}
+        >
+          {displayedBank.length === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-8 text-center">
+              <p className="text-sm text-gray-600">No questions match the current filters.</p>
+              <button type="button" onClick={openCreateQuestion} className="mt-3 text-sm font-medium text-red-600 hover:text-red-700">
+                Create a question
               </button>
             </div>
+          ) : availableBankCount === 0 ? (
+            <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-8 text-center">
+              <p className="text-sm text-gray-600">All matching questions are already in this quiz.</p>
+              <p className="mt-1 text-xs text-gray-500">Remove items from Selected Questions to add them back to the bank.</p>
+            </div>
           ) : (
-            displayedBank.map((question) => {
-              const isSelected = selectedQuestions.some((q) => q.id === question.id);
-              return (
-                <div
-                  key={question.id}
-                  className={`cursor-pointer rounded-xl border p-3 transition-all sm:p-3.5 ${
-                    isSelected
-                      ? "border-red-300 bg-red-100"
-                      : "border-gray-200 bg-white hover:border-red-300 hover:shadow-md"
-                  }`}
-                  onClick={() => !isSelected && handleQuestionSelect(question)}
+            <div className={categoriesWrapperClass}>
+              {bankGroups.map((group) => (
+                <section
+                  key={group.key}
+                  className={`${categorySectionClass} ${categorySectionWidthClass} h-[min(320px,48vh)] md:h-[min(380px,52vh)]`}
                 >
-                  <div className="mb-2 flex items-center gap-2">
-                    <span className="rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-700">
-                      {question.type.replace("_", " ")}
+                  <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2.5">
+                    <h4 className="text-xs font-semibold text-gray-800 sm:text-sm">{group.label}</h4>
+                    <span className="rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700 sm:text-xs">
+                      {group.items.length}
                     </span>
-                    {isSelected && (
-                      <span className="rounded bg-green-100 px-2 py-1 text-xs font-semibold text-green-700">
-                        Selected
-                      </span>
-                    )}
-                    <button
-                      type="button"
-                      onClick={async (e) => {
-                        e.stopPropagation();
-                        if (deletingQuestionId) return;
-                        if (!confirm("Delete this question? This cannot be undone.")) return;
-                        try {
-                          setDeletingQuestionId(question.id);
-                          await deleteQuestion(question.id);
-                          setQuizBank((prev) => prev.filter((q) => q.id !== question.id));
-                          setFilteredBank((prev) => prev.filter((q) => q.id !== question.id));
-                          setSelectedQuestions((prev) => prev.filter((q) => q.id !== question.id));
-                          setSuccess("Question deleted.");
-                          setTimeout(() => setSuccess(""), 2500);
-                        } catch (err: any) {
-                          console.error("Error deleting question:", err);
-                          setError(err?.message || "Failed to delete question.");
-                        } finally {
-                          setDeletingQuestionId(null);
-                        }
-                      }}
-                      className="ml-auto rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600 disabled:cursor-not-allowed disabled:opacity-50"
-                      title="Delete question"
-                      disabled={deletingQuestionId === question.id}
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                        />
-                      </svg>
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        if (deletingQuestionId === question.id) return;
-                        setEditingBankQuestion(question);
-                        setNewQuestion({
-                          type: question.type as QuestionType,
-                          question: question.question,
-                          options:
-                            question.type === "multiple_choice"
-                              ? (question.options?.length ? question.options : ["", "", "", ""])
-                              : ["", "", "", ""],
-                          correctAnswer:
-                            question.type === "multiple_choice"
-                              ? (typeof question.correctAnswer === "number"
-                                  ? question.correctAnswer
-                                  : Number(question.correctAnswer) || 0)
-                              : 0,
-                          trueFalseAnswer:
-                            question.type === "true_false" ? Boolean(question.correctAnswer) : true,
-                          fillBlankAnswer:
-                            question.type === "fill_blank" ? String(question.correctAnswer ?? "") : "",
-                          source: question.source || "",
-                          sourceType: question.sourceType || "lesson",
-                        });
-                        setCreateQuestionModalOpen(true);
-                      }}
-                      className="rounded-lg p-1.5 text-gray-500 transition-colors hover:bg-red-50 hover:text-red-600"
-                      title="Edit question"
-                    >
-                      <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"
-                        />
-                      </svg>
-                    </button>
                   </div>
-                  <p className="mb-2 break-words whitespace-normal text-sm font-medium text-gray-800">{question.question}</p>
-                  {question.type === "multiple_choice" && question.options && (
-                    <div className="mt-2 space-y-1">
-                      {question.options.map((opt, idx) => (
-                        <div key={idx} className="flex items-center gap-2 text-xs text-gray-600 min-w-0">
-                          <span className="flex h-4 w-4 items-center justify-center rounded-full bg-gray-300 text-xs text-white">
-                            {String.fromCharCode(65 + idx)}
-                          </span>
-                          <span className={`min-w-0 line-clamp-4 ${idx === question.correctAnswer ? "font-semibold text-green-600" : ""}`}>
-                            {opt}
-                          </span>
-                          {idx === question.correctAnswer && (
-                            <svg className="h-3 w-3 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M5 13l4 4L19 7"
-                              />
-                            </svg>
-                          )}
-                        </div>
-                      ))}
+                  {group.items.length === 0 ? (
+                    <div className="flex min-h-0 flex-1 items-center px-3 py-4">
+                      <p className="text-xs text-gray-500 sm:text-sm">No questions for this filter.</p>
                     </div>
+                  ) : (
+                    <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
+                      {group.items.map((q, idx) => renderBankRow(q, idx))}
+                    </ul>
                   )}
-                  {question.type === "true_false" && (
-                    <p className="mt-2 text-xs text-gray-600">
-                      Correct Answer: <span className="font-semibold">{question.correctAnswer ? "True" : "False"}</span>
-                    </p>
-                  )}
-                  {question.type === "fill_blank" && (
-                    <p className="mt-2 text-xs text-gray-600">
-                      Answer: <span className="font-semibold">{question.correctAnswer as string}</span>
-                    </p>
-                  )}
-                  {question.source && (
-                    <p className="mt-2 text-xs text-gray-500">
-                      From: {question.sourceType === "lesson" ? "Lesson" : "PDF"}
-                    </p>
-                  )}
-                  {!isSelected && (
-                    <button
-                      type="button"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleQuestionSelect(question);
-                      }}
-                      className="mt-3 w-full rounded-lg bg-red-600 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-700"
-                    >
-                      Add to Quiz
-                    </button>
-                  )}
-                </div>
-              );
-            })
+                </section>
+              ))}
+            </div>
           )}
         </div>
       </div>
-    </>
-  );
+    );
+  };
 
   if (loading) {
     return (
@@ -948,6 +1013,7 @@ export default function QuizzesPage() {
                 setQuizPointsPerQuestion("10");
                 setQuizRevealCorrectAnswers(false);
                 setSelectedQuestions([]);
+                setEditQuizTab("settings");
                 setCreateQuizModalOpen(true);
               }}
               className="w-full sm:w-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 hover:from-red-700 hover:to-rose-700 cursor-pointer"
@@ -1066,10 +1132,19 @@ export default function QuizzesPage() {
                         setQuizType(quiz.type ?? "mixed");
                         setQuizCategory(quiz.category ?? "prelim");
                         setQuizDueDate(quiz.due_date ? utcIsoToManilaInput(quiz.due_date) : "");
-                        setQuizMaxAttempts(quiz.max_attempts != null ? String(quiz.max_attempts) : "");
+                        setQuizMaxAttempts(
+                          quiz.max_attempts != null
+                            ? String(Math.min(10, Math.max(1, Math.round(Number(quiz.max_attempts)))))
+                            : ""
+                        );
                         setQuizPointsPerQuestion(
                           (quiz as any).points_per_question != null
-                            ? String((quiz as any).points_per_question)
+                            ? String(
+                                Math.min(
+                                  100,
+                                  Math.max(1, Math.round(Number((quiz as any).points_per_question)))
+                                )
+                              )
                             : "10"
                         );
                         setQuizRevealCorrectAnswers(Boolean((quiz as any).reveal_correct_answers));
@@ -1085,6 +1160,7 @@ export default function QuizzesPage() {
                             createdAt: q.created_at,
                           })) ?? []
                         );
+                        setEditQuizTab("settings");
                         setCreateQuizModalOpen(true);
 
                         // Load retake rows for this quiz to manage inside the edit modal
@@ -1182,10 +1258,51 @@ export default function QuizzesPage() {
               </button>
             </div>
 
+            <div className="border-b border-gray-200 px-3 sm:px-6 pt-2">
+              <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                <button
+                  type="button"
+                  onClick={() => setEditQuizTab("settings")}
+                  className={`px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    editQuizTab === "settings"
+                      ? "text-red-700 border-red-600"
+                      : "text-gray-600 border-transparent hover:text-red-600"
+                  }`}
+                >
+                  Quiz Settings
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditQuizTab("question_bank")}
+                  className={`px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    editQuizTab === "question_bank"
+                      ? "text-red-700 border-red-600"
+                      : "text-gray-600 border-transparent hover:text-red-600"
+                  }`}
+                >
+                  Question Bank
+                </button>
+                {editingQuiz && (
+                  <button
+                    type="button"
+                    onClick={() => setEditQuizTab("retakes")}
+                    className={`px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                      editQuizTab === "retakes"
+                        ? "text-red-700 border-red-600"
+                        : "text-gray-600 border-transparent hover:text-red-600"
+                    }`}
+                  >
+                    Manage Retakes
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Modal Content */}
-            <div className="flex min-h-0 flex-1 flex-col overflow-hidden lg:flex-row">
-              {/* Main: full scroll on mobile (bank opens in its own overlay); sidebar unchanged on lg */}
-              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6 pb-6 sm:pb-6 max-lg:flex-1 max-lg:min-h-0 max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch] lg:max-h-none">
+            <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
+              <div className="min-h-0 flex-1 overflow-y-auto p-3 sm:p-6 pb-6 sm:pb-6 max-lg:min-h-0 max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
+                {editQuizTab === "settings" && (
+                  <>
                 {/* Quiz Name and Type */}
                 <div className="mb-4 space-y-3 max-lg:space-y-2.5 lg:mb-6 lg:space-y-4">
                   <div>
@@ -1247,13 +1364,27 @@ export default function QuizzesPage() {
                       id="quizPointsPerQuestion"
                       type="number"
                       min={1}
+                      max={100}
                       value={quizPointsPerQuestion}
-                      onChange={(e) => setQuizPointsPerQuestion(e.target.value)}
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        if (raw === "") {
+                          setQuizPointsPerQuestion("");
+                          return;
+                        }
+                        const n = Number(raw);
+                        if (!Number.isFinite(n)) {
+                          setQuizPointsPerQuestion(raw);
+                          return;
+                        }
+                        const clamped = Math.min(100, Math.max(1, Math.round(n)));
+                        setQuizPointsPerQuestion(String(clamped));
+                      }}
                       placeholder="10"
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white max-lg:min-h-11 max-lg:text-base"
                     />
                     <p className="mt-1 text-xs text-gray-500">
-                      Used to compute total quiz score (points × number of items).
+                      1–100 points per item. Total score = points × number of questions. Leave blank to use 10.
                     </p>
                   </div>
 
@@ -1283,185 +1414,277 @@ export default function QuizzesPage() {
 
                 {/* Selected Questions Section */}
                 <div className="mb-6">
-                  <div className="flex items-center justify-between mb-4 gap-2 min-w-0">
-                    <h3 className="text-lg font-bold text-gray-800 truncate">
-                      Selected Questions ({selectedQuestions.length})
-                    </h3>
-                    {selectedQuestions.length > 0 && (
-                      <button
-                        onClick={() => setSelectedQuestions([])}
-                        className="shrink-0 text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium"
-                      >
-                        Clear All
-                      </button>
-                    )}
+                  <div className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Selected Questions</h3>
+                      <div className="flex items-center gap-2">
+                        <span className="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
+                          {selectedQuestions.length} total
+                        </span>
+                        {selectedQuestions.length > 0 && (
+                          <button
+                            onClick={() => setSelectedQuestions([])}
+                            className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium"
+                          >
+                            Clear all
+                          </button>
+                        )}
+                      </div>
+                    </div>
                   </div>
 
                   {selectedQuestions.length === 0 ? (
                     <div className="bg-gray-50 rounded-xl p-8 text-center">
-                      <p className="text-gray-500">No questions selected yet. Choose questions from the quiz bank.</p>
+                      <p className="text-gray-500">No questions selected yet. Open the Question Bank tab to add questions.</p>
                     </div>
                   ) : (
-                    <div className="space-y-3 max-h-[30vh] overflow-y-auto max-lg:max-h-[32vh] max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
-                      {selectedQuestions.map((question, index) => (
-                        <div
-                          key={question.id}
-                          className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start justify-between max-lg:flex-col max-lg:gap-2"
-                        >
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2 mb-2">
-                              <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded">
-                                {index + 1}
-                              </span>
-                              <span className="text-xs font-semibold text-red-700 bg-red-100 px-2 py-1 rounded">
-                                {question.type.replace("_", " ")}
-                              </span>
-                            </div>
-                            <p className="text-gray-800 font-medium break-words">{question.question}</p>
-                            {question.source && (
-                              <p className="text-xs text-gray-500 mt-1">
-                                From: {question.sourceType === "lesson" ? "Lesson" : "PDF"}
-                              </p>
-                            )}
+                    <div className="space-y-3">
+                      {[
+                        { key: "multiple_choice", label: "Multiple Choice", items: selectedQuestionsByType.multiple_choice },
+                        { key: "fill_blank", label: "Fill in the Blank", items: selectedQuestionsByType.fill_blank },
+                        { key: "true_false", label: "True or False", items: selectedQuestionsByType.true_false },
+                      ].map((group) => (
+                        <section key={group.key} className="rounded-xl border border-gray-200 bg-white h-[260px] flex flex-col">
+                          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
+                            <h4 className="text-sm font-semibold text-gray-800">{group.label}</h4>
+                            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-gray-700">
+                              {group.items.length}
+                            </span>
                           </div>
-                          <button
-                            type="button"
-                            onClick={() => handleQuestionRemove(question.id)}
-                            className="ml-4 shrink-0 p-2 text-red-600 hover:text-red-700 hover:bg-red-50 rounded-lg transition-colors max-lg:ml-0 max-lg:self-end max-lg:flex max-lg:h-11 max-lg:w-11 max-lg:items-center max-lg:justify-center"
-                            aria-label="Remove question"
-                          >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                strokeWidth={2}
-                                d="M6 18L18 6M6 6l12 12"
-                              />
-                            </svg>
-                          </button>
-                        </div>
+                          {group.items.length === 0 ? (
+                            <div className="flex-1 flex items-center px-4">
+                              <p className="text-sm text-gray-500">No selected questions in this category.</p>
+                            </div>
+                          ) : (
+                            <ul className="divide-y divide-gray-100 flex-1 overflow-y-auto max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
+                              {group.items.map((question, idx) => (
+                                <FadeInSelectedRow
+                                  key={question.id}
+                                  active={selectedFadeInId === question.id}
+                                  className="px-4 py-3"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-700">
+                                      {idx + 1}
+                                    </div>
+                                    <div className="min-w-0 flex-1">
+                                      <p className="text-sm leading-6 text-gray-900 break-words">
+                                        {question.question}
+                                      </p>
+                                      {question.source && (
+                                        <p className="mt-1 text-xs text-gray-500">
+                                          {question.sourceType === "lesson" ? "Lesson source" : "PDF source"}
+                                        </p>
+                                      )}
+                                    </div>
+                                    <div className="shrink-0 flex items-center gap-2">
+                                      <button
+                                        type="button"
+                                        onClick={() => openQuestionEditor(question)}
+                                        className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                                        title="Edit question"
+                                      >
+                                        Edit
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleQuestionRemove(question.id)}
+                                        className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
+                                        title="Remove question"
+                                      >
+                                        Remove
+                                      </button>
+                                    </div>
+                                  </div>
+                                </FadeInSelectedRow>
+                              ))}
+                            </ul>
+                          )}
+                        </section>
                       ))}
                     </div>
                   )}
                 </div>
 
-                <div className="mb-6 lg:hidden">
-                  <button
-                    type="button"
-                    onClick={() => setMobileQuestionBankOpen(true)}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border border-rose-200 bg-gradient-to-r from-rose-50 to-white px-4 py-3 text-sm font-semibold text-rose-800 shadow-sm transition hover:border-rose-300 hover:shadow"
-                  >
-                    <svg className="h-5 w-5 shrink-0 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        strokeWidth={2}
-                        d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"
-                      />
-                    </svg>
-                    Open question bank
-                    <span className="rounded-full bg-rose-100 px-2 py-0.5 text-xs font-bold text-rose-800">
-                      {displayedBank.length}
-                    </span>
-                  </button>
-                </div>
+                  </>
+                )}
+
+                {editQuizTab === "question_bank" && (
+                  <div className="flex min-h-[min(420px,58vh)] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
+                    {renderQuestionBankPanel({ compact: false })}
+                  </div>
+                )}
 
                 {/* Manage Retakes (only for editing an existing quiz) */}
-                {editingQuiz && (
-                  <div className="mb-6">
-                    <div className="flex items-center justify-between mb-3">
-                      <h3 className="text-lg font-bold text-gray-800">Manage Retakes</h3>
-                      {retakeLoading && (
-                        <span className="text-xs text-gray-500">Loading retakes…</span>
-                      )}
+                {editingQuiz && editQuizTab === "retakes" && (
+                  <div className="space-y-4">
+                    <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
+                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                        <div className="min-w-0">
+                          <h3 className="text-base font-semibold text-gray-900">Manage retakes</h3>
+                          <p className="mt-0.5 text-xs text-gray-500">
+                            Grant one extra attempt per student. Use bulk action to apply to everyone listed.
+                          </p>
+                        </div>
+                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                          {retakeLoading && (
+                            <span className="text-xs font-medium text-gray-500">Loading…</span>
+                          )}
+                          <button
+                            type="button"
+                            disabled={retakeLoading || grantingAllRetakes || retakeRows.length === 0}
+                            onClick={async () => {
+                              if (!editingQuiz || retakeRows.length === 0) return;
+                              try {
+                                setGrantingAllRetakes(true);
+                                await Promise.all(
+                                  retakeRows.map(async (r) => {
+                                    const res = await fetch("/api/quizzes/retakes/grant", {
+                                      method: "POST",
+                                      headers: { "Content-Type": "application/json" },
+                                      body: JSON.stringify({
+                                        quizId: editingQuiz.id,
+                                        studentId: r.studentDbId,
+                                        incrementBy: 1,
+                                      }),
+                                    });
+                                    const data = await res.json().catch(() => ({}));
+                                    if (!res.ok) throw new Error(data?.error || "Failed to grant retake");
+                                    return { studentDbId: r.studentDbId, extraAttempts: data.extra_attempts };
+                                  })
+                                );
+                                const refreshRes = await fetch("/api/quizzes/retakes/list", {
+                                  method: "POST",
+                                  headers: { "Content-Type": "application/json" },
+                                  body: JSON.stringify({ quizId: editingQuiz.id }),
+                                });
+                                const refreshData = await refreshRes.json().catch(() => ({}));
+                                if (refreshRes.ok) {
+                                  setRetakeRows(Array.isArray(refreshData?.rows) ? refreshData.rows : []);
+                                }
+                                setSuccess("Granted 1 retake to all students.");
+                                setTimeout(() => setSuccess(""), 2500);
+                              } catch (e: any) {
+                                console.error("Error granting all retakes:", e);
+                                setError(e.message || "Failed to grant all retakes.");
+                              } finally {
+                                setGrantingAllRetakes(false);
+                              }
+                            }}
+                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {grantingAllRetakes ? "Granting…" : "Grant all +1"}
+                          </button>
+                        </div>
+                      </div>
                     </div>
+
                     {retakeLoading ? (
-                      <div className="bg-gray-50 rounded-xl p-4 text-center text-gray-500">
-                        <div className="flex items-center justify-center gap-2">
-                          <div className="animate-spin rounded-full h-5 w-5 border-2 border-red-600 border-t-transparent" />
-                          <span>Loading retake data…</span>
+                      <div className="rounded-xl border border-gray-200 bg-gray-50 px-4 py-10 text-center">
+                        <div className="inline-flex items-center gap-3 text-sm font-medium text-gray-600">
+                          <div
+                            className="h-5 w-5 shrink-0 animate-spin rounded-full border-2 border-gray-300 border-t-red-600"
+                            aria-hidden
+                          />
+                          Loading students…
                         </div>
                       </div>
                     ) : retakeRows.length === 0 ? (
-                      <div className="bg-gray-50 rounded-xl p-4 text-sm text-gray-500">
-                        No students found for retake management.
+                      <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50/80 px-4 py-8 text-center">
+                        <p className="text-sm font-medium text-gray-700">No enrolled students</p>
+                        <p className="mt-1 text-xs text-gray-500">
+                          Students who can take this quiz will appear here for retake management.
+                        </p>
                       </div>
-                    ) : ( 
-                      <div className="max-h-[32vh] overflow-y-auto overscroll-y-contain rounded-xl border border-gray-200 bg-gray-50/40 p-2 max-lg:max-h-[28vh] max-lg:[-webkit-overflow-scrolling:touch]">
-                        {retakeRows.map((r) => (
-                          <div
-                            key={r.studentDbId}
-                            className="border border-gray-200 rounded-xl p-3 bg-gray-50/50 flex items-start justify-between gap-3 min-w-0"
-                          >
-                            <div className="min-w-0 flex-1">
-                              <p className="font-semibold text-gray-800 truncate max-lg:break-words max-lg:whitespace-normal">{r.name}</p>
-                              <p className="text-xs text-gray-600 truncate max-lg:break-all max-lg:whitespace-normal">{r.email}</p>
-                              <p className="text-xs text-gray-500 mt-1 leading-relaxed">
-                                Attempts used: {r.attemptsUsed} • Extra retakes: {r.extraAttempts} •{" "}
-                                {r.allowedAttempts == null
-                                  ? "Allowed: unlimited"
-                                  : `Allowed: ${r.allowedAttempts}`} •{" "}
-                                {r.remainingAttempts == null
-                                  ? "Remaining: unlimited"
-                                  : `Remaining: ${r.remainingAttempts}`}
-                              </p>
-                            </div>
-                            <button
-                              onClick={async () => {
-                                try {
-                                  const res = await fetch("/api/quizzes/retakes/grant", {
-                                    method: "POST",
-                                    headers: { "Content-Type": "application/json" },
-                                    body: JSON.stringify({
-                                      quizId: editingQuiz.id,
-                                      studentId: r.studentDbId,
-                                      incrementBy: 1,
-                                    }),
-                                  });
-                                  const data = await res.json().catch(() => ({}));
-                                  if (!res.ok) {
-                                    throw new Error(data?.error || "Failed to grant retake");
-                                  }
-                                  setRetakeRows((prev) =>
-                                    prev.map((x) =>
-                                      x.studentDbId === r.studentDbId
-                                        ? {
-                                            ...x,
-                                            extraAttempts: data.extra_attempts,
-                                            allowedAttempts:
-                                              x.maxAttempts == null
-                                                ? null
-                                                : x.maxAttempts + data.extra_attempts,
-                                            remainingAttempts:
-                                              x.maxAttempts == null
-                                                ? null
-                                                : Math.max(
-                                                    (x.maxAttempts + data.extra_attempts) - x.attemptsUsed,
-                                                    0
-                                                  ),
-                                          }
-                                        : x
-                                    )
-                                  );
-                                } catch (e: any) {
-                                  console.error("Error granting retake:", e);
-                                  setError(e.message || "Failed to grant retake");
-                                }
-                              }}
-                              className="shrink-0 self-start px-3 py-1.5 bg-red-600 text-white rounded-lg text-xs font-semibold hover:bg-red-700 sm:text-sm"
-                            >
-                              Grant retake
-                            </button>
+                    ) : (
+                      <div className="overflow-hidden rounded-xl border border-gray-200 bg-white">
+                        <div className="border-b border-gray-100 bg-gray-50 px-4 py-2.5">
+                          <div className="flex items-center justify-between gap-2">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                              Students
+                            </span>
+                            <span className="rounded-md border border-gray-200 bg-white px-2 py-0.5 text-xs font-medium text-gray-700">
+                              {retakeRows.length} total
+                            </span>
                           </div>
-                        ))}
+                        </div>
+                        <ul className="max-h-[min(40vh,320px)] divide-y divide-gray-100 overflow-y-auto overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
+                          {retakeRows.map((r) => (
+                            <li key={r.studentDbId} className="px-4 py-3">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                <div className="min-w-0 flex-1">
+                                  <p className="text-sm font-semibold text-gray-900 break-words">{r.name}</p>
+                                  <p className="mt-0.5 text-xs text-gray-500 break-all">{r.email}</p>
+                                  <div className="mt-2 flex flex-wrap gap-1.5">
+                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                                      Used {r.attemptsUsed}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                                      Extra +{r.extraAttempts}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                                      {r.allowedAttempts == null ? "Allowed: unlimited" : `Allowed ${r.allowedAttempts}`}
+                                    </span>
+                                    <span className="inline-flex items-center rounded-md border border-gray-200 bg-gray-50 px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                                      {r.remainingAttempts == null ? "Remaining: unlimited" : `Remaining ${r.remainingAttempts}`}
+                                    </span>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    try {
+                                      const res = await fetch("/api/quizzes/retakes/grant", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          quizId: editingQuiz.id,
+                                          studentId: r.studentDbId,
+                                          incrementBy: 1,
+                                        }),
+                                      });
+                                      const data = await res.json().catch(() => ({}));
+                                      if (!res.ok) {
+                                        throw new Error(data?.error || "Failed to grant retake");
+                                      }
+                                      setRetakeRows((prev) =>
+                                        prev.map((x) =>
+                                          x.studentDbId === r.studentDbId
+                                            ? {
+                                                ...x,
+                                                extraAttempts: data.extra_attempts,
+                                                allowedAttempts:
+                                                  x.maxAttempts == null
+                                                    ? null
+                                                    : x.maxAttempts + data.extra_attempts,
+                                                remainingAttempts:
+                                                  x.maxAttempts == null
+                                                    ? null
+                                                    : Math.max(
+                                                        (x.maxAttempts + data.extra_attempts) - x.attemptsUsed,
+                                                        0
+                                                      ),
+                                              }
+                                            : x
+                                        )
+                                      );
+                                    } catch (e: any) {
+                                      console.error("Error granting retake:", e);
+                                      setError(e.message || "Failed to grant retake");
+                                    }
+                                  }}
+                                  className="shrink-0 self-start rounded-lg border border-red-200 bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:text-sm"
+                                >
+                                  Grant +1
+                                </button>
+                              </div>
+                            </li>
+                          ))}
+                        </ul>
                       </div>
                     )}
                   </div>
                 )}
-              </div>
-              {/* Quiz bank sidebar (desktop only; mobile uses full-screen overlay) */}
-              <div className="hidden min-h-0 w-full flex-col overflow-hidden border-t border-gray-200/90 bg-gradient-to-b from-rose-50/40 via-gray-50/90 to-gray-100/70 lg:flex lg:w-96 lg:flex-none lg:border-l lg:border-t-0 lg:bg-gray-50 lg:from-transparent lg:via-transparent lg:to-transparent">
-                {renderQuestionBankPanel()}
               </div>
             </div>
 
@@ -1486,34 +1709,6 @@ export default function QuizzesPage() {
             </div>
           </div>
         </div>
-        {mobileQuestionBankOpen && (
-          <div
-            className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm p-3 sm:p-4 lg:hidden"
-            onClick={() => setMobileQuestionBankOpen(false)}
-          >
-            <div
-              className="flex w-full max-w-lg max-h-[75vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl -translate-y-6 sm:-translate-y-10"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <div className="flex shrink-0 items-center justify-between gap-3 border-b border-gray-200 px-3 py-3 pt-[max(0.5rem,env(safe-area-inset-top))]">
-                <h2 className="text-lg font-bold text-gray-900">Question bank</h2>
-                <button
-                  type="button"
-                  onClick={() => setMobileQuestionBankOpen(false)}
-                  className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-gray-500 transition-colors hover:bg-gray-100"
-                  aria-label="Close question bank"
-                >
-                  <svg className="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              <div className="flex min-h-0 flex-1 flex-col overflow-hidden">
-                {renderQuestionBankPanel()}
-              </div>
-            </div>
-          </div>
-        )}
         </>
       )}
 
