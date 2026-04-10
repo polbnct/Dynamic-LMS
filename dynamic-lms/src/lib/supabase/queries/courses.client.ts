@@ -8,6 +8,9 @@ export interface Course {
   code: string;
   professor_id: string;
   created_at: string;
+  unlock_threshold_percent?: number | null;
+  shuffle_study_aid_questions?: boolean | null;
+  require_both_for_unlock?: boolean | null;
   studentsCount?: number;
 }
 
@@ -186,6 +189,48 @@ export async function createCourse(
   _professorName: string
 ): Promise<never> {
   throw new Error("Course creation is admin-only. Please ask an admin to create the course.");
+}
+
+export async function updateCourseUnlockThreshold(
+  courseId: string,
+  unlockThresholdPercent: number
+): Promise<void> {
+  const supabase = createClient();
+  const safePercent = Math.min(100, Math.max(1, Math.round(unlockThresholdPercent)));
+
+  const { error } = await supabase
+    .from("courses")
+    .update({ unlock_threshold_percent: safePercent })
+    .eq("id", courseId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to update unlock threshold.");
+  }
+}
+
+export async function updateCourseLessonSettings(
+  courseId: string,
+  settings: {
+    unlock_threshold_percent: number;
+    shuffle_study_aid_questions: boolean;
+    require_both_for_unlock: boolean;
+  }
+): Promise<void> {
+  const supabase = createClient();
+  const safePercent = Math.min(100, Math.max(1, Math.round(settings.unlock_threshold_percent)));
+
+  const { error } = await supabase
+    .from("courses")
+    .update({
+      unlock_threshold_percent: safePercent,
+      shuffle_study_aid_questions: settings.shuffle_study_aid_questions,
+      require_both_for_unlock: settings.require_both_for_unlock,
+    })
+    .eq("id", courseId);
+
+  if (error) {
+    throw new Error(error.message || "Failed to update lesson settings.");
+  }
 }
 
 // Get student's enrolled courses (client-side)

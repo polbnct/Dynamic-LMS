@@ -38,8 +38,22 @@ CREATE TABLE public.courses (
   code TEXT NOT NULL,
   -- Invite codes removed (no classroom_code).
   professor_id UUID REFERENCES public.professors(id) ON DELETE SET NULL,
+  unlock_threshold_percent INTEGER NOT NULL DEFAULT 70 CHECK (unlock_threshold_percent >= 1 AND unlock_threshold_percent <= 100),
+  shuffle_study_aid_questions BOOLEAN NOT NULL DEFAULT TRUE,
+  require_both_for_unlock BOOLEAN NOT NULL DEFAULT TRUE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+-- Existing DB upgrade (safe to run in Supabase SQL editor):
+-- ALTER TABLE public.courses
+--   ADD COLUMN IF NOT EXISTS unlock_threshold_percent INTEGER NOT NULL DEFAULT 70;
+-- ALTER TABLE public.courses
+--   ADD COLUMN IF NOT EXISTS shuffle_study_aid_questions BOOLEAN NOT NULL DEFAULT TRUE;
+-- ALTER TABLE public.courses
+--   ADD COLUMN IF NOT EXISTS require_both_for_unlock BOOLEAN NOT NULL DEFAULT TRUE;
+-- ALTER TABLE public.courses
+--   ADD CONSTRAINT courses_unlock_threshold_percent_check
+--   CHECK (unlock_threshold_percent >= 1 AND unlock_threshold_percent <= 100);
 
 -- 5. Enrollments (Junction Table)
 CREATE TABLE public.enrollments (

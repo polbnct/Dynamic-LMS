@@ -66,7 +66,15 @@ export async function PATCH(
       type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
       question?: string;
       options?: string[];
-      correct_answer?: number | boolean | string;
+      correct_answer?:
+        | number
+        | boolean
+        | string
+        | {
+            answer: number | boolean | string;
+            correct_explanation?: string;
+            incorrect_explanation?: string;
+          };
     };
 
     const supabase = await createClient();
@@ -85,6 +93,23 @@ export async function PATCH(
         { error: "Question is not part of this lesson's study aid" },
         { status: 404 }
       );
+    }
+
+    if (type === "summary") {
+      const { data: summaryConflict } = await supabase
+        .from("lesson_study_questions")
+        .select("question_id, questions!inner(type)")
+        .eq("lesson_id", lessonId)
+        .eq("questions.type", "summary")
+        .neq("question_id", questionId)
+        .limit(1);
+
+      if (summaryConflict && summaryConflict.length > 0) {
+        return NextResponse.json(
+          { error: "A summary already exists for this lesson. Remove it first before converting another item to summary." },
+          { status: 409 }
+        );
+      }
     }
 
     const updates: Record<string, unknown> = {};

@@ -439,8 +439,14 @@ export default function StudentQuizzesPage() {
                                 : "False"
                               : String(a.correctAnswer);
                       const userDisplay =
-                        a.questionType === "multiple_choice" && a.options && typeof a.userAnswer === "number"
-                          ? a.options[a.userAnswer] ?? String(a.userAnswer)
+                        a.questionType === "multiple_choice" && a.options
+                          ? (() => {
+                              const idx =
+                                typeof a.userAnswer === "number"
+                                  ? a.userAnswer
+                                  : parseInt(String(a.userAnswer), 10);
+                              return Number.isFinite(idx) ? (a.options[idx] ?? String(a.userAnswer)) : String(a.userAnswer);
+                            })()
                           : typeof a.userAnswer === "boolean"
                             ? a.userAnswer
                               ? "True"
