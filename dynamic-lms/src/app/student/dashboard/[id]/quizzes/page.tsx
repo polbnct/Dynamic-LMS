@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/feedback/ToastProvider";
@@ -35,6 +35,7 @@ interface QuizWithUI extends Quiz {
   attemptsUsed?: number;
   remainingAttempts?: number | null;
   isLocked?: boolean;
+  inProgressAttemptId?: string | null;
 }
 
 export default function StudentQuizzesPage() {
@@ -52,18 +53,20 @@ export default function StudentQuizzesPage() {
   const [resultModalRevealCorrect, setResultModalRevealCorrect] = useState(false);
   const [resultData, setResultData] = useState<QuizResultWithAnswers | null>(null);
 
-  useEffect(() => {
-    async function fetchCourse() {
+  const loadQuizzesForCourse = useCallback(
+    async (opts?: { silent?: boolean }) => {
+      const silent = opts?.silent ?? false;
       if (!courseId) {
         console.error("StudentQuizzesPage: invalid course id from route params", rawId);
         toastError("Invalid course link.");
-        setLoading(false);
+        if (!silent) setLoading(false);
         return;
       }
+      if (!silent) setLoading(true);
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
-        
+
         const [quizzesData, studentId] = await Promise.all([
           getQuizzes(courseId),
           getCurrentStudentId(),
@@ -73,7 +76,6 @@ export default function StudentQuizzesPage() {
           throw new Error("Student not found");
         }
 
-        // Fetch per-quiz attempt status (max + retakes) for this student
         let statusMap: Record<string, any> = {};
         try {
           const res = await fetch("/api/quizzes/attempt-status", {
@@ -90,7 +92,6 @@ export default function StudentQuizzesPage() {
           statusMap = {};
         }
 
-        // Get quiz results for each quiz
         const quizzesWithResults = await Promise.all(
           quizzesData.map(async (quiz) => {
             const result = await getQuizResults(quiz.id, studentId);
@@ -113,6 +114,7 @@ export default function StudentQuizzesPage() {
               attemptsUsed: status.attemptsUsed ?? 0,
               remainingAttempts: status.remainingAttempts ?? null,
               isLocked: status.isLocked ?? false,
+              inProgressAttemptId: status.inProgressAttemptId ?? null,
             };
           })
         );
@@ -122,11 +124,25 @@ export default function StudentQuizzesPage() {
         console.error("Error fetching course:", err);
         toastError(err instanceof Error ? err.message : "Failed to load quizzes.");
       } finally {
-        setLoading(false);
+        if (!silent) setLoading(false);
       }
-    }
-    fetchCourse();
-  }, [courseId, rawId, toastError]);
+    },
+    [courseId, rawId, toastError]
+  );
+
+  useEffect(() => {
+    void loadQuizzesForCourse();
+  }, [loadQuizzesForCourse]);
+
+  useEffect(() => {
+    const onVisible = () => {
+      if (document.visibilityState === "visible" && courseId) {
+        void loadQuizzesForCourse({ silent: true });
+      }
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => document.removeEventListener("visibilitychange", onVisible);
+  }, [courseId, loadQuizzesForCourse]);
 
   // Group quizzes by category
   const quizzesByCategory = {
@@ -238,6 +254,7 @@ export default function StudentQuizzesPage() {
                       const isLocked = quiz.isLocked ?? false;
                       const hasRemainingAttempts =
                         quiz.remainingAttempts === null || (quiz.remainingAttempts ?? 0) > 0;
+                      const inProgress = Boolean(quiz.inProgressAttemptId);
 
                       return (
                       <div
@@ -249,6 +266,11 @@ export default function StudentQuizzesPage() {
                             <div className="flex flex-wrap items-center gap-2 sm:gap-3 mb-2">
                               <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate" title={quiz.title}
                               >{quiz.title}</h3>
+                              {inProgress && (
+                                <span className="px-3 py-1 bg-amber-100 text-amber-900 rounded-full text-xs font-semibold">
+                                  In progress
+                                </span>
+                              )}
                               {quiz.taken && (
                                 <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-xs font-semibold">
                                   Completed
@@ -323,10 +345,27 @@ export default function StudentQuizzesPage() {
                               )}
                             </div>
                           </div>
-                          {/* Action buttons: Take / Retake / View Results depending on remaining attempts and lock state */}
-                          <div className="flex w-full lg:w-auto flex-col sm:flex-row lg:flex-col gap-2 lg:min-w-[180px]">
+                          {/* Actions: aligned with assignment card buttons (lg:w-56 stack) */}
+                          <div className="flex w-full flex-shrink-0 flex-col gap-2 border-t border-gray-100 pt-4 sm:border-t-0 sm:pt-0 lg:ml-0 lg:w-56 lg:border-l lg:border-gray-100 lg:pl-6 lg:pt-0">
+                            {inProgress && (
+                              <div className="w-full rounded-xl border border-amber-200 bg-amber-50/90 px-4 py-3">
+                                <p className="text-sm font-semibold text-amber-950">Attempt in progress</p>
+                                <p className="mt-1 text-xs text-amber-900/85">
+                                  Submit this quiz in its window before you can start or retake it here.
+                                </p>
+                                <Link
+                                  href={`/student/dashboard/${courseId}/quizzes/${quiz.id}/take`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="mt-3 inline-flex h-11 w-full items-center justify-center rounded-lg border border-amber-300 bg-white px-3 text-sm font-semibold text-amber-950 shadow-sm transition hover:bg-amber-100/80"
+                                >
+                                  Open quiz window
+                                </Link>
+                              </div>
+                            )}
                             {quiz.taken && (
                               <button
+                                type="button"
                                 onClick={async () => {
                                   setResultModalQuizName(quiz.name);
                                   const revealCorrect = Boolean((quiz as any).reveal_correct_answers);
@@ -350,24 +389,27 @@ export default function StudentQuizzesPage() {
                                     setResultModalLoading(false);
                                   }
                                 }}
-                                className="w-full px-6 py-2 border border-red-600 text-red-600 rounded-lg font-semibold hover:bg-red-50 transform hover:-translate-y-0.5 transition-all duration-200"
+                                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
                               >
                                 View Results
                               </button>
                             )}
-                            {isLocked ? (
-                              <span className="w-full text-center text-sm text-red-600 font-medium">
+                            {inProgress ? null : isLocked ? (
+                              <span className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-center text-sm font-medium text-slate-500">
                                 Quiz locked
                               </span>
                             ) : hasRemainingAttempts ? (
                               <Link
                                 href={`/student/dashboard/${courseId}/quizzes/${quiz.id}/take`}
-                                className="w-full px-6 py-2 bg-gradient-to-r from-red-600 to-rose-600 text-white rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 inline-block text-center"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                title="Quiz opens in a new tab"
+                                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 text-center text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
                               >
                                 {quiz.taken ? "Retake Quiz" : "Take Quiz"}
                               </Link>
                             ) : !quiz.taken ? (
-                              <span className="text-sm text-red-600 font-medium">
+                              <span className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-center text-sm font-medium text-slate-500">
                                 No attempts remaining
                               </span>
                             ) : null}
@@ -439,8 +481,14 @@ export default function StudentQuizzesPage() {
                                 : "False"
                               : String(a.correctAnswer);
                       const userDisplay =
-                        a.questionType === "multiple_choice" && a.options && typeof a.userAnswer === "number"
-                          ? a.options[a.userAnswer] ?? String(a.userAnswer)
+                        a.questionType === "multiple_choice" && a.options
+                          ? (() => {
+                              const idx =
+                                typeof a.userAnswer === "number"
+                                  ? a.userAnswer
+                                  : parseInt(String(a.userAnswer), 10);
+                              return Number.isFinite(idx) ? (a.options[idx] ?? String(a.userAnswer)) : String(a.userAnswer);
+                            })()
                           : typeof a.userAnswer === "boolean"
                             ? a.userAnswer
                               ? "True"

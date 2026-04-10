@@ -547,6 +547,17 @@ export async function submitQuizAnswers(
   const questionIds = answers.map((a) => a.questionId);
   const { data: questions } = await supabase.from("questions").select("*").in("id", questionIds);
 
+  const normalizeComparableAnswer = (val: unknown): string | number | boolean => {
+    if (typeof val === "string") {
+      const trimmed = val.trim();
+      if (trimmed === "true") return true;
+      if (trimmed === "false") return false;
+      if (/^-?\d+$/.test(trimmed)) return Number(trimmed);
+      return trimmed;
+    }
+    return val as string | number | boolean;
+  };
+
   let correctCount = 0;
 
   const quizAnswers = answers.map((answer) => {
@@ -558,13 +569,15 @@ export async function submitQuizAnswers(
         ? JSON.parse(question.correct_answer)
         : question.correct_answer;
 
-    const isCorrect = JSON.stringify(answer.answer) === JSON.stringify(correctAnswer);
+    const normalizedStudentAnswer = normalizeComparableAnswer(answer.answer);
+    const normalizedCorrectAnswer = normalizeComparableAnswer(correctAnswer);
+    const isCorrect = JSON.stringify(normalizedStudentAnswer) === JSON.stringify(normalizedCorrectAnswer);
     if (isCorrect) correctCount++;
 
     return {
       attempt_id: attemptId,
       question_id: answer.questionId,
-      answer: JSON.stringify(answer.answer),
+      answer: JSON.stringify(normalizedStudentAnswer),
       is_correct: isCorrect,
     };
   }).filter(Boolean);
@@ -686,7 +699,15 @@ export async function getQuizAttemptWithAnswers(
     if (typeof val === "string") {
       try {
         const p = JSON.parse(val);
-        return typeof p === "boolean" ? p : typeof p === "number" ? p : String(p);
+        if (typeof p === "boolean" || typeof p === "number") return p;
+        if (typeof p === "string") {
+          const trimmed = p.trim();
+          if (trimmed === "true") return true;
+          if (trimmed === "false") return false;
+          if (/^-?\d+$/.test(trimmed)) return Number(trimmed);
+          return trimmed;
+        }
+        return String(p);
       } catch {
         return val;
       }

@@ -576,66 +576,96 @@ export default function AdminDashboardPage() {
     }
   };
 
-  return (
-    <div className="min-h-screen bg-[#f8f8f8] text-gray-900">
-      <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-6 sm:py-8">
-        <div className="flex items-center justify-between gap-2 sm:gap-3 pb-4 sm:pb-5 border-b border-gray-200">
-          <div className="min-w-0">
-            <div className="flex items-center gap-3 min-w-0">
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl shadow-md shrink-0"
-              />
-              <h1 className="text-xl sm:text-4xl font-black tracking-tight text-gray-900 truncate">
-                Admin Dashboard
-              </h1>
-            </div>
-          </div>
+  const statCards = [
+    { label: "Courses", value: loading ? "—" : courses.length, hint: "Offerings in the system" },
+    { label: "Professors", value: loading ? "—" : professors.length, hint: "Teaching accounts" },
+    { label: "Students", value: loading ? "—" : students.length, hint: "Learner accounts" },
+  ] as const;
 
-          <div className="shrink-0 flex justify-end">
+  return (
+    <div className="min-h-screen pb-12">
+      <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md shadow-sm shadow-slate-900/5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3 sm:items-center min-w-0">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
+                <img src="/logo.png" alt="Logo" className="h-7 w-7 object-contain" />
+              </div>
+              <div className="min-w-0">
+                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+                  Administration
+                </p>
+                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 truncate">
+                  Control center
+                </h1>
+                <p className="mt-0.5 text-sm text-slate-600 hidden sm:block">
+                  Manage courses, faculty, and student accounts.
+                </p>
+              </div>
+            </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex items-center rounded-xl border border-red-200 bg-white px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50"
+              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
             >
-              Logout
+              Sign out
             </button>
           </div>
         </div>
+      </header>
 
-        <div className="mt-4 sm:mt-6 rounded-2xl border border-rose-100 bg-rose-50/40 p-2.5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <div className="grid grid-cols-3 gap-2 w-full sm:w-auto sm:flex sm:flex-wrap sm:gap-2">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+          {statCards.map((s) => (
+            <div
+              key={s.label}
+              className="rounded-2xl border border-slate-200/90 bg-white px-5 py-4 shadow-sm shadow-slate-900/5"
+            >
+              <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{s.label}</p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-900">{s.value}</p>
+              <p className="mt-1 text-xs text-slate-500">{s.hint}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="rounded-2xl border border-slate-200/90 bg-white p-2 shadow-sm shadow-slate-900/5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between sm:gap-4 p-1">
+            <div
+              className="flex w-full rounded-xl bg-slate-100/90 p-1 sm:w-auto sm:inline-flex"
+              role="tablist"
+              aria-label="Admin sections"
+            >
               {(["courses", "professors", "students"] as const).map((tab) => (
                 <button
                   key={tab}
                   type="button"
+                  role="tab"
+                  aria-selected={activeTab === tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`w-full sm:w-auto px-2.5 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-semibold border ${
+                  className={`flex-1 rounded-lg px-4 py-2.5 text-sm font-medium transition sm:flex-none sm:min-w-[7.5rem] ${
                     activeTab === tab
-                      ? "border-red-200 bg-red-50 text-red-700"
-                      : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      ? "bg-white text-slate-900 shadow-sm ring-1 ring-slate-200/80"
+                      : "text-slate-600 hover:text-slate-900"
                   }`}
                 >
                   {tab === "courses" ? "Courses" : tab === "professors" ? "Professors" : "Students"}
                 </button>
               ))}
             </div>
-            <div className="grid grid-cols-2 gap-2 w-full sm:w-auto sm:flex sm:justify-end">
+            <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
               <button
                 type="button"
                 onClick={refreshAll}
-                className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-xl border border-gray-200 bg-white text-xs sm:text-sm font-semibold text-gray-700 shadow-sm hover:bg-gray-50"
+                className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
               >
-                Refresh
+                Refresh data
               </button>
               <button
                 type="button"
                 onClick={openCreateCourse}
-                className="w-full sm:w-auto px-3 sm:px-4 py-2 rounded-xl bg-red-600 text-white font-semibold text-xs sm:text-sm shadow-sm hover:bg-red-700"
+                className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700"
               >
-                Create course
+                New course
               </button>
             </div>
           </div>
@@ -643,41 +673,44 @@ export default function AdminDashboardPage() {
 
         <div className="mt-6">
           {loading ? (
-            <div className="rounded-3xl border border-rose-100 bg-white p-10 text-center text-gray-500 shadow-sm">
-              Loading…
+            <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-16 text-center shadow-sm">
+              <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-red-600" />
+              <p className="text-sm font-medium text-slate-600">Loading directory…</p>
+              <p className="mt-1 text-xs text-slate-500">Fetching courses, faculty, and students.</p>
             </div>
           ) : activeTab === "courses" ? (
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               {courses.map((c) => (
                 <div
                   key={c.id}
-                  className="rounded-3xl border border-rose-100 bg-white p-5 shadow-sm hover:shadow-md transition"
+                  className="group rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
                 >
                   <div className="flex items-start justify-between gap-4 min-w-0">
                     <button
                       type="button"
                       onClick={() => openManageCourse(c)}
-                      className="text-left flex-1 min-w-0"
+                      className="text-left flex-1 min-w-0 rounded-lg outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-red-500"
                     >
                       <div className="min-w-0">
-                        <div className="text-lg font-extrabold truncate text-gray-900">{c.name}</div>
-                        <div className="mt-1 text-sm text-gray-600">
-                          <span className="font-mono text-gray-800">{c.code}</span>
+                        <div className="text-base font-semibold text-slate-900 truncate group-hover:text-red-700 transition-colors">
+                          {c.name}
                         </div>
-                        <div className="mt-2 text-xs text-gray-500">
-                          Owner: {c.professorName || "Unassigned"} {c.professor_id ? "" : "(no professor)"}
+                        <div className="mt-1 font-mono text-sm text-slate-600">{c.code}</div>
+                        <div className="mt-3 text-xs text-slate-500">
+                          <span className="text-slate-400">Instructor · </span>
+                          {c.professorName || "Unassigned"}
                         </div>
                       </div>
                     </button>
                     <div className="flex flex-col items-end gap-2 shrink-0">
-                      <div className="shrink-0 rounded-2xl border border-rose-100 bg-rose-50 px-3 py-2 text-xs text-rose-700">
-                        {c.studentsCount} student{c.studentsCount !== 1 ? "s" : ""}
-                      </div>
+                      <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                        {c.studentsCount} enrolled
+                      </span>
                       <button
                         type="button"
                         disabled={deletingCourseId === c.id}
                         onClick={() => handleDeleteCourse(c.id)}
-                        className="w-full sm:w-auto text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50"
+                        className="text-xs font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
                       >
                         {deletingCourseId === c.id ? "Deleting…" : "Delete"}
                       </button>
@@ -687,32 +720,39 @@ export default function AdminDashboardPage() {
               ))}
 
               {courses.length === 0 && (
-                <div className="rounded-3xl border border-dashed border-rose-200 bg-white p-10 text-center text-gray-500 lg:col-span-2">
-                  No courses yet.
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-6 py-14 text-center lg:col-span-2">
+                  <p className="text-sm font-medium text-slate-700">No courses yet</p>
+                  <p className="mt-1 text-sm text-slate-500">Create a course to get started.</p>
                 </div>
               )}
             </div>
           ) : activeTab === "professors" ? (
-            <div className="rounded-3xl border border-rose-100 bg-white overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-rose-50 text-sm font-bold text-gray-800 flex items-center justify-between gap-3">
-                <span>Professors ({professors.length})</span>
+            <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+              <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <h2 className="text-sm font-semibold text-slate-900">Professors</h2>
+                  <p className="text-xs text-slate-500">{professors.length} registered</p>
+                </div>
                 <button
                   type="button"
                   onClick={openCreateProfessor}
-                  className="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-2 rounded-xl shadow-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
                   disabled={createProfessorSaving}
                 >
-                  Create Professor
+                  Add professor
                 </button>
               </div>
-              <div className="divide-y divide-rose-50">
+              <div className="divide-y divide-slate-100">
                 {professorOptions.map((p) => (
-                  <div key={p.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div
+                    key={p.id}
+                    className="flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div className="min-w-0">
-                      <div className="font-extrabold truncate text-gray-900">{p.name}</div>
-                      <div className="text-sm text-gray-600 truncate">{p.email}</div>
+                      <div className="font-semibold text-slate-900 truncate">{p.name}</div>
+                      <div className="text-sm text-slate-600 truncate">{p.email}</div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
                       <button
                         type="button"
                         onClick={() =>
@@ -723,15 +763,15 @@ export default function AdminDashboardPage() {
                             kind: "professor",
                           })
                         }
-                        className="w-full sm:w-auto text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 transition-colors hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                       >
-                        Manage Account
+                        Manage account
                       </button>
                       <button
                         type="button"
                         disabled={deletingProfessorId === p.id}
                         onClick={() => handleDeleteProfessor(p.id)}
-                        className="w-full sm:w-auto text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
+                        className="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
                         {deletingProfessorId === p.id ? "Deleting…" : "Delete"}
                       </button>
@@ -739,26 +779,28 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
                 {professors.length === 0 && (
-                  <div className="p-10 text-center text-gray-500">No professors found.</div>
+                  <div className="px-5 py-14 text-center text-sm text-slate-500">No professors yet.</div>
                 )}
               </div>
             </div>
           ) : (
-            <div className="rounded-3xl border border-rose-100 bg-white overflow-hidden shadow-sm">
-              <div className="p-4 border-b border-rose-50 text-sm font-bold text-gray-800">
-                Students ({students.length})
+            <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
+              <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-4">
+                <h2 className="text-sm font-semibold text-slate-900">Students</h2>
+                <p className="text-xs text-slate-500">{students.length} registered</p>
               </div>
-              <div className="divide-y divide-rose-50">
+              <div className="divide-y divide-slate-100">
                 {students.map((s) => (
-                  <div key={s.id} className="p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                  <div
+                    key={s.id}
+                    className="flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between"
+                  >
                     <div className="min-w-0">
-                      <div className="font-extrabold truncate text-gray-900">{s.name}</div>
-                      <div className="text-sm text-gray-600 truncate">{s.email}</div>
-                      <div className="text-xs text-gray-500 font-mono">
-                        {s.student_id}
-                      </div>
+                      <div className="font-semibold text-slate-900 truncate">{s.name}</div>
+                      <div className="text-sm text-slate-600 truncate">{s.email}</div>
+                      <div className="mt-0.5 font-mono text-xs text-slate-500">{s.student_id}</div>
                     </div>
-                    <div className="flex flex-col sm:flex-row gap-2 sm:gap-3 w-full sm:w-auto shrink-0">
+                    <div className="flex flex-col gap-2 sm:flex-row sm:shrink-0">
                       <button
                         type="button"
                         onClick={() =>
@@ -769,16 +811,15 @@ export default function AdminDashboardPage() {
                             kind: "student",
                           })
                         }
-                        className="w-full sm:w-auto text-xs font-semibold text-gray-700 hover:text-gray-900 border border-gray-200 rounded-xl px-3 py-2 transition-colors hover:bg-gray-100 hover:border-gray-300 hover:shadow-sm cursor-pointer"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
                       >
                         Manage account
                       </button>
-
                       <button
                         type="button"
                         disabled={deletingStudentId === s.id}
                         onClick={() => handleDeleteStudent(s.id)}
-                        className="w-full sm:w-auto text-xs font-semibold text-red-600 hover:text-red-700 disabled:opacity-50 cursor-pointer"
+                        className="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
                         {deletingStudentId === s.id ? "Deleting…" : "Delete"}
                       </button>
@@ -786,7 +827,7 @@ export default function AdminDashboardPage() {
                   </div>
                 ))}
                 {students.length === 0 && (
-                  <div className="p-10 text-center text-gray-500">No students found.</div>
+                  <div className="px-5 py-14 text-center text-sm text-slate-500">No students yet.</div>
                 )}
               </div>
             </div>
@@ -797,25 +838,25 @@ export default function AdminDashboardPage() {
       {/* Create course modal */}
       {createCourseOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm"
           onClick={closeCreateCourse}
         >
           <div
-            className="w-full max-w-lg rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
+            className="w-full max-w-lg rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/90">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-xl font-black text-gray-900">Create course</div>
-                  <div className="mt-1 text-sm text-gray-600">
+                  <div className="text-lg font-semibold text-slate-900">Create course</div>
+                  <div className="mt-1 text-sm text-slate-600">
                     Create a new course, assign a professor, then enroll students manually.
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={closeCreateCourse}
-                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700 cursor-pointer"
+                  className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700 cursor-pointer"
                 >
                   Close
                 </button>
@@ -824,12 +865,12 @@ export default function AdminDashboardPage() {
 
             <form onSubmit={handleCreateCourse} className="p-6 space-y-5">
               <div>
-                <label className="text-sm font-semibold text-gray-700">Course name</label>
+                <label className="text-sm font-semibold text-slate-700">Course name</label>
                 <input
                   value={createCourseForm.name}
                   maxLength={64}
                   onChange={(e) => setCreateCourseForm((p) => ({ ...p, name: e.target.value }))}
-                  className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
                   placeholder="e.g. Data Structures"
                   autoFocus
                 />
@@ -837,22 +878,22 @@ export default function AdminDashboardPage() {
 
               <div>
                 <div>
-                  <label className="text-sm font-semibold text-gray-700">Course code</label>
+                  <label className="text-sm font-semibold text-slate-700">Course code</label>
                   <input
                     value={createCourseForm.code}
                     onChange={(e) => setCreateCourseForm((p) => ({ ...p, code: e.target.value }))}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
                     placeholder="Set course code here"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="text-sm font-semibold text-gray-700">Assign professor (optional)</label>
+                <label className="text-sm font-semibold text-slate-700">Assign professor (optional)</label>
                 <select
                   value={createCourseForm.professor_id}
                   onChange={(e) => setCreateCourseForm((p) => ({ ...p, professor_id: e.target.value }))}
-                  className="mt-1 w-full rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
+                  className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
                 >
                   <option value="">Unassigned</option>
                   {professorOptions.map((p) => (
@@ -868,7 +909,7 @@ export default function AdminDashboardPage() {
                   type="button"
                   onClick={closeCreateCourse}
                   disabled={creatingCourse}
-                  className="w-full sm:flex-1 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-3 text-sm font-semibold text-gray-700 disabled:opacity-60 cursor-pointer"
+                  className="w-full sm:flex-1 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-3 text-sm font-semibold text-slate-700 disabled:opacity-60 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -889,27 +930,27 @@ export default function AdminDashboardPage() {
       {/* Manage account modal */}
       {manageAccountOpen && manageAccountUser && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm"
           onClick={closeManageAccount}
         >
           <div
-            className="w-full max-w-lg rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
+            className="w-full max-w-lg rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/90">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-xl font-black text-gray-900">Manage Account</div>
-                  <div className="mt-1 text-sm text-gray-600">
+                  <div className="text-lg font-semibold text-slate-900">Manage account</div>
+                  <div className="mt-1 text-sm text-slate-600">
                     {manageAccountUser.kind === "professor" ? "Professor" : "Student"}:{" "}
-                    <span className="font-semibold text-gray-900">{manageAccountUser.name}</span>{" "}
-                    <span className="text-gray-500">({manageAccountUser.email})</span>
+                    <span className="font-semibold text-slate-900">{manageAccountUser.name}</span>{" "}
+                    <span className="text-slate-500">({manageAccountUser.email})</span>
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={closeManageAccount}
-                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700"
+                  className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
                 >
                   Close
                 </button>
@@ -919,51 +960,51 @@ export default function AdminDashboardPage() {
             <div className="p-6 space-y-4 min-w-0">
               <form onSubmit={handleAdminManageAccountSave} className="space-y-4 min-w-0">
                 <div className="min-w-0">
-                  <label className="block text-sm font-semibold text-gray-700">Name</label>
+                  <label className="block text-sm font-semibold text-slate-700">Name</label>
                   <input
                     type="text"
                     maxLength={64}
                     value={manageName}
                     onChange={(e) => setManageName(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="Full name"
                     autoComplete="name"
                   />
                 </div>
 
                 <div className="min-w-0">
-                  <label className="block text-sm font-semibold text-gray-700">Email</label>
+                  <label className="block text-sm font-semibold text-slate-700">Email</label>
                   <input
                     type="email"
                     maxLength={64}
                     value={manageEmail}
                     onChange={(e) => setManageEmail(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="Email address"
                     autoComplete="email"
                   />
                 </div>
 
                 <div className="min-w-0">
-                  <label className="block text-sm font-semibold text-gray-700">New password</label>
+                  <label className="block text-sm font-semibold text-slate-700">New password</label>
                   <input
                     type="password"
                     value={managePassword}
                     onChange={(e) => setManagePassword(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="At least 8 characters"
                     autoComplete="new-password"
                   />
-                  <p className="mt-1 text-xs text-gray-500">Leave blank to keep the current password.</p>
+                  <p className="mt-1 text-xs text-slate-500">Leave blank to keep the current password.</p>
                 </div>
 
                 <div className="min-w-0">
-                  <label className="block text-sm font-semibold text-gray-700">Confirm password</label>
+                  <label className="block text-sm font-semibold text-slate-700">Confirm password</label>
                   <input
                     type="password"
                     value={managePasswordConfirm}
                     onChange={(e) => setManagePasswordConfirm(e.target.value)}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="Re-enter password"
                     autoComplete="new-password"
                     disabled={!managePassword}
@@ -975,7 +1016,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={closeManageAccount}
-                    className="w-full sm:flex-1 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
+                    className="w-full sm:flex-1 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700"
                   >
                     Cancel
                   </button>
@@ -996,23 +1037,23 @@ export default function AdminDashboardPage() {
       {/* Create professor modal */}
       {createProfessorOpen && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/30 backdrop-blur-sm"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm"
           onClick={closeCreateProfessor}
         >
           <div
-            className="w-full max-w-lg rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden"
+            className="w-full max-w-lg rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 overflow-hidden"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/90">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-xl font-black text-gray-900">Create Professor</div>
-                  <div className="mt-1 text-sm text-gray-600">This will create an auth user and a professors profile.</div>
+                  <div className="text-lg font-semibold text-slate-900">Create professor</div>
+                  <div className="mt-1 text-sm text-slate-600">Creates a sign-in and a professor profile.</div>
                 </div>
                 <button
                   type="button"
                   onClick={closeCreateProfessor}
-                  className="rounded-xl border border-gray-200 bg-white hover:bg-gray-50 px-3 py-2 text-sm font-semibold text-gray-700"
+                  className="rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700"
                 >
                   Close
                 </button>
@@ -1022,13 +1063,13 @@ export default function AdminDashboardPage() {
             <div className="p-6 space-y-4">
               <form onSubmit={handleCreateProfessor} className="space-y-4">
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">Name</label>
+                  <label className="block text-sm font-semibold text-slate-700">Name</label>
                   <input
                     type="text"
                     maxLength={64}
                     value={createProfessorForm.name}
                     onChange={(e) => setCreateProfessorForm((p) => ({ ...p, name: e.target.value }))}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="Full name"
                     autoComplete="name"
                     disabled={createProfessorSaving}
@@ -1036,13 +1077,13 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">Email</label>
+                  <label className="block text-sm font-semibold text-slate-700">Email</label>
                   <input
                     type="email"
                     maxLength={128}
                     value={createProfessorForm.email}
                     onChange={(e) => setCreateProfessorForm((p) => ({ ...p, email: e.target.value }))}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="Email address"
                     autoComplete="email"
                     disabled={createProfessorSaving}
@@ -1050,17 +1091,17 @@ export default function AdminDashboardPage() {
                 </div>
 
                 <div>
-                  <label className="block text-sm font-semibold text-gray-700">Password</label>
+                  <label className="block text-sm font-semibold text-slate-700">Password</label>
                   <input
                     type="password"
                     value={createProfessorForm.password}
                     onChange={(e) => setCreateProfessorForm((p) => ({ ...p, password: e.target.value }))}
-                    className="mt-1 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-1 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                     placeholder="At least 8 characters"
                     autoComplete="new-password"
                     disabled={createProfessorSaving}
                   />
-                  <p className="mt-1 text-xs text-gray-500">Password will be set for the created professor.</p>
+                  <p className="mt-1 text-xs text-slate-500">Password will be set for the created professor.</p>
                 </div>
 
                 <div className="flex flex-col items-center justify-end gap-2 pt-2 sm:flex-row w-full sm:justify-end">
@@ -1068,7 +1109,7 @@ export default function AdminDashboardPage() {
                     type="button"
                     onClick={closeCreateProfessor}
                     disabled={createProfessorSaving}
-                    className="w-full sm:flex-1 rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700 disabled:opacity-60 disabled:cursor-not-allowed"
+                    className="w-full sm:flex-1 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 disabled:opacity-60 disabled:cursor-not-allowed"
                   >
                     Cancel
                   </button>
@@ -1089,19 +1130,19 @@ export default function AdminDashboardPage() {
       {/* Manage course modal */}
       {manageCourse && (
         <div
-          className="fixed inset-0 z-50 overflow-y-auto sm:overflow-hidden bg-black/30 backdrop-blur-sm p-3 sm:p-4"
+          className="fixed inset-0 z-50 overflow-y-auto sm:overflow-hidden bg-slate-900/45 backdrop-blur-sm p-3 sm:p-4"
           onClick={closeManageCourse}
         >
         <div className="flex min-h-screen sm:h-screen items-start sm:items-center justify-center">
           <div
-            className="w-full max-w-4xl max-h-none sm:max-h-[90vh] rounded-3xl border border-rose-100 bg-white shadow-2xl overflow-hidden flex flex-col"
+            className="w-full max-w-4xl max-h-none sm:max-h-[90vh] rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 overflow-hidden flex flex-col"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="px-6 py-5 border-b border-rose-100 bg-rose-50/40">
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/90">
               <div className="flex items-start justify-between gap-4">
                 <div className="min-w-0">
-                  <div className="text-xl font-black truncate text-gray-900">{manageCourse.name}</div>
-                  <div className="mt-1 text-sm text-gray-600 font-mono">
+                  <div className="text-lg font-semibold truncate text-slate-900">{manageCourse.name}</div>
+                  <div className="mt-1 text-sm text-slate-600 font-mono">
                     {manageCourse.code}
                   </div>
                 </div>
@@ -1109,7 +1150,7 @@ export default function AdminDashboardPage() {
                   <button
                     type="button"
                     onClick={closeManageCourse}
-                    className="w-full sm:w-auto rounded-2xl border border-gray-200 bg-white hover:bg-gray-50 px-4 py-2 text-sm font-semibold text-gray-700"
+                    className="w-full sm:w-auto rounded-lg border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2 text-sm font-medium text-slate-700"
                   >
                     Close
                   </button>
@@ -1119,26 +1160,26 @@ export default function AdminDashboardPage() {
 
             <div className="p-6 grid grid-cols-1 lg:grid-cols-3 gap-4 sm:flex-1 sm:overflow-hidden min-w-0">
               <div className="space-y-4">
-                <div className="rounded-3xl border border-rose-100 bg-rose-50 p-5">
-                  <div className="text-sm font-bold text-gray-800">Course details</div>
+                <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-5">
+                  <div className="text-sm font-semibold text-slate-900">Course details</div>
                   <form onSubmit={handleSaveCourseDetails} className="mt-3 space-y-3">
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Name</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Name</label>
                       <input
                         value={editCourseForm.name}
                         maxLength={64}
                         onChange={(e) => setEditCourseForm((p) => ({ ...p, name: e.target.value }))}
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-400"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm outline-none focus:border-red-400"
                       />
                     </div>
                     <div>
-                      <label className="block text-xs font-semibold text-gray-700 mb-1">Code</label>
+                      <label className="block text-xs font-semibold text-slate-700 mb-1">Code</label>
                       <input
                         value={editCourseForm.code}
                         onChange={(e) => setEditCourseForm((p) => ({ ...p, code: e.target.value }))}
                         maxLength={32}
                         placeholder="e.g TUPD9126"
-                        className="w-full rounded-2xl border border-gray-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-red-400"
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-3 py-2.5 text-sm font-mono outline-none focus:border-red-400"
                       />
                     </div>
                     <button
@@ -1151,12 +1192,12 @@ export default function AdminDashboardPage() {
                   </form>
                 </div>
 
-                <div className="rounded-3xl border border-rose-100 bg-rose-50 p-5">
-                  <div className="text-sm font-bold text-gray-800">Course owner</div>
+                <div className="rounded-2xl border border-slate-200/90 bg-slate-50/80 p-5">
+                  <div className="text-sm font-semibold text-slate-900">Course owner</div>
                   <select
                     value={manageCourse.professor_id || ""}
                     onChange={(e) => handleAssignProfessor(e.target.value)}
-                    className="mt-2 w-full rounded-2xl border border-gray-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
+                    className="mt-2 w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm outline-none focus:border-red-400"
                   >
                     <option value="">Unassigned</option>
                     {professorOptions.map((p) => (
@@ -1165,18 +1206,18 @@ export default function AdminDashboardPage() {
                       </option>
                     ))}
                   </select>
-                  <div className="mt-3 text-xs text-gray-600">
+                  <div className="mt-3 text-xs text-slate-600">
                     Current: {manageCourse.professorName || "Unassigned"}
                   </div>
                 </div>
               </div>
 
-              <div className="lg:col-span-2 rounded-3xl border border-rose-100 bg-white">
-                <div className="p-5 border-b border-rose-50">
+              <div className="lg:col-span-2 rounded-2xl border border-slate-200/90 bg-white">
+                <div className="p-5 border-b border-slate-100">
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
                     <div>
-                      <div className="text-sm font-bold text-gray-800">Enrolled students</div>
-                      <div className="text-xs text-gray-500 mt-1">
+                      <div className="text-sm font-semibold text-slate-900">Enrolled students</div>
+                      <div className="text-xs text-slate-500 mt-1">
                         {manageCourse.studentsCount} total
                       </div>
                     </div>
@@ -1185,7 +1226,7 @@ export default function AdminDashboardPage() {
                       <select
                         value={selectedStudentToAdd}
                         onChange={(e) => setSelectedStudentToAdd(e.target.value)}
-                        className="sm:w-80 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
+                        className="sm:w-80 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
                       >
                         <option value="">Select student to add…</option>
                         {studentOptions
@@ -1210,21 +1251,21 @@ export default function AdminDashboardPage() {
 
                 <div className="max-h-[50vh] sm:max-h-[55vh] overflow-y-auto">
                   {loadingEnrollments ? (
-                    <div className="py-10 text-center text-gray-500 text-sm">Loading enrollments…</div>
+                    <div className="py-10 text-center text-slate-500 text-sm">Loading enrollments…</div>
                   ) : manageEnrollments.length === 0 ? (
-                    <div className="py-10 text-center text-gray-500 text-sm">No students enrolled.</div>
+                    <div className="py-10 text-center text-slate-500 text-sm">No students enrolled.</div>
                   ) : (
-                    <div className="divide-y divide-rose-50">
+                    <div className="divide-y divide-slate-100">
                       {manageEnrollments.map((en) => (
                         <div key={en.id} className="px-5 py-4 flex items-center justify-between gap-3 min-w-0">
                           <div className="min-w-0 flex-1">
-                            <div className="font-extrabold truncate text-gray-900">
+                            <div className="font-semibold truncate text-slate-900">
                               {en.student?.name || "Unknown Student"}
                             </div>
-                            <div className="text-sm text-gray-600 truncate">
+                            <div className="text-sm text-slate-600 truncate">
                               {en.student?.email || ""}{" "}
                               {en.student?.studentId ? (
-                                <span className="text-gray-400 font-mono">• {en.student.studentId}</span>
+                                <span className="text-slate-400 font-mono">• {en.student.studentId}</span>
                               ) : null}
                             </div>
                           </div>
@@ -1234,7 +1275,7 @@ export default function AdminDashboardPage() {
                               if (!confirm(`Remove ${en.student?.name || "this student"} from the course?`)) return;
                               handleRemoveEnrollment(en.id);
                             }}
-                            className="shrink-0 rounded-2xl bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white"
+                            className="shrink-0 rounded-lg bg-red-600 hover:bg-red-700 px-4 py-2 text-sm font-semibold text-white"
                           >
                             Remove
                           </button>

@@ -10,6 +10,7 @@ import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { getLessons, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import { getLessonStudyQuestions, submitStudyAidAttempt, getStudyAidAttemptsForCourse, type StudyAidQuestion } from "@/lib/supabase/queries/study-aid";
+import { areStudyAidAnswersEquivalent } from "@/lib/study-aid-symbols";
 
 function shuffleArray<T>(items: T[]): T[] {
   const arr = [...items];
@@ -20,10 +21,28 @@ function shuffleArray<T>(items: T[]): T[] {
   return arr;
 }
 
+const DISCRETE_SYMBOLS = ["∪", "∩", "⊆", "⊂", "∈", "∉", "∅", "U", "×", "¬", "∧", "∨", "→", "↔"] as const;
+
 interface LessonWithUI extends Lesson {
   pdfUrl?: string;
   pdfFileName?: string;
   createdAt: string;
+}
+
+function getStudyAidAnswerMeta(correctAnswer: StudyAidQuestion["correct_answer"]) {
+  if (correctAnswer && typeof correctAnswer === "object" && "answer" in correctAnswer) {
+    return {
+      answer: correctAnswer.answer,
+      correctExplanation: correctAnswer.correct_explanation || "",
+      incorrectExplanation: correctAnswer.incorrect_explanation || "",
+    };
+  }
+
+  return {
+    answer: correctAnswer,
+    correctExplanation: "",
+    incorrectExplanation: "",
+  };
 }
 
 export default function StudentContentPage() {
@@ -36,7 +55,7 @@ export default function StudentContentPage() {
   const [loading, setLoading] = useState(true);
   const [studyAidModalOpen, setStudyAidModalOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithUI | null>(null);
-  const [studyAidType, setStudyAidType] = useState<"flashcards" | "summary" | "multiple_choice" | "fill_blank">("summary");
+  const [studyAidType, setStudyAidType] = useState<"flashcards" | "multiple_choice" | "fill_blank">("flashcards");
   const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
   const [studyAidLoading, setStudyAidLoading] = useState(false);
   const [studyAidIndex, setStudyAidIndex] = useState(0);
@@ -48,6 +67,10 @@ export default function StudentContentPage() {
   const [studyAidAttempts, setStudyAidAttempts] = useState<
     { lesson_id: string; question_type: string; score: number; max_score: number }[]
   >([]);
+  const [expandedLessonIds, setExpandedLessonIds] = useState<Set<string>>(new Set());
+  const [lessonSummaryById, setLessonSummaryById] = useState<
+    Record<string, { loading: boolean; summary: string | null; error?: string }>
+  >({});
 
   useSyncMessagesToToast(studyAidSubmitError ?? "", "");
 
@@ -79,10 +102,15 @@ export default function StudentContentPage() {
     q.type === "summary" ||
     (q.type === "fill_blank" && String(q.correct_answer ?? "").toLowerCase().includes("summary"));
 
+  const shouldShuffleStudyAidQuestions =
+    course?.shuffle_study_aid_questions === undefined || course?.shuffle_study_aid_questions === null
+      ? true
+      : Boolean(course.shuffle_study_aid_questions);
+
   const handleStudyAid = async (lesson: LessonWithUI) => {
     setSelectedLesson(lesson);
     setStudyAidModalOpen(true);
-    setStudyAidType("summary");
+    setStudyAidType("flashcards");
     setStudyAidQuestions([]);
     setStudyAidIndex(0);
     setStudyAidReveal(false);
@@ -92,7 +120,7 @@ export default function StudentContentPage() {
     setStudyAidLoading(true);
     try {
       const questions = await getLessonStudyQuestions(lesson.id);
-      setStudyAidQuestions(shuffleArray(questions));
+      setStudyAidQuestions(shouldShuffleStudyAidQuestions ? shuffleArray(questions) : questions);
     } catch (err) {
       console.error("Error loading study aid:", err);
       toastError(err instanceof Error ? err.message : "Failed to load study aid.");
@@ -104,14 +132,51 @@ export default function StudentContentPage() {
   const questionsByType = (type: "flashcards" | "summary" | "multiple_choice" | "fill_blank") => {
     if (type === "flashcards") return studyAidQuestions.filter((q) => q.type === "true_false");
     if (type === "multiple_choice") return studyAidQuestions.filter((q) => q.type === "multiple_choice");
-    if (type === "summary") return studyAidQuestions.filter((q) => isSummaryQuestion(q));
     if (type === "fill_blank")
       return studyAidQuestions.filter((q) => q.type === "fill_blank" && !isSummaryQuestion(q));
     return [];
   };
 
+  const toggleLessonSummary = async (lesson: LessonWithUI) => {
+    setExpandedLessonIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(lesson.id)) next.delete(lesson.id);
+      else next.add(lesson.id);
+      return next;
+    });
+
+    if (lessonSummaryById[lesson.id]?.summary !== undefined || lessonSummaryById[lesson.id]?.loading) return;
+
+    setLessonSummaryById((prev) => ({
+      ...prev,
+      [lesson.id]: { loading: true, summary: null },
+    }));
+
+    try {
+      const questions = await getLessonStudyQuestions(lesson.id);
+      const summaryQuestion = questions.find((q) => isSummaryQuestion(q));
+      setLessonSummaryById((prev) => ({
+        ...prev,
+        [lesson.id]: {
+          loading: false,
+          summary: summaryQuestion?.question?.trim() || null,
+        },
+      }));
+    } catch (err) {
+      setLessonSummaryById((prev) => ({
+        ...prev,
+        [lesson.id]: {
+          loading: false,
+          summary: null,
+          error: err instanceof Error ? err.message : "Failed to load summary.",
+        },
+      }));
+    }
+  };
+
   const currentList = questionsByType(studyAidType);
   const currentQuestion = currentList[studyAidIndex];
+  const currentAnswerMeta = currentQuestion ? getStudyAidAnswerMeta(currentQuestion.correct_answer) : null;
   const hasAnyQuestions = studyAidQuestions.length > 0;
   const hasQuestionsForType = currentList.length > 0;
 
@@ -126,11 +191,11 @@ export default function StudentContentPage() {
     );
   const score = isAnswerableType
     ? currentList.filter((q) => {
-        const correct = q.correct_answer;
+        const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
         const ans = studyAidAnswers[q.id];
         if (ans === undefined && studyAidType === "fill_blank") return false;
         if (q.type === "multiple_choice") return Number(correct) === Number(ans);
-        return String(correct).trim().toLowerCase() === String(ans).trim().toLowerCase();
+        return areStudyAidAnswersEquivalent(ans, correct);
       }).length
     : 0;
   const maxScore = currentList.length;
@@ -140,7 +205,23 @@ export default function StudentContentPage() {
     setStudyAidSubmitting(true);
     setStudyAidSubmitError(null);
     try {
-      await submitStudyAidAttempt(selectedLesson.id, studyAidType as "multiple_choice" | "fill_blank", score, maxScore);
+      const fillBlankAnswers =
+        studyAidType === "fill_blank"
+          ? currentList.map((q) => {
+              const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
+              return {
+                student_answer: String(studyAidAnswers[q.id] ?? ""),
+                correct_answer: String(correct ?? ""),
+              };
+            })
+          : undefined;
+      await submitStudyAidAttempt(
+        selectedLesson.id,
+        studyAidType as "multiple_choice" | "fill_blank",
+        score,
+        maxScore,
+        fillBlankAnswers
+      );
       setStudyAidScoreSubmitted(true);
       setStudyAidReveal(true);
       setStudyAidAttempts((prev) => [
@@ -167,10 +248,17 @@ export default function StudentContentPage() {
     setStudyAidAnswers({});
     setStudyAidIndex(0);
     setStudyAidSubmitError(null);
-    setStudyAidQuestions((prev) => shuffleArray(prev));
+    setStudyAidQuestions((prev) => (shouldShuffleStudyAidQuestions ? shuffleArray(prev) : prev));
   };
 
-  const PASSING_PERCENT = 70;
+  const PASSING_PERCENT = Math.min(
+    100,
+    Math.max(1, Math.round(Number(course?.unlock_threshold_percent ?? 70)))
+  );
+  const REQUIRE_BOTH_FOR_UNLOCK =
+    course?.require_both_for_unlock === undefined || course?.require_both_for_unlock === null
+      ? true
+      : Boolean(course.require_both_for_unlock);
 
   // Unlocking is sequential across categories: Prelim -> Midterm -> Finals
   const orderedLessons = [
@@ -185,8 +273,9 @@ export default function StudentContentPage() {
     return a.order - b.order;
   });
 
-  // Combined mastery: based on MC + Fill-in-the-Blank together (must have both).
-  // We take best attempt per type (by pct), then combine scores/max_score.
+  // Combined mastery: based on MC + Fill-in-the-Blank together.
+  // We take best attempt per type (by pct), then compute:
+  // ((overall correct answers) / (overall number of questions)) * 100
   const bestByLessonAndType: Record<string, { score: number; max: number; pct: number }> = {};
   for (const a of studyAidAttempts) {
     const type = a.question_type;
@@ -203,13 +292,13 @@ export default function StudentContentPage() {
   for (const lesson of orderedLessons) {
     const mc = bestByLessonAndType[`${lesson.id}:multiple_choice`];
     const fib = bestByLessonAndType[`${lesson.id}:fill_blank`];
-    if (!mc || !fib) {
+    if (REQUIRE_BOTH_FOR_UNLOCK && (!mc || !fib)) {
       combinedPctByLesson[lesson.id] = 0;
       continue;
     }
-    const totalMax = (mc.max || 0) + (fib.max || 0);
-    const totalScore = (mc.score || 0) + (fib.score || 0);
-    combinedPctByLesson[lesson.id] = totalMax > 0 ? (totalScore / totalMax) * 100 : 0;
+    const totalQuestions = (mc?.max || 0) + (fib?.max || 0);
+    const overallCorrectAnswers = (mc?.score || 0) + (fib?.score || 0);
+    combinedPctByLesson[lesson.id] = totalQuestions > 0 ? (overallCorrectAnswers / totalQuestions) * 100 : 0;
   }
 
   const unlockedLessonIds = new Set<string>();
@@ -331,66 +420,107 @@ export default function StudentContentPage() {
                         key={lesson.id}
                         className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border p-4 sm:p-6 transition-all duration-200 ${isUnlocked ? "border-gray-200 hover:shadow-xl" : "border-gray-200 opacity-80"}`}
                       >
-                        <div className="flex flex-col gap-2">
-                          <div className="w-full">
+                        <div className="flex flex-col gap-4">
+                          <div className="min-w-0 w-full">
                             <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}
                             >{lesson.title}</h3>
                             {!isUnlocked && (
                               <p className="text-amber-800 text-sm font-medium mb-1">
-                                Complete the previous lesson&apos;s study aid with at least 70% to unlock.
+                                {REQUIRE_BOTH_FOR_UNLOCK
+                                  ? `Complete both MCQ and Fill in the Blank in the previous lesson and reach at least ${PASSING_PERCENT}% to unlock.`
+                                  : `Complete study aid in the previous lesson and reach at least ${PASSING_PERCENT}% to unlock.`}
                               </p>
                             )}
                             {lesson.description && (
                               <p className="text-gray-600 mb-4 break-words">{lesson.description}</p>
                             )}
-                            </div>
-                            
-                            <div className="mt-1 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between w-full">
-                              <div className="w-full sm:w-auto">
-                              {lesson.pdfUrl && (
-                                isUnlocked ? (
-                                  <a
-                                    href={lesson.pdfUrl}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-100 text-gray-800 hover:bg-gray-200 px-4 py-2 rounded-lg font-semibold transition-colors text-sm border border-gray-300"
-                                  >
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
-                                    </svg>
-                                    View PDF
-                                    {lesson.pdfFileName && <span className="text-gray-500 font-normal truncate">({lesson.pdfFileName})</span>}
-                                  </a>
-                                ) : (
-                                  <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm border border-gray-300 cursor-not-allowed">
-                                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                    View PDF (locked)
-                                  </span>
-                                )
-                              )}
-                            </div>
-
-                            <div className="w-full sm:w-auto">
-                              {isUnlocked ? (
+                            {isUnlocked && (
+                              <div className="mb-1">
                                 <button
-                                  onClick={() => handleStudyAid(lesson)}
-                                  className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-4 py-2 rounded-lg font-semibold hover:shadow-lg transform hover:-translate-y-0.5 transition-all duration-200 text-sm"
+                                  type="button"
+                                  onClick={() => toggleLessonSummary(lesson)}
+                                  className="inline-flex w-fit max-w-full items-center gap-2 text-left text-sm font-semibold text-red-700 hover:text-red-800"
                                 >
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                  <svg className={`h-4 w-4 shrink-0 transition-transform ${expandedLessonIds.has(lesson.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   </svg>
-                                  Study Aid
+                                  <span className="min-w-0 whitespace-normal">
+                                    {expandedLessonIds.has(lesson.id) ? "Hide lesson summary" : "Show lesson summary"}
+                                  </span>
                                 </button>
-                              ) : (
-                                <span className="inline-flex w-full sm:w-auto items-center justify-center gap-2 bg-gray-200 text-gray-500 px-4 py-2 rounded-lg font-semibold text-sm cursor-not-allowed">
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" /></svg>
-                                  Study Aid (locked)
-                                </span>
-                              )}
+                                {expandedLessonIds.has(lesson.id) && (
+                                  <div className="mt-3 p-4 rounded-xl border border-red-100 bg-red-50/60">
+                                    {lessonSummaryById[lesson.id]?.loading ? (
+                                      <p className="text-sm text-gray-600">Loading summary...</p>
+                                    ) : lessonSummaryById[lesson.id]?.error ? (
+                                      <p className="text-sm text-red-700">{lessonSummaryById[lesson.id]?.error}</p>
+                                    ) : lessonSummaryById[lesson.id]?.summary ? (
+                                      <div className="max-h-40 overflow-y-auto pr-1">
+                                        <p className="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed">
+                                          {lessonSummaryById[lesson.id]?.summary}
+                                        </p>
+                                      </div>
+                                    ) : (
+                                      <p className="text-sm text-gray-600">
+                                        No summary available for this lesson yet.
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
                               </div>
-                            </div>
+                            )}
+                          </div>
+
+                          {/* Full-width row below copy: avoids flex-1/min-w-0 crushing the summary next to a fixed sidebar */}
+                          <div className="flex w-full flex-col gap-2 border-t border-gray-100 pt-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end sm:gap-3">
+                            {lesson.pdfUrl &&
+                              (isUnlocked ? (
+                                <a
+                                  href={lesson.pdfUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="inline-flex h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:min-w-[12rem] sm:max-w-md sm:flex-initial"
+                                >
+                                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+                                  </svg>
+                                  <span className="min-w-0 truncate">
+                                    View PDF
+                                    {lesson.pdfFileName && (
+                                      <span className="font-normal text-gray-500"> ({lesson.pdfFileName})</span>
+                                    )}
+                                  </span>
+                                </a>
+                              ) : (
+                                <span className="inline-flex h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:min-w-[12rem] sm:max-w-md sm:flex-initial">
+                                  <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                  </svg>
+                                  View PDF (locked)
+                                </span>
+                              ))}
+                            {isUnlocked ? (
+                              <button
+                                type="button"
+                                onClick={() => handleStudyAid(lesson)}
+                                className="inline-flex h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:w-56 sm:flex-none"
+                              >
+                                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                                </svg>
+                                Study Aid
+                              </button>
+                            ) : (
+                              <span className="inline-flex h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:w-56 sm:flex-none">
+                                <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                                </svg>
+                                Study Aid (locked)
+                              </span>
+                            )}
                           </div>
                         </div>
+                      </div>
                     ); })}
                   </div>
                 </div>
@@ -432,7 +562,7 @@ export default function StudentContentPage() {
                 <select
                   value={studyAidType}
                   onChange={(e) => {
-                    const nextType = e.target.value as "summary" | "flashcards" | "multiple_choice" | "fill_blank";
+                    const nextType = e.target.value as "flashcards" | "multiple_choice" | "fill_blank";
                     setStudyAidType(nextType);
                     setStudyAidIndex(0);
                     setStudyAidReveal(false);
@@ -444,7 +574,6 @@ export default function StudentContentPage() {
                   }}
                   className="w-full sm:max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                 >
-                  <option value="summary">Summary</option>
                   <option value="flashcards">Flashcards</option>
                   <option value="multiple_choice">Multiple Choice</option>
                   <option value="fill_blank">Fill in the blank</option>
@@ -484,11 +613,11 @@ export default function StudentContentPage() {
                     >
                       <p className="text-base sm:text-lg font-semibold text-gray-700">
                         {studyAidReveal
-                          ? typeof currentQuestion.correct_answer === "boolean"
-                            ? String(currentQuestion.correct_answer)
+                          ? typeof currentAnswerMeta?.answer === "boolean"
+                            ? String(currentAnswerMeta?.answer)
                             : currentQuestion.type === "multiple_choice" && currentQuestion.options
-                            ? currentQuestion.options[Number(currentQuestion.correct_answer)] ?? String(currentQuestion.correct_answer)
-                            : String(currentQuestion.correct_answer)
+                            ? currentQuestion.options[Number(currentAnswerMeta?.answer)] ?? String(currentAnswerMeta?.answer)
+                            : String(currentAnswerMeta?.answer)
                           : currentQuestion.question}
                       </p>
                     </button>
@@ -516,38 +645,6 @@ export default function StudentContentPage() {
                 </div>
               )}
 
-              {studyAidType === "summary" && currentQuestion && (
-                <div className="py-4 sm:py-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4 text-center">Summary</h3>
-                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-3 sm:p-5 max-w-3xl mx-auto">
-                    <div className="bg-white rounded-xl shadow-lg p-6 text-left">
-                      <p className="text-gray-700 whitespace-pre-wrap leading-relaxed">{currentQuestion.question}</p>
-                    </div>
-                    {currentList.length > 1 && (
-                      <div className="flex items-center justify-center gap-4 mt-4">
-                        <button
-                          type="button"
-                          onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
-                          disabled={studyAidIndex === 0}
-                          className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
-                        >
-                          Previous
-                        </button>
-                        <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
-                        <button
-                          type="button"
-                          onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
-                          disabled={studyAidIndex === currentList.length - 1}
-                          className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
-                        >
-                          Next
-                        </button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-
               {studyAidType === "multiple_choice" && currentQuestion && currentQuestion.options && (
                 <div className="text-center py-4 sm:py-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
@@ -565,7 +662,7 @@ export default function StudentContentPage() {
                             key={idx}
                             className={`flex items-center gap-3 p-2.5 sm:p-3 border rounded-lg transition-colors ${
                               studyAidScoreSubmitted
-                                ? Number(currentQuestion.correct_answer) === idx
+                                ? Number(currentAnswerMeta?.answer) === idx
                                   ? "border-green-500 bg-green-50"
                                   : studyAidAnswers[currentQuestion.id] === idx
                                     ? "border-red-400 bg-red-50"
@@ -584,16 +681,31 @@ export default function StudentContentPage() {
                               className="w-4 h-4 text-red-600"
                             />
                             <span className="font-medium text-gray-700">{String.fromCharCode(65 + idx)}. {option}</span>
-                            {studyAidScoreSubmitted && Number(currentQuestion.correct_answer) === idx && (
+                            {studyAidScoreSubmitted && Number(currentAnswerMeta?.answer) === idx && (
                               <span className="ml-auto text-green-600 text-sm font-medium">Correct</span>
                             )}
                           </label>
                         ))}
                       </div>
                       {studyAidScoreSubmitted && (
-                        <p className="mt-4 text-sm text-gray-600">
-                          Correct answer: {currentQuestion.options[Number(currentQuestion.correct_answer)]}
-                        </p>
+                        <div className="mt-4 space-y-1">
+                          <p className="text-sm text-gray-600">
+                            Correct answer: {currentQuestion.options[Number(currentAnswerMeta?.answer)]}
+                          </p>
+                          {(currentAnswerMeta?.correctExplanation || currentAnswerMeta?.incorrectExplanation) && (
+                            <p
+                              className={`text-sm ${
+                                Number(currentAnswerMeta?.answer) === Number(studyAidAnswers[currentQuestion.id])
+                                  ? "text-green-700"
+                                  : "text-red-700"
+                              }`}
+                            >
+                              {Number(currentAnswerMeta?.answer) === Number(studyAidAnswers[currentQuestion.id])
+                                ? currentAnswerMeta?.correctExplanation
+                                : currentAnswerMeta?.incorrectExplanation}
+                            </p>
+                          )}
+                        </div>
                       )}
                     </div>
                     <div className="flex items-center justify-center gap-4 flex-wrap">
@@ -658,14 +770,48 @@ export default function StudentContentPage() {
                         disabled={studyAidScoreSubmitted}
                         className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder-text-gray-800 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-100"
                       />
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {DISCRETE_SYMBOLS.map((symbol) => (
+                          <button
+                            key={symbol}
+                            type="button"
+                            disabled={studyAidScoreSubmitted}
+                            onClick={() => {
+                              setStudyAidAnswers((prev) => ({
+                                ...prev,
+                                [currentQuestion.id]: `${String(prev[currentQuestion.id] ?? "")}${symbol}`,
+                              }));
+                            }}
+                            className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                          >
+                            {symbol}
+                          </button>
+                        ))}
+                      </div>
                       {studyAidScoreSubmitted && (
                         <div className="mt-4 space-y-2">
+                          {(() => {
+                            const isCorrect =
+                              areStudyAidAnswersEquivalent(
+                                String(studyAidAnswers[currentQuestion.id]),
+                                String(currentAnswerMeta?.answer)
+                              );
+                            return (
+                              <>
                           <p className="text-sm text-gray-600">Your answer: {String(studyAidAnswers[currentQuestion.id] ?? "").trim() || "(blank)"}</p>
-                          <p className={`text-sm font-medium ${String(currentQuestion.correct_answer).trim().toLowerCase() === String(studyAidAnswers[currentQuestion.id]).trim().toLowerCase() ? "text-green-700" : "text-red-700"}`}>
-                            {String(currentQuestion.correct_answer).trim().toLowerCase() === String(studyAidAnswers[currentQuestion.id]).trim().toLowerCase()
+                                <p className={`text-sm font-medium ${isCorrect ? "text-green-700" : "text-red-700"}`}>
+                                  {isCorrect
                               ? "Correct!"
-                              : `Correct answer: ${String(currentQuestion.correct_answer)}`}
-                          </p>
+                              : `Correct answer: ${String(currentAnswerMeta?.answer)}`}
+                                </p>
+                                {(currentAnswerMeta?.correctExplanation || currentAnswerMeta?.incorrectExplanation) && (
+                                  <p className={`text-sm ${isCorrect ? "text-green-700" : "text-red-700"}`}>
+                                    {isCorrect ? currentAnswerMeta?.correctExplanation : currentAnswerMeta?.incorrectExplanation}
+                                  </p>
+                                )}
+                              </>
+                            );
+                          })()}
                         </div>
                       )}
                     </div>

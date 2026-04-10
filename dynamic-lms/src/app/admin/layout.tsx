@@ -14,6 +14,10 @@ export default async function AdminLayout({
     redirect("/login?redirect=/admin");
   }
 
-  return <>{children}</>;
+  return (
+    <div className="min-h-screen bg-gradient-to-br from-slate-100 via-slate-50 to-slate-100 text-slate-900 antialiased">
+      {children}
+    </div>
+  );
 }
 

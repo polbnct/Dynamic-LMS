@@ -83,7 +83,15 @@ export async function POST(
         type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
         question: string;
         options?: string[];
-        correct_answer: number | boolean | string;
+        correct_answer:
+          | number
+          | boolean
+          | string
+          | {
+              answer: number | boolean | string;
+              correct_explanation?: string;
+              incorrect_explanation?: string;
+            };
       }>;
     };
 

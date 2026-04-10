@@ -5,7 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
 import CourseNavbar from "@/utils/CourseNavbar";
-import { getCourseById } from "@/lib/supabase/queries/courses.client";
+import { getCourseById, updateCourseLessonSettings } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 import { getLessons, createLesson, updateLesson, deleteLesson, uploadLessonPDF, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
@@ -35,11 +35,23 @@ function EditStudyQuestionForm({
     type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question?: string;
     options?: string[];
-    correct_answer?: number | boolean | string;
+    correct_answer?:
+      | number
+      | boolean
+      | string
+      | {
+          answer: number | boolean | string;
+          correct_explanation?: string;
+          incorrect_explanation?: string;
+        };
   }) => Promise<void>;
   onCancel: () => void;
   saving: boolean;
 }) {
+  const normalizedCorrectAnswer =
+    question.correct_answer && typeof question.correct_answer === "object" && "answer" in question.correct_answer
+      ? question.correct_answer.answer
+      : question.correct_answer;
   const [questionText, setQuestionText] = useState(question.question);
   const [type, setType] = useState<"multiple_choice" | "true_false" | "fill_blank" | "summary">(question.type);
   const [options, setOptions] = useState<string[]>(
@@ -48,32 +60,52 @@ function EditStudyQuestionForm({
       : ["", "", "", ""]
   );
   const [correctAnswerMc, setCorrectAnswerMc] = useState(
-    question.type === "multiple_choice" ? Number(question.correct_answer) : 0
+    question.type === "multiple_choice" ? Number(normalizedCorrectAnswer) : 0
   );
   const [correctAnswerTf, setCorrectAnswerTf] = useState(
-    question.type === "true_false" ? Boolean(question.correct_answer) : true
+    question.type === "true_false" ? Boolean(normalizedCorrectAnswer) : true
   );
   const [correctAnswerFill, setCorrectAnswerFill] = useState(
-    question.type === "fill_blank" ? String(question.correct_answer) : ""
+    question.type === "fill_blank" || question.type === "summary" ? String(normalizedCorrectAnswer ?? "") : ""
+  );
+  const [correctFeedback, setCorrectFeedback] = useState(
+    question.correct_answer &&
+      typeof question.correct_answer === "object" &&
+      "correct_explanation" in question.correct_answer
+      ? String(question.correct_answer.correct_explanation || "")
+      : ""
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    const existingAnswerMeta =
+      question.correct_answer &&
+      typeof question.correct_answer === "object" &&
+      "answer" in question.correct_answer
+        ? question.correct_answer
+        : null;
+
+    const withExistingExplanation = (answer: number | boolean | string) => ({
+      answer,
+      correct_explanation: correctFeedback.trim(),
+      incorrect_explanation: existingAnswerMeta?.incorrect_explanation,
+    });
+
     if (type === "multiple_choice") {
       const opts = options.map((o) => o.trim() || "");
       await onSave({
         question: questionText.trim(),
         type,
         options: opts.some((o) => o) ? opts : ["Option A", "Option B", "Option C", "Option D"],
-        correct_answer: correctAnswerMc,
+        correct_answer: withExistingExplanation(correctAnswerMc),
       });
     } else if (type === "true_false") {
-      await onSave({ question: questionText.trim(), type, correct_answer: correctAnswerTf });
+      await onSave({ question: questionText.trim(), type, correct_answer: withExistingExplanation(correctAnswerTf) });
     } else {
       await onSave({
         question: questionText.trim(),
         type,
-        correct_answer: correctAnswerFill.trim() || " ",
+        correct_answer: withExistingExplanation(correctAnswerFill.trim() || " "),
       });
     }
   };
@@ -189,6 +221,17 @@ function EditStudyQuestionForm({
           />
         </div>
       )}
+      <div>
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
+          Brief feedback for correct answer
+        </label>
+        <textarea
+          value={correctFeedback}
+          onChange={(e) => setCorrectFeedback(e.target.value)}
+          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 min-h-[84px] focus:ring-2 focus:ring-red-500 focus:border-red-500"
+          placeholder="Explain briefly why this is the correct answer..."
+        />
+      </div>
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="submit"
@@ -253,6 +296,14 @@ export default function ContentPage() {
   const [studyAidAdding, setStudyAidAdding] = useState(false);
   const [editingStudyQuestion, setEditingStudyQuestion] = useState<StudyAidQuestion | null>(null);
   const [studyAidSaving, setStudyAidSaving] = useState(false);
+  const [studyAidViewType, setStudyAidViewType] = useState<"summary" | "true_false" | "fill_blank" | "multiple_choice">("summary");
+  const [studyAidSearch, setStudyAidSearch] = useState("");
+  const [studyAidPage, setStudyAidPage] = useState(1);
+  const [editModalTab, setEditModalTab] = useState<"lesson" | "study_aid" | "lesson_settings">("lesson");
+  const [unlockThresholdPercent, setUnlockThresholdPercent] = useState(70);
+  const [shuffleStudyAidQuestions, setShuffleStudyAidQuestions] = useState(true);
+  const [requireBothForUnlock, setRequireBothForUnlock] = useState(true);
+  const [savingUnlockThreshold, setSavingUnlockThreshold] = useState(false);
   const { handledCourses } = useProfessorCourses();
   const [creatingLesson, setCreatingLesson] = useState(false);
 
@@ -289,11 +340,60 @@ export default function ContentPage() {
     });
   }, [studyAidQuestions]);
 
+  const studyAidCounts = useMemo(
+    () => ({
+      summary: orderedStudyAidQuestions.filter((q) => q.type === "summary").length,
+      true_false: orderedStudyAidQuestions.filter((q) => q.type === "true_false").length,
+      fill_blank: orderedStudyAidQuestions.filter((q) => q.type === "fill_blank").length,
+      multiple_choice: orderedStudyAidQuestions.filter((q) => q.type === "multiple_choice").length,
+    }),
+    [orderedStudyAidQuestions]
+  );
+
+  const filteredStudyAidQuestions = useMemo(() => {
+    const q = studyAidSearch.trim().toLowerCase();
+    return orderedStudyAidQuestions.filter((item) => {
+      const typeMatch = item.type === studyAidViewType;
+      const textMatch = !q || item.question.toLowerCase().includes(q);
+      return typeMatch && textMatch;
+    });
+  }, [orderedStudyAidQuestions, studyAidViewType, studyAidSearch]);
+
+  const STUDY_AID_PAGE_SIZE = 5;
+  const studyAidTotalPages = Math.max(1, Math.ceil(filteredStudyAidQuestions.length / STUDY_AID_PAGE_SIZE));
+  const pagedStudyAidQuestions = useMemo(() => {
+    const safePage = Math.min(studyAidPage, studyAidTotalPages);
+    const start = (safePage - 1) * STUDY_AID_PAGE_SIZE;
+    return filteredStudyAidQuestions.slice(start, start + STUDY_AID_PAGE_SIZE);
+  }, [filteredStudyAidQuestions, studyAidPage, studyAidTotalPages]);
+  const hasExistingSummary = useMemo(
+    () => studyAidQuestions.some((q) => q.type === "summary"),
+    [studyAidQuestions]
+  );
+
   useEffect(() => {
     async function fetchCourse() {
       try {
         const courseData = await getCourseById(courseId);
         setCourse(courseData);
+        setUnlockThresholdPercent(
+          Math.min(
+            100,
+            Math.max(1, Math.round(Number(courseData?.unlock_threshold_percent ?? 70)))
+          )
+        );
+        setShuffleStudyAidQuestions(
+          courseData?.shuffle_study_aid_questions === undefined ||
+          courseData?.shuffle_study_aid_questions === null
+            ? true
+            : Boolean(courseData.shuffle_study_aid_questions)
+        );
+        setRequireBothForUnlock(
+          courseData?.require_both_for_unlock === undefined ||
+          courseData?.require_both_for_unlock === null
+            ? true
+            : Boolean(courseData.require_both_for_unlock)
+        );
         const lessonsData = await getLessons(courseId);
         setLessons(
           lessonsData.map((lesson) => ({
@@ -338,11 +438,25 @@ export default function ContentPage() {
 
   const openEditLessonModal = (lesson: LessonWithUI) => {
     setEditingLesson(lesson);
+    setStudyAidLesson(lesson);
     setEditLessonForm({
       title: lesson.title,
       category: lesson.category,
       pdfFile: null,
     });
+    setEditModalTab("lesson");
+    setEditingStudyQuestion(null);
+    setGeneratedForStudy([]);
+    setSelectedGenerated(new Set());
+    if (lesson.pdf_file_path) {
+      setStudyAidLoading(true);
+      void getLessonStudyQuestions(lesson.id)
+        .then((list) => setStudyAidQuestions(list))
+        .catch(() => setStudyAidQuestions([]))
+        .finally(() => setStudyAidLoading(false));
+    } else {
+      setStudyAidQuestions([]);
+    }
     setError("");
     setSuccess("");
     setEditLessonModalOpen(true);
@@ -351,8 +465,13 @@ export default function ContentPage() {
   const closeEditLessonModal = () => {
     setEditLessonModalOpen(false);
     setEditingLesson(null);
+    setStudyAidLesson(null);
     setEditLessonForm({ title: "", category: "prelim", pdfFile: null });
     setUpdatingLesson(false);
+    setEditModalTab("lesson");
+    setStudyAidViewType("summary");
+    setStudyAidSearch("");
+    setStudyAidPage(1);
   };
 
   const handleUpdateLesson = async (e: React.FormEvent) => {
@@ -710,34 +829,6 @@ export default function ContentPage() {
                             </div>
                           </div>
                           <div className="flex w-full lg:w-auto items-center justify-end gap-2 lg:self-start">
-                            {lesson.pdf_file_path && (
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  setStudyAidLesson(lesson);
-                                  setError("");
-                                  setSuccess("");
-                                  setEditingStudyQuestion(null);
-                                  setGeneratedForStudy([]);
-                                  setSelectedGenerated(new Set());
-                                  setStudyAidLoading(true);
-                                  try {
-                                    const list = await getLessonStudyQuestions(lesson.id);
-                                    setStudyAidQuestions(list);
-                                  } catch (e) {
-                                    setStudyAidQuestions([]);
-                                  } finally {
-                                    setStudyAidLoading(false);
-                                  }
-                                }}
-                                className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
-                                title="Manage study aid questions"
-                              >
-                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                                </svg>
-                              </button>
-                            )}
                             <button
                               type="button"
                               onClick={() => openEditLessonModal(lesson)}
@@ -799,422 +890,6 @@ export default function ContentPage() {
           </div>
         )}
       </main>
-
-      {/* Manage Study Aid Modal */}
-      {studyAidLesson && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4"
-          onClick={() => setStudyAidLesson(null)}
-        >
-          <div
-            className="bg-white rounded-3xl shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-hidden flex flex-col border border-gray-200"
-            onClick={(e) => e.stopPropagation()}
-          >
-            {/* Modal header */}
-            <div className="px-4 sm:px-6 py-5 border-b border-gray-200 bg-white">
-              <div className="flex items-start sm:items-center justify-between gap-3">
-                <div className="flex items-start sm:items-center gap-3 min-w-0">
-                  <div className="w-12 h-12 rounded-xl bg-red-50 border border-red-100 flex items-center justify-center">
-                    <svg className="w-7 h-7 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <h2 className="text-xl font-bold text-gray-900">Study aid</h2>
-                    <p className="text-gray-600 text-sm mt-0.5 break-words">{studyAidLesson.title}</p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setStudyAidLesson(null)}
-                  className="p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
-                  aria-label="Close"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-6">
-              {/* Current study aid — card */}
-              <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
-                <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-gray-800">Your study aid questions</h3>
-                  {studyAidQuestions.length > 0 && (
-                    <span className="ml-auto text-sm font-medium text-red-600 bg-red-100 px-2.5 py-0.5 rounded-full">
-                      {studyAidQuestions.length} question{studyAidQuestions.length !== 1 ? "s" : ""}
-                    </span>
-                  )}
-                </div>
-                <div className="p-4 sm:p-5">
-                  {studyAidLoading ? (
-                    <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
-                      <svg className="animate-spin w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Loading…
-                    </div>
-                  ) : studyAidQuestions.length === 0 ? (
-                    <div className="text-center py-8">
-                      <div className="w-14 h-14 rounded-2xl bg-gray-200 flex items-center justify-center mx-auto mb-3">
-                        <svg className="w-7 h-7 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                      </div>
-                      <p className="text-gray-600 font-medium">No questions yet</p>
-                      <p className="text-gray-500 text-sm mt-1">Generate questions below and add them here.</p>
-                    </div>
-                  ) : (
-                    <div className="max-h-72 sm:max-h-[24rem] overflow-y-auto pr-1">
-                      <ul className="space-y-2">
-                        {orderedStudyAidQuestions.map((q) => (
-                          <li
-                            key={q.id}
-                            className="flex flex-col sm:flex-row sm:items-center gap-3 p-3 sm:p-4 bg-white rounded-xl border border-gray-200 hover:border-red-200 hover:shadow-sm transition-all"
-                          >
-                            <span className="flex-1 text-sm text-gray-800 break-words pr-2">{q.question}</span>
-                            <span className="self-start sm:self-auto flex-shrink-0 text-xs font-medium px-2 py-1 rounded-lg bg-gray-100 text-gray-600">
-                              {q.type === "true_false"
-                                ? "Flashcard"
-                                : q.type === "summary"
-                                  ? "Summary"
-                                  : q.type === "fill_blank"
-                                    ? "Fill in the blank"
-                                    : "Multiple choice"}
-                            </span>
-                            <div className="flex items-center gap-1 self-end sm:self-auto">
-                              <button
-                                type="button"
-                                onClick={() => setEditingStudyQuestion(q)}
-                                className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-                                title="Edit"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                                </svg>
-                              </button>
-                              <button
-                                type="button"
-                                onClick={async () => {
-                                  try {
-                                    await removeLessonStudyQuestion(studyAidLesson.id, q.id);
-                                    setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
-                                    if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
-                                  } catch (e) {
-                                    setError((e as Error).message);
-                                  }
-                                }}
-                                className="p-2 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
-                                title="Remove"
-                              >
-                                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                </svg>
-                              </button>
-                            </div>
-                          </li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  {editingStudyQuestion && studyAidLesson && (
-                    <div className="mt-5 rounded-2xl border-2 border-red-200 bg-white p-4 sm:p-5 shadow-sm">
-                      <h4 className="flex items-center gap-2 font-semibold text-gray-800 mb-4">
-                        <svg className="w-5 h-5 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
-                        </svg>
-                        Edit question
-                      </h4>
-                      <EditStudyQuestionForm
-                        key={editingStudyQuestion.id}
-                        question={editingStudyQuestion}
-                        onSave={async (updates) => {
-                          setStudyAidSaving(true);
-                          setError("");
-                          try {
-                            const updated = await updateLessonStudyQuestion(
-                              studyAidLesson.id,
-                              editingStudyQuestion.id,
-                              updates
-                            );
-                            setStudyAidQuestions((prev) =>
-                              prev.map((x) => (x.id === updated.id ? updated : x))
-                            );
-                            setEditingStudyQuestion(null);
-                            setSuccess("Question updated.");
-                            setTimeout(() => setSuccess(""), 3000);
-                          } catch (e) {
-                            setError((e as Error).message);
-                          } finally {
-                            setStudyAidSaving(false);
-                          }
-                        }}
-                        onCancel={() => setEditingStudyQuestion(null)}
-                        saving={studyAidSaving}
-                      />
-                    </div>
-                  )}
-                </div>
-              </section>
-
-              {/* Generate with AI — card */}
-              <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
-                <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-lg bg-rose-100 flex items-center justify-center">
-                    <svg className="w-4 h-4 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
-                    </svg>
-                  </div>
-                  <h3 className="font-semibold text-gray-800">Generate with AI (Gemini)</h3>
-                </div>
-                <div className="p-4 sm:p-5 space-y-4">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                    <div className="sm:col-span-2">
-                      <label className="block text-xs font-medium text-gray-500 mb-1.5">Question type</label>
-                      <select
-                        value={studyAidGenerateType}
-                        onChange={(e) => {
-                          setStudyAidGenerateType(e.target.value as any);
-                          if (e.target.value === "summary") setStudyAidGenerateCount(1);
-                          if (e.target.value === "fill_blank") setStudyAidGenerateCount(1);
-                        }}
-                        className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
-                      >
-                        <option value="summary">Summary (1 per lesson)</option>
-                        <option value="flashcard">Flashcard</option>
-                        <option value="multiple_choice">Multiple choice</option>
-                        <option value="fill_blank">Fill in the blank</option>
-                      </select>
-                    </div>
-                    {studyAidGenerateType !== "summary" && (
-                      <div className="w-full sm:w-24">
-                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
-                        <input
-                          type="number"
-                          min={1}
-                          max={10}
-                          value={studyAidGenerateCount}
-                          onChange={(e) => {
-                            const raw = Number(e.target.value);
-
-                            if (!Number.isFinite(raw)) {
-                              setStudyAidGenerateCount(10);
-                              return;
-                            }
-
-                            if (raw < 1 || raw > 10) {
-                              setStudyAidGenerateCount(10);
-                              return;
-                            }
-
-                            const clamped = Math.min(10, Math.max(1, raw));
-                            setStudyAidGenerateCount(raw);
-                          }}
-                          className="w-full px-4 py-2.5 border border-gray-300 text-gray-900 placeholder:text-gray-400 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                        />
-                      </div>
-                    )}
-                    {studyAidGenerateType === "summary" && (
-                      <div className="w-full sm:w-24">
-                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
-                        <div className="px-4 py-2.5 border border-gray-300 rounded-xl text-sm bg-gray-50 text-gray-500">
-                          1 (Summary only)
-                        </div>
-                      </div>
-                    )}
-                    {studyAidGenerateType === "summary" &&
-                      studyAidQuestions.some(
-                        (q) => q.type === "summary"
-                      ) && (
-                      <span className="text-sm text-amber-700 font-medium sm:col-span-2">Summary already exists for this lesson.</span>
-                    )}
-                    <button
-                      type="button"
-                      disabled={
-                        studyAidGenerating ||
-                        (studyAidGenerateType === "summary" &&
-                          studyAidQuestions.some(
-                            (q) => q.type === "summary"
-                          ))
-                      }
-                      onClick={async () => {
-                        // Summary is one-time only: do not allow generating again if one exists
-                        if (studyAidGenerateType === "summary") {
-                          const existingSummary = studyAidQuestions.find((q) => q.type === "summary");
-                          if (existingSummary) {
-                            return; // Button is disabled when summary exists; no-op
-                          }
-                        }
-                        setStudyAidGenerating(true);
-                        setError("");
-                        try {
-                          const res = await fetch("/api/gemini/generate-questions", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                          body: JSON.stringify({
-                            lessonId: studyAidLesson.id,
-                            questionType:
-                              studyAidGenerateType === "summary" || studyAidGenerateType === "fill_blank"
-                                ? "fill_blank"
-                                : studyAidGenerateType === "flashcard"
-                                  ? "true_false"
-                                  : "multiple_choice",
-                            count: getValidatedStudyAidCount(studyAidGenerateType, studyAidGenerateCount),
-                            forStudyAid: true,
-                            studyAidSummary: studyAidGenerateType === "summary",
-                          }),
-                          });
-                          if (!res.ok) {
-                            const d = await res.json().catch(() => ({}));
-                            throw new Error(d.error || "Generate failed");
-                          }
-                          const data = await res.json();
-                          setGeneratedForStudy(data.questions || []);
-                          setSelectedGenerated(new Set((data.questions || []).map((_: any, i: number) => i)));
-                        } catch (e) {
-                          setError((e as Error).message);
-                          setGeneratedForStudy([]);
-                        } finally {
-                          setStudyAidGenerating(false);
-                        }
-                      }}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 text-white text-sm font-semibold rounded-xl hover:from-rose-700 hover:to-red-700 disabled:opacity-50 shadow-lg hover:shadow-xl transition-all"
-                    >
-                      {studyAidGenerating ? (
-                        <>
-                          <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                          </svg>
-                          Generating…
-                        </>
-                      ) : (
-                        <>
-                          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                          </svg>
-                          Generate
-                        </>
-                      )}
-                    </button>
-                  </div>
-
-                  {generatedForStudy.length > 0 && (
-                    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-                      <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-1">
-                        <span className="text-sm font-medium text-gray-700">Select questions to add</span>
-                        <span className="text-xs text-gray-500">{selectedGenerated.size} selected</span>
-                      </div>
-                      <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
-                        {generatedForStudy.map((q: any, idx: number) => (
-                          <li
-                            key={idx}
-                            className={`flex items-start gap-3 px-4 py-3 cursor-pointer transition-colors ${
-                              selectedGenerated.has(idx) ? "bg-red-50/80" : "hover:bg-gray-50"
-                            }`}
-                            onClick={() => {
-                              setSelectedGenerated((prev) => {
-                                const next = new Set(prev);
-                                if (next.has(idx)) next.delete(idx);
-                                else next.add(idx);
-                                return next;
-                              });
-                            }}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={selectedGenerated.has(idx)}
-                              onChange={() => {}}
-                              className="mt-1 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                            />
-                            <span className="text-sm text-gray-800 flex-1 break-words">{q.question}</span>
-                          </li>
-                        ))}
-                      </ul>
-                      <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
-                        <button
-                          type="button"
-                          disabled={studyAidAdding || selectedGenerated.size === 0}
-                          onClick={async () => {
-                            const toAdd = generatedForStudy.filter((_, i) => selectedGenerated.has(i));
-                            if (toAdd.length === 0) return;
-                            setStudyAidAdding(true);
-                            setError("");
-                            try {
-                              // If adding a summary, remove existing summary first
-                              // When adding a new summary, remove existing summary first (only if we ever allowed replace; currently summary is one-time so this path is for first add only)
-                              if (studyAidGenerateType === "summary") {
-                                const existingSummary = studyAidQuestions.find((q) => q.type === "summary");
-                                if (existingSummary) {
-                                  try {
-                                    await removeLessonStudyQuestion(
-                                      studyAidLesson.id,
-                                      existingSummary.id
-                                    );
-                                  } catch (e) {
-                                    console.error("Error removing existing summary:", e);
-                                  }
-                                }
-                              }
-                              const payload = toAdd.map((q: any) => ({
-                                type:
-                                  studyAidGenerateType === "summary"
-                                    ? "summary"
-                                    : (q.type as "multiple_choice" | "true_false" | "fill_blank"),
-                                question: q.question,
-                                options: q.options,
-                                correct_answer: q.correct_answer,
-                              }));
-                              const { added } = await addLessonStudyQuestions(studyAidLesson.id, payload as any);
-                              const list = await getLessonStudyQuestions(studyAidLesson.id);
-                              setStudyAidQuestions(list);
-                              setGeneratedForStudy([]);
-                              setSelectedGenerated(new Set());
-                              setSuccess(`Added ${added} ${studyAidGenerateType === "summary" ? "summary" : "question(s)"} to study aid.`);
-                              setTimeout(() => setSuccess(""), 3000);
-                            } catch (e) {
-                              setError((e as Error).message);
-                            } finally {
-                              setStudyAidAdding(false);
-                            }
-                          }}
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-3 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                        >
-                          {studyAidAdding ? (
-                            <>
-                              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                              </svg>
-                              Adding…
-                            </>
-                          ) : (
-                            <>
-                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
-                              </svg>
-                              Add {selectedGenerated.size} question{selectedGenerated.size !== 1 ? "s" : ""} to study aid
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </section>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Add Lesson Modal */}
       {addLessonModalOpen && (
@@ -1377,7 +1052,7 @@ export default function ContentPage() {
           onClick={closeEditLessonModal}
         >
           <div
-            className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-4 sm:p-6 transform transition-all max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl shadow-2xl max-w-4xl w-full p-4 sm:p-6 transform transition-all max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-start sm:items-center justify-between gap-3 mb-6">
@@ -1394,75 +1069,562 @@ export default function ContentPage() {
               </button>
             </div>
 
-            <form onSubmit={handleUpdateLesson} className="space-y-4">
-              <div>
-                <label htmlFor="editLessonName" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Lesson Name
-                </label>
-                <input
-                  id="editLessonName"
-                  type="text"
-                  maxLength={56}
-                  value={editLessonForm.title}
-                  onChange={(e) => setEditLessonForm((p) => ({ ...p, title: e.target.value }))}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
-                  autoFocus
-                />
-              </div>
-
-              <div>
-                <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Category
-                </label>
-                <select
-                  id="editLessonCategory"
-                  value={editLessonForm.category}
-                  onChange={(e) =>
-                    setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
-                  }
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
-                >
-                  <option value="prelim">Prelim</option>
-                  <option value="midterm">Midterm</option>
-                  <option value="finals">Finals</option>
-                </select>
-              </div>
-
-              <div>
-                <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-gray-700 mb-2">
-                  Replace PDF <span className="text-gray-500 text-xs">(Optional)</span>
-                </label>
-                <input
-                  id="editLessonPdf"
-                  type="file"
-                  accept="application/pdf"
-                  onChange={handleEditLessonFileChange}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
-                />
-                {editingLesson.pdfFileName && (
-                  <p className="mt-2 text-xs text-gray-500">
-                    Current PDF: <span className="font-medium">{editingLesson.pdfFileName}</span>
-                  </p>
-                )}
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+            <div className="mb-5 border-b border-gray-200">
+              <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={closeEditLessonModal}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl cursor-pointer font-semibold hover:bg-gray-50 transition-colors"
+                  onClick={() => setEditModalTab("lesson")}
+                  className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    editModalTab === "lesson"
+                      ? "text-red-700 border-red-600"
+                      : "text-gray-600 border-transparent hover:text-red-600"
+                  }`}
                 >
-                  Cancel
+                  Lesson Details
                 </button>
                 <button
-                  type="submit"
-                  disabled={updatingLesson}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  type="button"
+                  onClick={() => setEditModalTab("study_aid")}
+                  disabled={!editingLesson.pdf_file_path}
+                  className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    editModalTab === "study_aid"
+                      ? "text-red-700 border-red-600"
+                      : "text-gray-600 border-transparent hover:text-red-600"
+                  } ${!editingLesson.pdf_file_path ? "opacity-50 cursor-not-allowed hover:text-gray-600" : ""}`}
                 >
-                  {updatingLesson ? "Saving..." : "Save changes"}
+                  Study Aid
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditModalTab("lesson_settings")}
+                  className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    editModalTab === "lesson_settings"
+                      ? "text-red-700 border-red-600"
+                      : "text-gray-600 border-transparent hover:text-red-600"
+                  }`}
+                >
+                  Lesson Setting
                 </button>
               </div>
-            </form>
+            </div>
+
+            {editModalTab === "lesson" ? (
+              <form onSubmit={handleUpdateLesson} className="space-y-4">
+                <div>
+                  <label htmlFor="editLessonName" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Lesson Name
+                  </label>
+                  <input
+                    id="editLessonName"
+                    type="text"
+                    maxLength={56}
+                    value={editLessonForm.title}
+                    onChange={(e) => setEditLessonForm((p) => ({ ...p, title: e.target.value }))}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                    autoFocus
+                  />
+                </div>
+
+                <div>
+                  <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Category
+                  </label>
+                  <select
+                    id="editLessonCategory"
+                    value={editLessonForm.category}
+                    onChange={(e) =>
+                      setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
+                    }
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  >
+                    <option value="prelim">Prelim</option>
+                    <option value="midterm">Midterm</option>
+                    <option value="finals">Finals</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-gray-700 mb-2">
+                    Replace PDF <span className="text-gray-500 text-xs">(Optional)</span>
+                  </label>
+                  <input
+                    id="editLessonPdf"
+                    type="file"
+                    accept="application/pdf"
+                    onChange={handleEditLessonFileChange}
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 bg-gray-50/50 focus:bg-white file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100 cursor-pointer"
+                  />
+                  {editingLesson.pdfFileName && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Current PDF: <span className="font-medium">{editingLesson.pdfFileName}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex flex-col sm:flex-row gap-3 pt-2">
+                  <button
+                    type="button"
+                    onClick={closeEditLessonModal}
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl cursor-pointer font-semibold hover:bg-gray-50 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={updatingLesson}
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {updatingLesson ? "Saving..." : "Save changes"}
+                  </button>
+                </div>
+              </form>
+            ) : editModalTab === "lesson_settings" ? (
+              <div className="space-y-5">
+                <div className="rounded-xl border border-gray-200 bg-white p-4">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
+                    Required percentage to unlock next lesson
+                  </label>
+                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={unlockThresholdPercent}
+                      onChange={(e) => {
+                        const raw = Number(e.target.value);
+                        if (!Number.isFinite(raw)) {
+                          setUnlockThresholdPercent(70);
+                          return;
+                        }
+                        setUnlockThresholdPercent(Math.min(100, Math.max(1, Math.round(raw))));
+                      }}
+                      className="w-full sm:w-36 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                    />
+                    <span className="text-sm text-gray-600">%</span>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Study aid question order
+                    </label>
+                    <label className="inline-flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={shuffleStudyAidQuestions}
+                        onChange={(e) => setShuffleStudyAidQuestions(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="text-sm text-gray-700">Shuffle question order for students</span>
+                    </label>
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-gray-200">
+                    <label className="block text-sm font-semibold text-gray-700 mb-2">
+                      Unlock rule requirement
+                    </label>
+                    <label className="inline-flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        checked={requireBothForUnlock}
+                        onChange={(e) => setRequireBothForUnlock(e.target.checked)}
+                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                      />
+                      <span className="text-sm text-gray-700">
+                        Require both MCQ and Fill in the Blank attempts for unlock
+                      </span>
+                    </label>
+                    <p className="text-xs text-gray-500 mt-2">
+                      If disabled, whichever completed type contributes to the unlock percentage.
+                    </p>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      disabled={savingUnlockThreshold}
+                      onClick={async () => {
+                        try {
+                          setSavingUnlockThreshold(true);
+                          setError("");
+                          await updateCourseLessonSettings(courseId, {
+                            unlock_threshold_percent: unlockThresholdPercent,
+                            shuffle_study_aid_questions: shuffleStudyAidQuestions,
+                            require_both_for_unlock: requireBothForUnlock,
+                          });
+                          setCourse((prev: any) =>
+                            prev
+                              ? {
+                                  ...prev,
+                                  unlock_threshold_percent: unlockThresholdPercent,
+                                  shuffle_study_aid_questions: shuffleStudyAidQuestions,
+                                  require_both_for_unlock: requireBothForUnlock,
+                                }
+                              : prev
+                          );
+                          setSuccess("Lesson settings updated.");
+                          setTimeout(() => setSuccess(""), 2500);
+                        } catch (e: any) {
+                          setError(e?.message || "Failed to update lesson settings.");
+                        } finally {
+                          setSavingUnlockThreshold(false);
+                        }
+                      }}
+                      className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold rounded-xl hover:from-red-700 hover:to-rose-700 disabled:opacity-50"
+                    >
+                      {savingUnlockThreshold ? "Saving..." : "Save settings"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : !editingLesson.pdf_file_path ? (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800">
+                Upload a PDF to this lesson first, then you can manage Study Aid here.
+              </div>
+            ) : (
+              <div className="space-y-6">
+                {/* Current study aid — card */}
+                <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
+                  <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                      <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                      </svg>
+                    </div>
+                    <h3 className="font-semibold text-gray-800">Your study aid questions</h3>
+                    {studyAidQuestions.length > 0 && (
+                      <span className="ml-auto text-sm font-medium text-red-600 bg-red-100 px-2.5 py-0.5 rounded-full">
+                        {studyAidQuestions.length} question{studyAidQuestions.length !== 1 ? "s" : ""}
+                      </span>
+                    )}
+                  </div>
+                  <div className="p-4 sm:p-5">
+                    {studyAidLoading ? (
+                      <div className="flex items-center justify-center gap-2 py-8 text-gray-500">
+                        <svg className="animate-spin w-5 h-5 text-red-600" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                        </svg>
+                        Loading…
+                      </div>
+                    ) : studyAidQuestions.length === 0 ? (
+                      <div className="text-center py-8">
+                        <p className="text-gray-600 font-medium">No questions yet</p>
+                        <p className="text-gray-500 text-sm mt-1">Generate questions below and add them here.</p>
+                      </div>
+                    ) : (
+                      <div className="space-y-4">
+                        <div className="flex flex-col lg:flex-row lg:items-center gap-3">
+                          <div className="flex flex-wrap gap-2">
+                            {[
+                              { key: "summary", label: "Summary", count: studyAidCounts.summary },
+                              { key: "true_false", label: "Flashcards", count: studyAidCounts.true_false },
+                              { key: "fill_blank", label: "Fill in the Blank", count: studyAidCounts.fill_blank },
+                              { key: "multiple_choice", label: "Multiple Choice", count: studyAidCounts.multiple_choice },
+                            ].map((tab) => (
+                              <button
+                                key={tab.key}
+                                type="button"
+                                onClick={() => {
+                                  setStudyAidViewType(tab.key as any);
+                                  setStudyAidPage(1);
+                                }}
+                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                  studyAidViewType === tab.key
+                                    ? "bg-red-600 text-white border-red-600"
+                                    : "bg-white text-gray-700 border-gray-300 hover:border-red-300"
+                                }`}
+                              >
+                                {tab.label} ({tab.count})
+                              </button>
+                            ))}
+                          </div>
+                          <div className="lg:ml-auto w-full lg:w-72">
+                            <input
+                              type="text"
+                              value={studyAidSearch}
+                              onChange={(e) => {
+                                setStudyAidSearch(e.target.value);
+                                setStudyAidPage(1);
+                              }}
+                              placeholder="Search questions..."
+                              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                            />
+                          </div>
+                        </div>
+
+                        {filteredStudyAidQuestions.length === 0 ? (
+                          <div className="text-center py-8 bg-white rounded-xl border border-gray-200">
+                            <p className="text-sm text-gray-500">No questions match your filter.</p>
+                          </div>
+                        ) : (
+                          <>
+                            <ul className="space-y-2">
+                              {pagedStudyAidQuestions.map((q) => (
+                                <li key={q.id} className="p-3 bg-white rounded-xl border border-gray-200">
+                                  <div className="flex items-start gap-3">
+                                    <span className="inline-flex px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs font-medium">
+                                      {q.type === "true_false"
+                                        ? "Flashcard"
+                                        : q.type === "fill_blank"
+                                          ? "Fill in the Blank"
+                                          : q.type === "multiple_choice"
+                                            ? "Multiple Choice"
+                                            : "Summary"}
+                                    </span>
+                                    <span className="flex-1 text-sm text-gray-800 break-words">{q.question}</span>
+                                    <button
+                                      type="button"
+                                      onClick={() => setEditingStudyQuestion(q)}
+                                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                                      title="Edit"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                                      </svg>
+                                    </button>
+                                    <button
+                                      type="button"
+                                      onClick={async () => {
+                                        if (!studyAidLesson) return;
+                                        try {
+                                          await removeLessonStudyQuestion(studyAidLesson.id, q.id);
+                                          setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
+                                          if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
+                                        } catch (e) {
+                                          setError((e as Error).message);
+                                        }
+                                      }}
+                                      className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
+                                      title="Remove"
+                                    >
+                                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                      </svg>
+                                    </button>
+                                  </div>
+                                </li>
+                              ))}
+                            </ul>
+                            <div className="flex items-center justify-between pt-1">
+                              <p className="text-xs text-gray-500">
+                                Showing {(studyAidPage - 1) * STUDY_AID_PAGE_SIZE + 1}-
+                                {Math.min(studyAidPage * STUDY_AID_PAGE_SIZE, filteredStudyAidQuestions.length)} of {filteredStudyAidQuestions.length}
+                              </p>
+                              <div className="flex items-center gap-2">
+                                <button
+                                  type="button"
+                                  onClick={() => setStudyAidPage((p) => Math.max(1, p - 1))}
+                                  disabled={studyAidPage === 1}
+                                  className="px-2.5 py-1.5 text-xs rounded border border-gray-300 text-gray-700 disabled:opacity-50"
+                                >
+                                  Prev
+                                </button>
+                                <span className="text-xs text-gray-600">
+                                  Page {studyAidPage} / {studyAidTotalPages}
+                                </span>
+                                <button
+                                  type="button"
+                                  onClick={() => setStudyAidPage((p) => Math.min(studyAidTotalPages, p + 1))}
+                                  disabled={studyAidPage >= studyAidTotalPages}
+                                  className="px-2.5 py-1.5 text-xs rounded border border-gray-300 text-gray-700 disabled:opacity-50"
+                                >
+                                  Next
+                                </button>
+                              </div>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    )}
+
+                    {editingStudyQuestion && studyAidLesson && (
+                      <div className="mt-5 rounded-2xl border-2 border-red-200 bg-white p-4 sm:p-5 shadow-sm">
+                        <h4 className="font-semibold text-gray-800 mb-4">Edit question</h4>
+                        <EditStudyQuestionForm
+                          key={editingStudyQuestion.id}
+                          question={editingStudyQuestion}
+                          onSave={async (updates) => {
+                            setStudyAidSaving(true);
+                            setError("");
+                            try {
+                              const updated = await updateLessonStudyQuestion(
+                                studyAidLesson.id,
+                                editingStudyQuestion.id,
+                                updates
+                              );
+                              setStudyAidQuestions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
+                              setEditingStudyQuestion(null);
+                            } catch (e) {
+                              setError((e as Error).message);
+                            } finally {
+                              setStudyAidSaving(false);
+                            }
+                          }}
+                          onCancel={() => setEditingStudyQuestion(null)}
+                          saving={studyAidSaving}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </section>
+
+                <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
+                  <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white">
+                    <h3 className="font-semibold text-gray-800">Generate with AI (Gemini)</h3>
+                  </div>
+                  <div className="p-4 sm:p-5 space-y-4">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <div className="sm:col-span-2">
+                        <label className="block text-xs font-medium text-gray-500 mb-1.5">Question type</label>
+                        <select
+                          value={studyAidGenerateType}
+                          onChange={(e) => {
+                            setStudyAidGenerateType(e.target.value as any);
+                            if (e.target.value === "summary") setStudyAidGenerateCount(1);
+                          }}
+                          className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+                        >
+                          <option value="summary">Summary (1 per lesson)</option>
+                          <option value="flashcard">Flashcard</option>
+                          <option value="multiple_choice">Multiple choice</option>
+                          <option value="fill_blank">Fill in the blank</option>
+                        </select>
+                      </div>
+                      {studyAidGenerateType !== "summary" && (
+                        <div className="w-full sm:w-24">
+                          <label className="block text-xs font-medium text-gray-500 mb-1.5">Count</label>
+                          <input
+                            type="number"
+                            min={1}
+                            max={10}
+                            value={studyAidGenerateCount}
+                            onChange={(e) => {
+                              const raw = Number(e.target.value);
+                              if (!Number.isFinite(raw)) {
+                                setStudyAidGenerateCount(1);
+                                return;
+                              }
+                              setStudyAidGenerateCount(Math.min(10, Math.max(1, raw)));
+                            }}
+                            className="w-full px-4 py-2.5 border border-gray-300 text-gray-900 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
+                          />
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        disabled={
+                          studyAidGenerating ||
+                          !studyAidLesson ||
+                          (studyAidGenerateType === "summary" && hasExistingSummary)
+                        }
+                        onClick={async () => {
+                          if (!studyAidLesson) return;
+                          if (studyAidGenerateType === "summary" && hasExistingSummary) return;
+                          setStudyAidGenerating(true);
+                          setError("");
+                          try {
+                            const res = await fetch("/api/gemini/generate-questions", {
+                              method: "POST",
+                              headers: { "Content-Type": "application/json" },
+                              body: JSON.stringify({
+                                lessonId: studyAidLesson.id,
+                                questionType:
+                                  studyAidGenerateType === "summary" || studyAidGenerateType === "fill_blank"
+                                    ? "fill_blank"
+                                    : studyAidGenerateType === "flashcard"
+                                      ? "true_false"
+                                      : "multiple_choice",
+                                count: getValidatedStudyAidCount(studyAidGenerateType, studyAidGenerateCount),
+                                forStudyAid: true,
+                                studyAidSummary: studyAidGenerateType === "summary",
+                              }),
+                            });
+                            if (!res.ok) throw new Error((await res.json()).error || "Generate failed");
+                            const data = await res.json();
+                            setGeneratedForStudy(data.questions || []);
+                            setSelectedGenerated(new Set((data.questions || []).map((_: any, i: number) => i)));
+                          } catch (e) {
+                            setError((e as Error).message);
+                            setGeneratedForStudy([]);
+                          } finally {
+                            setStudyAidGenerating(false);
+                          }
+                        }}
+                        className={`w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-rose-600 to-red-600 text-white text-sm font-semibold rounded-xl hover:from-rose-700 hover:to-red-700 disabled:opacity-50 ${
+                          studyAidGenerateType === "summary" ? "sm:col-span-2 sm:justify-self-center" : ""
+                        }`}
+                      >
+                        {studyAidGenerating ? "Generating..." : "Generate"}
+                      </button>
+                      {studyAidGenerateType === "summary" && hasExistingSummary && (
+                        <p className="sm:col-span-2 text-center text-sm text-amber-700 font-medium">
+                          Only one summary is allowed per lesson. Remove the existing summary first to generate another.
+                        </p>
+                      )}
+                    </div>
+
+                    {generatedForStudy.length > 0 && (
+                      <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
+                        <ul className="max-h-64 overflow-y-auto divide-y divide-gray-100">
+                          {generatedForStudy.map((q: any, idx: number) => (
+                            <li
+                              key={idx}
+                              className={`flex items-start gap-3 px-4 py-3 cursor-pointer ${selectedGenerated.has(idx) ? "bg-red-50/80" : "hover:bg-gray-50"}`}
+                              onClick={() =>
+                                setSelectedGenerated((prev) => {
+                                  const next = new Set(prev);
+                                  if (next.has(idx)) next.delete(idx);
+                                  else next.add(idx);
+                                  return next;
+                                })
+                              }
+                            >
+                              <input type="checkbox" checked={selectedGenerated.has(idx)} onChange={() => {}} />
+                              <span className="text-sm text-gray-800 flex-1 break-words">{q.question}</span>
+                            </li>
+                          ))}
+                        </ul>
+                        <div className="px-4 py-3 bg-gray-50 border-t border-gray-200">
+                          <button
+                            type="button"
+                            disabled={
+                              studyAidAdding ||
+                              selectedGenerated.size === 0 ||
+                              !studyAidLesson ||
+                              (studyAidGenerateType === "summary" && hasExistingSummary)
+                            }
+                            onClick={async () => {
+                              if (!studyAidLesson) return;
+                              if (studyAidGenerateType === "summary" && hasExistingSummary) return;
+                              const toAdd = generatedForStudy.filter((_: any, i: number) => selectedGenerated.has(i));
+                              if (!toAdd.length) return;
+                              setStudyAidAdding(true);
+                              try {
+                                const payload = toAdd.map((q: any) => ({
+                                  type: studyAidGenerateType === "summary" ? "summary" : q.type,
+                                  question: q.question,
+                                  options: q.options,
+                                  correct_answer: q.correct_answer,
+                                }));
+                                await addLessonStudyQuestions(studyAidLesson.id, payload as any);
+                                const list = await getLessonStudyQuestions(studyAidLesson.id);
+                                setStudyAidQuestions(list);
+                                setGeneratedForStudy([]);
+                                setSelectedGenerated(new Set());
+                              } catch (e) {
+                                setError((e as Error).message);
+                              } finally {
+                                setStudyAidAdding(false);
+                              }
+                            }}
+                            className="w-full px-4 py-3 bg-green-600 text-white text-sm font-semibold rounded-xl hover:bg-green-700 disabled:opacity-50"
+                          >
+                            {studyAidAdding ? "Adding..." : `Add ${selectedGenerated.size} to study aid`}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </div>
+            )}
           </div>
         </div>
       )}

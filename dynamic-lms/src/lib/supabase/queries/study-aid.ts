@@ -4,7 +4,15 @@ export interface StudyAidQuestion {
   type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
   question: string;
   options?: string[];
-  correct_answer: number | boolean | string;
+  correct_answer:
+    | number
+    | boolean
+    | string
+    | {
+        answer: number | boolean | string;
+        correct_explanation?: string;
+        incorrect_explanation?: string;
+      };
 }
 
 export async function getLessonStudyQuestions(
@@ -25,7 +33,15 @@ export async function addLessonStudyQuestions(
     type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question: string;
     options?: string[];
-    correct_answer: number | boolean | string;
+    correct_answer:
+      | number
+      | boolean
+      | string
+      | {
+          answer: number | boolean | string;
+          correct_explanation?: string;
+          incorrect_explanation?: string;
+        };
   }>
 ): Promise<{ added: number }> {
   const res = await fetch(`/api/lessons/${lessonId}/study-questions`, {
@@ -48,7 +64,15 @@ export async function updateLessonStudyQuestion(
     type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question?: string;
     options?: string[];
-    correct_answer?: number | boolean | string;
+    correct_answer?:
+      | number
+      | boolean
+      | string
+      | {
+          answer: number | boolean | string;
+          correct_explanation?: string;
+          incorrect_explanation?: string;
+        };
   }
 ): Promise<StudyAidQuestion> {
   const res = await fetch(
@@ -85,12 +109,13 @@ export async function submitStudyAidAttempt(
   lessonId: string,
   questionType: "multiple_choice" | "fill_blank",
   score: number,
-  maxScore: number
+  maxScore: number,
+  answers?: Array<{ student_answer: string; correct_answer: string }>
 ): Promise<{ success: boolean }> {
   const res = await fetch(`/api/lessons/${lessonId}/study-aid-attempts`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ questionType, score, maxScore }),
+    body: JSON.stringify({ questionType, score, maxScore, answers }),
   });
   if (!res.ok) {
     const err = await res.json().catch(() => ({}));

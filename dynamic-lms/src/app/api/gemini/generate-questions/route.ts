@@ -296,20 +296,29 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
 
   let jsonExample = "";
   if (questionType === "multiple_choice") {
-    jsonExample = '"options": ["Option A", "Option B", "Option C", "Option D"],\n    "correct_answer": 0';
+    jsonExample = forStudyAid
+      ? '"options": ["Option A", "Option B", "Option C", "Option D"],\n    "correct_answer": 0,\n    "correct_explanation": "Brief explanation of why this option is correct based on the lesson.",\n    "incorrect_explanation": "Brief explanation of why a different selected option would be incorrect."'
+      : '"options": ["Option A", "Option B", "Option C", "Option D"],\n    "correct_answer": 0';
   } else if (questionType === "true_false") {
-    jsonExample = '"correct_answer": true';
+    jsonExample = forStudyAid
+      ? '"correct_answer": true,\n    "correct_explanation": "Brief explanation of why this statement is true based on the lesson.",\n    "incorrect_explanation": "Brief explanation of why the opposite answer would be incorrect."'
+      : '"correct_answer": true';
   } else {
-    jsonExample = '"correct_answer": "answer text"';
+    jsonExample = forStudyAid
+      ? '"correct_answer": "answer text",\n    "correct_explanation": "Brief explanation of why this fill-in answer is correct.",\n    "incorrect_explanation": "Brief explanation of why an incorrect fill-in response would be wrong."'
+      : '"correct_answer": "answer text"';
   }
 
   const purposeContext = forStudyAid 
-    ? "These questions are for STUDY AID purposes - they help students learn and review the material. Focus on key concepts, important facts, and essential information that students should remember."
+    ? `These questions are for STUDY AID purposes - they help students learn and review the material. Focus on key concepts, important facts, and essential information that students should remember.
+- Include practice-oriented questions students can actively solve when the lesson contains solvable content (e.g., computations, symbolic manipulations, step-based logic problems, worked-example style applications).
+- Keep a balanced mix of concept-recall and problem-solving practice when applicable.`
     : `These questions are for QUIZ/ASSESSMENT purposes - they must be HARDER than study-aid questions. Requirements:
 - Test application, analysis, or synthesis of the material, not just recall. Include scenarios, "which of the following would...", or "based on the document, why...".
 - Make distractors highly plausible so that only students who truly understand get the right answer. Avoid obviously wrong options.
 - Do NOT repeat or mirror study-aid style questions. Assessment questions should require deeper thinking, comparison, or application.
-- Vary difficulty: include at least some questions that require connecting multiple ideas or inferring from the PDF.`;
+- Vary difficulty: include at least some questions that require connecting multiple ideas or inferring from the PDF.
+- If the lesson includes computable or solvable parts, include some problem-solving questions where students must apply methods/formulas to produce or choose the correct result.`;
 
   return `You are an educational content generator specializing in creating high-quality ${forStudyAid ? "study aid" : "assessment"} questions. Based on the PDF document provided and the following lesson metadata, generate exactly ${count} ${typeInstructions[questionType as keyof typeof typeInstructions] || "questions"}.
 
@@ -326,6 +335,17 @@ Question Type: ${questionType === "multiple_choice" ? "Multiple Choice" : questi
 
 Specific Guidelines for ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? "True/False" : "Fill-in-the-Blank"} ${forStudyAid ? "Study Aid" : ""} Questions:
 ${specificGuidelines}
+
+Practice Question Requirement (applies to both quiz and study aid):
+- When the PDF contains parts that can be solved/practiced, include questions that require students to work through those parts, not just recall definitions.
+- Prioritize authentic practice aligned to the lesson's actual problem types, methods, and examples.
+
+${forStudyAid ? `Study Aid Explanation Requirements:
+- For every generated question, include:
+  - "correct_explanation": a short learner-friendly explanation shown when the student answers correctly.
+  - "incorrect_explanation": a short learner-friendly explanation shown when the student answers incorrectly.
+- Keep explanations brief (1-2 sentences) and grounded in the PDF content.
+- Explanations should help students understand the concept, not just repeat the answer.` : ""}
 
 Wording Rules (STRICT):
 - Do NOT begin questions with filler lead-ins such as "According to the material", "According to the provided material", "According to the lesson", or similar phrases.
@@ -461,21 +481,74 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
         } else {
           questionObj.options = q.options;
         }
-        
+
         if (q.correct_answer === undefined || q.correct_answer === null) {
           console.warn(`Question ${index} has no correct_answer, defaulting to 0`);
-          questionObj.correct_answer = 0;
+          questionObj.correct_answer = forStudyAid
+            ? {
+                answer: 0,
+                correct_explanation: "This is the best-supported choice based on the lesson content.",
+                incorrect_explanation: "The selected option is not the best-supported answer from the lesson.",
+              }
+            : 0;
         } else {
-          questionObj.correct_answer = typeof q.correct_answer === "number" ? q.correct_answer : parseInt(q.correct_answer, 10);
+          const parsedAnswer =
+            typeof q.correct_answer === "number" ? q.correct_answer : parseInt(q.correct_answer, 10);
+          questionObj.correct_answer = forStudyAid
+            ? {
+                answer: Number.isFinite(parsedAnswer) ? parsedAnswer : 0,
+                correct_explanation:
+                  typeof q.correct_explanation === "string" && q.correct_explanation.trim()
+                    ? q.correct_explanation.trim()
+                    : "Correct. This option best matches the lesson content.",
+                incorrect_explanation:
+                  typeof q.incorrect_explanation === "string" && q.incorrect_explanation.trim()
+                    ? q.incorrect_explanation.trim()
+                    : "Not quite. Review the lesson details and compare each option carefully.",
+              }
+            : parsedAnswer;
         }
       } else if (questionType === "true_false") {
-        questionObj.correct_answer = typeof q.correct_answer === "boolean" ? q.correct_answer : q.correct_answer === "true" || q.correct_answer === true;
+        const parsedAnswer =
+          typeof q.correct_answer === "boolean" ? q.correct_answer : q.correct_answer === "true" || q.correct_answer === true;
+        questionObj.correct_answer = forStudyAid
+          ? {
+              answer: parsedAnswer,
+              correct_explanation:
+                typeof q.correct_explanation === "string" && q.correct_explanation.trim()
+                  ? q.correct_explanation.trim()
+                  : "Correct. This statement is supported by the lesson content.",
+              incorrect_explanation:
+                typeof q.incorrect_explanation === "string" && q.incorrect_explanation.trim()
+                  ? q.incorrect_explanation.trim()
+                  : "Not correct. The opposite answer aligns better with the lesson content.",
+            }
+          : parsedAnswer;
       } else if (questionType === "fill_blank") {
         if (!q.correct_answer || typeof q.correct_answer !== "string") {
           console.warn(`Question ${index} has invalid correct_answer, using default`);
-          questionObj.correct_answer = "answer";
+          questionObj.correct_answer = forStudyAid
+            ? {
+                answer: "answer",
+                correct_explanation: "Correct. This term best completes the statement from the lesson.",
+                incorrect_explanation: "Not quite. Recheck the key term used in the lesson context.",
+              }
+            : "answer";
         } else {
-          questionObj.correct_answer = q.correct_answer.trim();
+          const answer = q.correct_answer.trim();
+          questionObj.correct_answer = forStudyAid
+            ? {
+                answer,
+                correct_explanation:
+                  typeof q.correct_explanation === "string" && q.correct_explanation.trim()
+                    ? q.correct_explanation.trim()
+                    : "Correct. This answer matches the concept in the lesson.",
+                incorrect_explanation:
+                  typeof q.incorrect_explanation === "string" && q.incorrect_explanation.trim()
+                    ? q.incorrect_explanation.trim()
+                    : "Not correct. Check the exact term or phrase used in the lesson.",
+              }
+            : answer;
         }
       }
 

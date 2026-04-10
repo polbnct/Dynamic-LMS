@@ -31,6 +31,21 @@ export async function POST(request: NextRequest) {
 
     const quizIds = quizzes.map((q) => q.id);
 
+    // In-progress attempts (submitted_at is null) — at most one per quiz per student in practice
+    const { data: inProgressRows } = await admin
+      .from("quiz_attempts")
+      .select("id, quiz_id")
+      .in("quiz_id", quizIds)
+      .eq("student_id", student.id)
+      .is("submitted_at", null);
+
+    const inProgressByQuiz: Record<string, string> = {};
+    (inProgressRows || []).forEach((row: { id: string; quiz_id: string }) => {
+      if (row?.quiz_id && row?.id) {
+        inProgressByQuiz[row.quiz_id] = row.id;
+      }
+    });
+
     // Submitted attempts per quiz
     const { data: attempts } = await admin
       .from("quiz_attempts")
@@ -72,6 +87,7 @@ export async function POST(request: NextRequest) {
         allowedAttempts: allowed,
         remainingAttempts: remaining,
         isLocked,
+        inProgressAttemptId: inProgressByQuiz[q.id] ?? null,
       };
     });
 

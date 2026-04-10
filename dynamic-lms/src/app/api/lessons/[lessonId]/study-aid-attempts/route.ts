@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { areStudyAidAnswersEquivalent } from "@/lib/study-aid-symbols";
 
 export async function POST(
   request: NextRequest,
@@ -12,10 +13,11 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { questionType, score, maxScore } = body as {
+    const { questionType, score, maxScore, answers } = body as {
       questionType: "multiple_choice" | "fill_blank";
       score: number;
       maxScore: number;
+      answers?: Array<{ student_answer: string; correct_answer: string }>;
     };
 
     if (
@@ -71,13 +73,21 @@ export async function POST(
       return NextResponse.json({ error: "Not enrolled in this course" }, { status: 403 });
     }
 
+    let verifiedScore = Math.min(score, maxScore);
+    if (questionType === "fill_blank" && Array.isArray(answers) && answers.length > 0) {
+      const equivalentCount = answers.filter((entry) =>
+        areStudyAidAnswersEquivalent(entry.student_answer, entry.correct_answer)
+      ).length;
+      verifiedScore = Math.min(equivalentCount, maxScore);
+    }
+
     const { data: attempt, error: insertErr } = await supabase
       .from("study_aid_attempts")
       .insert({
         lesson_id: lessonId,
         student_id: student.id,
         question_type: questionType,
-        score: Math.min(score, maxScore),
+        score: verifiedScore,
         max_score: maxScore,
       })
       .select("id, score, max_score, created_at")
