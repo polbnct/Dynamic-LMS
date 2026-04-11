@@ -18,6 +18,7 @@ export default function StudentGradesPage() {
   const [course, setCourse] = useState<any>(null);
   const [grades, setGrades] = useState<Grade[]>([]);
   const [loading, setLoading] = useState(true);
+  const [expandedAttempts, setExpandedAttempts] = useState<Record<string, boolean>>({});
 
   useEffect(() => {
     async function fetchCourse() {
@@ -179,7 +180,6 @@ export default function StudentGradesPage() {
             {(["prelim", "midterm", "finals"] as const).map((category) => {
               const categoryItems = gradesByCategory[category];
               if (categoryItems.length === 0) return null;
-
               return (
                 <div key={category}>
                   {/* Category Header */}
@@ -192,11 +192,21 @@ export default function StudentGradesPage() {
 
                   {/* Grades List */}
                   <div className="space-y-4">
-                    {categoryItems.map((item) => (
-                      <div
-                        key={item.itemId}
-                        className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl transition-all duration-200"
-                      >
+                    {categoryItems.map((item) => {
+                      const latestAttempt = item.attempts[item.attempts.length - 1];
+                      const olderAttempts = item.attempts.slice(0, -1);
+                      const showAllAttempts = expandedAttempts[item.itemId] ?? false;
+                      const visibleAttempts = showAllAttempts 
+                      ? [...item.attempts].reverse()
+                      : latestAttempt 
+                      ? [latestAttempt] 
+                      : [];
+
+                      return (
+                        <div
+                          key={item.itemId}
+                          className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-md border border-gray-100 p-5 hover:shadow-md transition-all duration-200"
+                        >
                         <div className="flex items-start justify-between mb-4">
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-3 mb-1">
@@ -209,14 +219,17 @@ export default function StudentGradesPage() {
                               </span>
                             </div>
                             <p className="text-xs text-gray-500">
-                              {item.attempts.length} attempt{item.attempts.length !== 1 ? "s" : ""}
+                              {item.attempts.length} {" "}
+                              {item.type === "assignment"
+                              ? `submission${item.attempts.length !== 1 ? "s" : ""}`
+                              : `attempt${item.attempts.length !== 1 ? "s" : ""}`}
                             </p>
                           </div>
                         </div>
 
                         {/* Attempts list */}
                         <div className="space-y-2 mt-2">
-                          {item.attempts.map((attempt, idx) => (
+                          {visibleAttempts.map((attempt, idx) => (
                             <div
                               key={attempt.id}
                               className="py-2 px-3 rounded-xl bg-gray-50 border border-gray-100"
@@ -253,19 +266,45 @@ export default function StudentGradesPage() {
                               {attempt.feedback && attempt.feedback.trim() && (
                                 <div className="mt-2 rounded-xl border border-red-100 bg-white px-3 py-2 text-sm text-gray-700 min-w-0">
                                   <div className="text-xs font-semibold text-red-700 mb-1">Feedback</div>
-                                  <div className="whitespace-pre-wrap"
-                                  title={attempt.feedback}
+                                  <div
+                                    className="whitespace-pre-wrap"
+                                    title={attempt.feedback}
                                   >
-                                    {attempt.feedback}</div>
+                                    {attempt.feedback}
+                                  </div>
                                 </div>
                               )}
                             </div>
                           ))}
                         </div>
+
+                        {olderAttempts.length > 0 && (
+                          <div className="mt-3">
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setExpandedAttempts((prev) => ({
+                                  ...prev,
+                                  [item.itemId]: !prev[item.itemId],
+                                }))
+                              }
+                              className="text-sm font-semibold text-red-700 hover:text-red-800"
+                            >
+                              {showAllAttempts
+                                ? item.type === "assignment"
+                                  ? "Hide older submissions"
+                                  : "Hide older attempts"
+                                : item.type === "assignment"
+                                  ? `Show older submissions (${olderAttempts.length})`
+                                  : `Show older attempts (${olderAttempts.length})`}
+                            </button>
+                          </div>
+                        )}
                       </div>
-                    ))}
-                  </div>
+                    );
+                  })}
                 </div>
+              </div>
               );
             })}
           </div>

@@ -13,6 +13,18 @@ export default function TakeQuizPage() {
   const router = useRouter();
   const courseId = params.id as string;
   const quizId = params.quizId as string;
+  const formatType = (type: string) => {
+  switch (type) {
+    case "fill_blank":
+      return "Fill in the Blank";
+    case "multiple_choice":
+      return "Multiple Choice";
+    case "true_false":
+      return "True or False";
+    default:
+      return type.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  }
+};
 
   const [course, setCourse] = useState<any>(null);
   const [quiz, setQuiz] = useState<any>(null);
@@ -217,7 +229,7 @@ export default function TakeQuizPage() {
     <div className={`${shell} pb-28 sm:pb-24`}>
       <main className="mx-auto w-full max-w-4xl px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
         <header className="mb-8 text-left">
-          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words leading-tight">
+          <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-2 break-words leading-tight truncate">
             {quiz.name}
           </h1>
           <p className="text-sm sm:text-base text-gray-600">
@@ -265,16 +277,18 @@ export default function TakeQuizPage() {
                 <span className="text-sm font-semibold text-red-600 bg-red-100 px-3 py-1 rounded-full">
                   Question {index + 1}
                 </span>
-                <span className="ml-3 text-sm text-gray-500 capitalize">{question.type.replace(/_/g, " ")}</span>
+                <span className="ml-3 text-sm text-gray-500">
+                  {formatType(question.type)}
+                </span>
               </div>
-              <h2 className="text-lg font-semibold text-gray-800 mb-4">{question.question}</h2>
+              <h2 className="text-sm sm:text-lg font-semibold text-gray-800 mb-4">{question.question}</h2>
 
               {question.type === "multiple_choice" && Array.isArray(question.options) && question.options.length > 0 && (
                 <div className="space-y-2">
                   {question.options.map((option, optIndex) => (
                     <label
                       key={optIndex}
-                      className={`flex items-center gap-3 p-3 border rounded-lg cursor-pointer text-gray-800 transition-colors ${
+                      className={`flex items-start gap-2 p-2 sm:p-3 border rounded-lg cursor-pointer text-xs sm:text-base text-gray-800 transition-colors ${
                         answers[question.id] === optIndex
                           ? "border-red-400 bg-red-50"
                           : "border-gray-200 hover:bg-red-50"
@@ -286,23 +300,23 @@ export default function TakeQuizPage() {
                         value={optIndex}
                         checked={answers[question.id] === optIndex}
                         onChange={() => handleAnswerChange(question.id, optIndex)}
-                        className="w-4 h-4 text-red-600 shrink-0"
+                        className="w-3.5 h-3.5 sm:w-5 sm:h-5 text-red-600 shrink-0 mt-1"
                       />
-                      <span>{option}</span>
+                      <span className="text-sm sm:text-base leading-snug sm:leading-relaxed">{option}</span>
                     </label>
                   ))}
                 </div>
               )}
 
               {question.type === "true_false" && (
-                <div className="flex gap-3">
+                <div className="flex gap-2">
                   <button
                     type="button"
                     onClick={() => handleAnswerChange(question.id, true)}
-                    className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-colors ${
+                    className={`flex-1 py-2 px-2 rounded-lg font-semibold transition-colors ${
                       answers[question.id] === true
                         ? "bg-green-600 text-white shadow-md"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                     }`}
                   >
                     True
@@ -310,10 +324,10 @@ export default function TakeQuizPage() {
                   <button
                     type="button"
                     onClick={() => handleAnswerChange(question.id, false)}
-                    className={`flex-1 py-3 px-4 rounded-lg font-semibold transition-colors ${
+                    className={`flex-1 py-2 px-2 rounded-lg font-semibold transition-colors ${
                       answers[question.id] === false
                         ? "bg-red-600 text-white shadow-md"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                        : "bg-gray-100 text-gray-800 hover:bg-gray-200"
                     }`}
                   >
                     False

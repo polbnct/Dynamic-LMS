@@ -479,7 +479,7 @@ export default function StudentContentPage() {
                                   href={lesson.pdfUrl}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="inline-flex h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:min-w-[12rem] sm:max-w-md sm:flex-initial"
+                                  className="inline-flex py-2 sm:h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-6 sm:px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 sm:min-w-[12rem] sm:max-w-md sm:flex-initial"
                                 >
                                   <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
@@ -492,7 +492,7 @@ export default function StudentContentPage() {
                                   </span>
                                 </a>
                               ) : (
-                                <span className="inline-flex h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:min-w-[12rem] sm:max-w-md sm:flex-initial">
+                                <span className="inline-flex py-2 sm:h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-6 sm:px-3 text-sm font-medium text-slate-500 sm:min-w-[12rem] sm:max-w-md sm:flex-initial">
                                   <svg className="h-5 w-5 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                   </svg>
@@ -503,7 +503,7 @@ export default function StudentContentPage() {
                               <button
                                 type="button"
                                 onClick={() => handleStudyAid(lesson)}
-                                className="inline-flex h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:w-56 sm:flex-none"
+                                className="inline-flex py-2 sm:h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:w-56 sm:flex-none"
                               >
                                 <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
@@ -511,7 +511,7 @@ export default function StudentContentPage() {
                                 Study Aid
                               </button>
                             ) : (
-                              <span className="inline-flex h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:w-56 sm:flex-none">
+                              <span className="inline-flex py-2 sm:h-11 w-full min-w-0 flex-1 cursor-not-allowed items-center justify-center gap-2 rounded-lg border border-slate-200 bg-slate-50 px-3 text-sm font-medium text-slate-500 sm:w-56 sm:flex-none">
                                 <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                                 </svg>
