@@ -296,6 +296,8 @@ export default function ContentPage() {
   const [studyAidAdding, setStudyAidAdding] = useState(false);
   const [editingStudyQuestion, setEditingStudyQuestion] = useState<StudyAidQuestion | null>(null);
   const [studyAidSaving, setStudyAidSaving] = useState(false);
+  const [selectedStudyAidIds, setSelectedStudyAidIds] = useState<Set<string>>(new Set());
+  const [deletingSelectedStudyAids, setDeletingSelectedStudyAids] = useState(false);
   const [studyAidViewType, setStudyAidViewType] = useState<"summary" | "true_false" | "fill_blank" | "multiple_choice">("summary");
   const [studyAidSearch, setStudyAidSearch] = useState("");
   const [studyAidPage, setStudyAidPage] = useState(1);
@@ -309,17 +311,24 @@ export default function ContentPage() {
 
   useSyncMessagesToToast(error, success);
 
-  const getValidatedStudyAidCount = (
-    type: "summary" | "flashcard" | "multiple_choice" | "fill_blank",
-    count: number
-  ) => {
-    if (type === "summary") return 1;
+  useEffect(() => {
+  setSelectedStudyAidIds((prev) => {
+    const validIds = new Set(studyAidQuestions.map((q) => q.id));
+    return new Set(Array.from(prev).filter((id) => validIds.has(id)));
+  });
+}, [studyAidQuestions]);
 
-    const safeCount = Number(count);
-    if (!Number.isFinite(safeCount)) return 10;
+const getValidatedStudyAidCount = (
+  type: "summary" | "flashcard" | "multiple_choice" | "fill_blank",
+  count: number
+) => {
+  if (type === "summary") return 1;
 
-    return Math.min(10, Math.max(1, safeCount));
-  };
+  const safeCount = Number(count);
+  if (!Number.isFinite(safeCount)) return 10;
+
+  return Math.min(10, Math.max(1, safeCount));
+};
 
   const orderedStudyAidQuestions = useMemo(() => {
     const typePriority: Record<StudyAidQuestion["type"], number> = {
@@ -457,6 +466,7 @@ export default function ContentPage() {
     } else {
       setStudyAidQuestions([]);
     }
+    setSelectedStudyAidIds(new Set());
     setError("");
     setSuccess("");
     setEditLessonModalOpen(true);
@@ -467,6 +477,7 @@ export default function ContentPage() {
     setEditingLesson(null);
     setStudyAidLesson(null);
     setEditLessonForm({ title: "", category: "prelim", pdfFile: null });
+    setSelectedStudyAidIds(new Set());
     setUpdatingLesson(false);
     setEditModalTab("lesson");
     setStudyAidViewType("summary");
@@ -771,9 +782,9 @@ export default function ContentPage() {
                         key={lesson.id}
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
+                        <div className="flex items-start justify-between gap-3">
                           <div className="flex items-start gap-4 flex-1 min-w-0">
-                            <div className="flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
+                            <div className="hidden sm:flex flex-shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl items-center justify-center">
                               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -784,16 +795,17 @@ export default function ContentPage() {
                               </svg>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}
-                              >
-                                {lesson.title}</h3>
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}>
+                                {lesson.title}
+                              </h3>
+
                               {lesson.description && (
                                 <p className="text-gray-600 mb-3 break-words">{lesson.description}</p>
                               )}
                               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                                 {lesson.pdfFileName && (
                                   <div className="flex items-center gap-2 min-w-0">
-                                    <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path
                                         strokeLinecap="round"
                                         strokeLinejoin="round"
@@ -828,7 +840,7 @@ export default function ContentPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex w-full lg:w-auto items-center justify-end gap-2 lg:self-start">
+                          <div className="flex items-center gap-2 shrink-0">
                             <button
                               type="button"
                               onClick={() => openEditLessonModal(lesson)}
@@ -1144,7 +1156,7 @@ export default function ContentPage() {
                 </div>
 
                 <div>
-                  <label htmlFor="editLessonPdf" className="block text-sm font-semibold text-gray-700 mb-2">
+                  <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Replace PDF <span className="text-gray-500 text-xs">(Optional)</span>
                   </label>
                   <input
@@ -1184,7 +1196,7 @@ export default function ContentPage() {
                   <label className="block text-sm font-semibold text-gray-700 mb-2">
                     Required percentage to unlock next lesson
                   </label>
-                  <div className="flex flex-col sm:flex-row gap-3 sm:items-center">
+                  <div className="flex items-center gap-2">
                     <input
                       type="number"
                       min={1}
@@ -1200,7 +1212,7 @@ export default function ContentPage() {
                       }}
                       className="w-full sm:w-36 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
                     />
-                    <span className="text-sm text-gray-600">%</span>
+                    <span className="text-sm text-gray-600 leading-none">%</span>
                   </div>
                   <div className="mt-4 pt-4 border-t border-gray-200">
                     <label className="block text-sm font-semibold text-gray-700 mb-2">
@@ -1281,15 +1293,15 @@ export default function ContentPage() {
               <div className="space-y-6">
                 {/* Current study aid — card */}
                 <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
-                  <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center">
+                  <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white flex flex-wrap items-center gap-2">
+                    <div className="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center shrink-0">
                       <svg className="w-4 h-4 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                       </svg>
                     </div>
-                    <h3 className="font-semibold text-gray-800">Your study aid questions</h3>
+                    <h3 className="flex-1 min-w-0 font-semibold text-gray-800 break-words">Your study aid questions</h3>
                     {studyAidQuestions.length > 0 && (
-                      <span className="ml-auto text-sm font-medium text-red-600 bg-red-100 px-2.5 py-0.5 rounded-full">
+                      <span className="shrink-0 text-xs sm:text-sm font-medium text-red-600 bg-red-100 px-2.5 py-1 rounded-full whitespace-nowrap">
                         {studyAidQuestions.length} question{studyAidQuestions.length !== 1 ? "s" : ""}
                       </span>
                     )}
@@ -1311,7 +1323,7 @@ export default function ContentPage() {
                     ) : (
                       <div className="space-y-4">
                         <div className="flex flex-col lg:flex-row lg:items-center gap-3">
-                          <div className="flex flex-wrap gap-2">
+                          <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-2 w-full">
                             {[
                               { key: "summary", label: "Summary", count: studyAidCounts.summary },
                               { key: "true_false", label: "Flashcards", count: studyAidCounts.true_false },
@@ -1324,8 +1336,9 @@ export default function ContentPage() {
                                 onClick={() => {
                                   setStudyAidViewType(tab.key as any);
                                   setStudyAidPage(1);
+                                  setSelectedStudyAidIds(new Set());
                                 }}
-                                className={`px-3 py-1.5 rounded-full text-xs font-semibold border transition-colors ${
+                                className={`px-3 py-2 rounded-full text-xs font-semibold border transition-colors ${
                                   studyAidViewType === tab.key
                                     ? "bg-red-600 text-white border-red-600"
                                     : "bg-white text-gray-700 border-gray-300 hover:border-red-300"
@@ -1348,6 +1361,76 @@ export default function ContentPage() {
                             />
                           </div>
                         </div>
+                        
+                        {filteredStudyAidQuestions.length > 0 && (
+                          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 rounded-xl border border-gray-200 bg-white p-3">
+                            <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                              <input
+                                type="checkbox"
+                                checked={
+                                  pagedStudyAidQuestions.length > 0 &&
+                                  pagedStudyAidQuestions.every((q) => selectedStudyAidIds.has(q.id))
+                                }
+                                onChange={(e) => {
+                                  setSelectedStudyAidIds((prev) => {
+                                    const next = new Set(prev);
+                                    if (e.target.checked) {
+                                      pagedStudyAidQuestions.forEach((q) => next.add(q.id));
+                                    } else {
+                                      pagedStudyAidQuestions.forEach((q) => next.delete(q.id));
+                                    }
+                                    return next;
+                                  });
+                                }}
+                                className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                              />
+                              Select all on this page
+                            </label>
+
+                            <button
+                              type="button"
+                              disabled={selectedStudyAidIds.size === 0 || deletingSelectedStudyAids || !studyAidLesson}
+                              onClick={async () => {
+                                if (!studyAidLesson || selectedStudyAidIds.size === 0) return;
+
+                                const confirmed = confirm(
+                                  `Delete ${selectedStudyAidIds.size} selected study aid${selectedStudyAidIds.size !== 1 ? "s" : ""}?`
+                                );
+                                if (!confirmed) return;
+
+                                try {
+                                  setDeletingSelectedStudyAids(true);
+                                  const idsToDelete = Array.from(selectedStudyAidIds);
+
+                                  await Promise.all(
+                                    idsToDelete.map((id) => removeLessonStudyQuestion(studyAidLesson.id, id))
+                                  );
+
+                                  setStudyAidQuestions((prev) => prev.filter((q) => !selectedStudyAidIds.has(q.id)));
+                                  setSelectedStudyAidIds(new Set());
+
+                                  if (editingStudyQuestion && idsToDelete.includes(editingStudyQuestion.id)) {
+                                    setEditingStudyQuestion(null);
+                                  }
+
+                                  setSuccess(
+                                    `${idsToDelete.length} study aid${idsToDelete.length !== 1 ? "s" : ""} deleted.`
+                                  );
+                                  setTimeout(() => setSuccess(""), 2500);
+                                } catch (e) {
+                                  setError((e as Error).message);
+                                } finally {
+                                  setDeletingSelectedStudyAids(false);
+                                }
+                              }}
+                              className="w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
+                            >
+                              {deletingSelectedStudyAids
+                                ? "Deleting..."
+                                : `Delete Selected${selectedStudyAidIds.size > 0 ? ` (${selectedStudyAidIds.size})` : ""}`}
+                            </button>
+                          </div>
+                        )}
 
                         {filteredStudyAidQuestions.length === 0 ? (
                           <div className="text-center py-8 bg-white rounded-xl border border-gray-200">
@@ -1358,17 +1441,35 @@ export default function ContentPage() {
                             <ul className="space-y-2">
                               {pagedStudyAidQuestions.map((q) => (
                                 <li key={q.id} className="p-3 bg-white rounded-xl border border-gray-200">
-                                  <div className="flex items-start gap-3">
-                                    <span className="inline-flex px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs font-medium">
-                                      {q.type === "true_false"
-                                        ? "Flashcard"
-                                        : q.type === "fill_blank"
-                                          ? "Fill in the Blank"
-                                          : q.type === "multiple_choice"
-                                            ? "Multiple Choice"
-                                            : "Summary"}
-                                    </span>
-                                    <span className="flex-1 text-sm text-gray-800 break-words">{q.question}</span>
+                                  <div className="flex items-start justify-between gap-3">
+                                    <div className="flex items-start gap-2 min-w-0 flex-1">
+                                      <input
+                                        type="checkbox"
+                                        checked={selectedStudyAidIds.has(q.id)}
+                                        onChange={(e) => {
+                                          setSelectedStudyAidIds((prev) => {
+                                            const next = new Set(prev);
+                                            if (e.target.checked) next.add(q.id);
+                                            else next.delete(q.id);
+                                            return next;
+                                          });
+                                        }}
+                                        className="mt-0.5 h-4 w-4 shrink-0 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                                      />
+
+                                      <span className="inline-flex shrink-0 px-2 py-0.5 rounded bg-gray-100 text-gray-600 text-xs font-medium">
+                                        {q.type === "true_false"
+                                          ? "Flashcard"
+                                          : q.type === "fill_blank"
+                                            ? "Fill in the Blank"
+                                            : q.type === "multiple_choice"
+                                              ? "Multiple Choice"
+                                              : "Summary"}
+                                      </span>
+                                    </div>
+
+                                    
+                                    <div className="flex items-center gap-1 shrink-0">
                                     <button
                                       type="button"
                                       onClick={() => setEditingStudyQuestion(q)}
@@ -1379,14 +1480,24 @@ export default function ContentPage() {
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
                                       </svg>
                                     </button>
+
                                     <button
                                       type="button"
                                       onClick={async () => {
                                         if (!studyAidLesson) return;
-                                        try {
+                                        const confirmed = confirm("Delete this study aid?");
+                                          if (!confirmed) return;
+                                         try {
                                           await removeLessonStudyQuestion(studyAidLesson.id, q.id);
                                           setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
+                                          setSelectedStudyAidIds((prev) => {
+                                            const next = new Set(prev);
+                                            next.delete(q.id);
+                                            return next;
+                                          });
                                           if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
+                                          setSuccess("Study aid deleted.");
+                                          setTimeout(() => setSuccess(""), 2500);
                                         } catch (e) {
                                           setError((e as Error).message);
                                         }
@@ -1399,6 +1510,8 @@ export default function ContentPage() {
                                       </svg>
                                     </button>
                                   </div>
+                                </div>
+                                <span className="text-sm text-gray-800 break-words">{q.question}</span>
                                 </li>
                               ))}
                             </ul>
@@ -1451,6 +1564,8 @@ export default function ContentPage() {
                               );
                               setStudyAidQuestions((prev) => prev.map((x) => (x.id === updated.id ? updated : x)));
                               setEditingStudyQuestion(null);
+                              setSuccess("Study aid updated.");
+                              setTimeout(() => setSuccess(""), 2500);
                             } catch (e) {
                               setError((e as Error).message);
                             } finally {
@@ -1540,6 +1655,10 @@ export default function ContentPage() {
                             const data = await res.json();
                             setGeneratedForStudy(data.questions || []);
                             setSelectedGenerated(new Set((data.questions || []).map((_: any, i: number) => i)));
+                            setSuccess(
+                              `${(data.questions || []).length} study aid${(data.questions || []).length !== 1 ? "s" : ""} generated.`
+                            );
+                            setTimeout(() => setSuccess(""), 2500);
                           } catch (e) {
                             setError((e as Error).message);
                             setGeneratedForStudy([]);
@@ -1608,6 +1727,9 @@ export default function ContentPage() {
                                 setStudyAidQuestions(list);
                                 setGeneratedForStudy([]);
                                 setSelectedGenerated(new Set());
+                                setSelectedStudyAidIds(new Set());
+                                setSuccess(`${payload.length} study aid${payload.length !== 1 ? "s" : ""} added.`);
+                                setTimeout(() => setSuccess(""), 2500);
                               } catch (e) {
                                 setError((e as Error).message);
                               } finally {

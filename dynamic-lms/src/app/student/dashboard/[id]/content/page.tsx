@@ -21,7 +21,38 @@ function shuffleArray<T>(items: T[]): T[] {
   return arr;
 }
 
-const DISCRETE_SYMBOLS = ["∪", "∩", "⊆", "⊂", "∈", "∉", "∅", "U", "×", "¬", "∧", "∨", "→", "↔"] as const;
+const DISCRETE_SYMBOLS = [
+  // Set Theory
+  "∪", "∩", "⊆", "⊂", "⊇", "⊃", "∈", "∉", "∅", "U",
+
+  // Logic
+  "¬", "∧", "∨", "→", "↔", "⊕", "⊢", "⊨",
+
+  // Quantifiers
+  "∀", "∃", "∄",
+
+  // Relations / Functions
+  "×", "∘", "≡", "≈", "~",
+
+  // Comparison
+  "=", "≠", "<", ">", "≤", "≥",
+
+  // Arithmetic / Structure
+  "+", "-", "·", "/", "%",
+
+  // Grouping
+  "(", ")", "{", "}", "[", "]",
+
+  // Powers / indices
+  "²", "³", "ⁿ",
+
+  // Advanced / DS topics
+  "∑", "∞", "|", "∣", "∥", "⊥",
+
+  // Proof symbols
+  "∴", "∵",
+
+] as const;
 
 interface LessonWithUI extends Lesson {
   pdfUrl?: string;
@@ -60,6 +91,7 @@ export default function StudentContentPage() {
   const [studyAidLoading, setStudyAidLoading] = useState(false);
   const [studyAidIndex, setStudyAidIndex] = useState(0);
   const [studyAidReveal, setStudyAidReveal] = useState(false);
+  const [showSymbolPicker, setShowSymbolPicker] = useState(false);
   const [studyAidAnswers, setStudyAidAnswers] = useState<Record<string, number | string>>({});
   const [studyAidScoreSubmitted, setStudyAidScoreSubmitted] = useState(false);
   const [studyAidSubmitting, setStudyAidSubmitting] = useState(false);
@@ -114,6 +146,7 @@ export default function StudentContentPage() {
     setStudyAidQuestions([]);
     setStudyAidIndex(0);
     setStudyAidReveal(false);
+    setShowSymbolPicker(false);
     setStudyAidAnswers({});
     setStudyAidScoreSubmitted(false);
     setStudyAidSubmitError(null);
@@ -245,6 +278,7 @@ export default function StudentContentPage() {
   const handleTakeAgain = () => {
     setStudyAidScoreSubmitted(false);
     setStudyAidReveal(false);
+    setShowSymbolPicker(false);
     setStudyAidAnswers({});
     setStudyAidIndex(0);
     setStudyAidSubmitError(null);
@@ -566,6 +600,7 @@ export default function StudentContentPage() {
                     setStudyAidType(nextType);
                     setStudyAidIndex(0);
                     setStudyAidReveal(false);
+                    setShowSymbolPicker(false);
                     if (nextType === "multiple_choice" || nextType === "fill_blank") {
                       setStudyAidAnswers({});
                       setStudyAidScoreSubmitted(false);
@@ -768,26 +803,52 @@ export default function StudentContentPage() {
                         }
                         placeholder="Type your answer here"
                         disabled={studyAidScoreSubmitted}
-                        className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder-text-gray-800 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-100"
+                        className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder-text-gray-800 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-100 mb-2"
                       />
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {DISCRETE_SYMBOLS.map((symbol) => (
-                          <button
-                            key={symbol}
-                            type="button"
-                            disabled={studyAidScoreSubmitted}
-                            onClick={() => {
-                              setStudyAidAnswers((prev) => ({
-                                ...prev,
-                                [currentQuestion.id]: `${String(prev[currentQuestion.id] ?? "")}${symbol}`,
-                              }));
-                            }}
-                            className="px-2.5 py-1.5 text-sm rounded-lg border border-gray-300 bg-white text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                          >
-                            {symbol}
-                          </button>
-                        ))}
+                     <div className="mt-1 mb-2 flex items-center justify-end gap-2">
+                      <button
+                        type="button"
+                        disabled={studyAidScoreSubmitted}
+                        onClick={() => setShowSymbolPicker((prev) => !prev)}
+                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      >
+                        <svg
+                          className={`h-4 w-4 transition-transform ${showSymbolPicker ? "rotate-180" : ""}`}
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                        </svg>
+                        {showSymbolPicker ? "Hide symbols" : "Show symbols"}
+                      </button>
+                    </div>
+
+                    {showSymbolPicker && (
+                      <div className="mt-2 mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
+                        <div className="max-h-38 sm:max-h-42 overflow-y-auto pr-1">
+                          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
+                            {DISCRETE_SYMBOLS.map((symbol) => (
+                            <button
+                                key={symbol}
+                                type="button"
+                                disabled={studyAidScoreSubmitted}
+                                onClick={() => {
+                                  setStudyAidAnswers((prev) => ({
+                                    ...prev,
+                                    [currentQuestion.id]: `${String(prev[currentQuestion.id] ?? "")}${symbol}`,
+                                  }));
+                                }}
+                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
+                            >
+                                {symbol}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
                       </div>
+                    )}
+                  </div>
                       {studyAidScoreSubmitted && (
                         <div className="mt-4 space-y-2">
                           {(() => {
@@ -800,7 +861,7 @@ export default function StudentContentPage() {
                               <>
                           <p className="text-sm text-gray-600">Your answer: {String(studyAidAnswers[currentQuestion.id] ?? "").trim() || "(blank)"}</p>
                                 <p className={`text-sm font-medium ${isCorrect ? "text-green-700" : "text-red-700"}`}>
-                                  {isCorrect
+                                   {isCorrect
                               ? "Correct!"
                               : `Correct answer: ${String(currentAnswerMeta?.answer)}`}
                                 </p>
@@ -815,7 +876,7 @@ export default function StudentContentPage() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center justify-center gap-4 flex-wrap">
+                    <div className="mt-4 sm:mt-6 flex items-center justify-center gap-4 flex-wrap">
                       <button
                         type="button"
                         onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
@@ -853,7 +914,6 @@ export default function StudentContentPage() {
                       )}
                     </div>
                   </div>
-                </div>
               )}
             </div>
 

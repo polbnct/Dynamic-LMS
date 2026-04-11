@@ -1070,9 +1070,9 @@ export default function QuizzesPage() {
                 key={quiz.id}
                 className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
               >
-                <div className="flex flex-col sm:flex-row lg:items-start lg:justify-between gap-4 ">
-                  <div className="flex items-start gap-4 flex-1 min-w-0">
-                      <div className="shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center border border-red-200">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                      <div className="hidden sm:flex shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center border border-red-200">
                       <svg
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
@@ -1100,13 +1100,13 @@ export default function QuizzesPage() {
                     </p>
                     </div>
                   </div>
-                  <div className="flex items-center justify-end gap-2">
+                  <div className="flex items-center justify-end gap-1 sm:gap-2 shrink-0">
                     <button
                       onClick={() => {
                         setMonitoringQuizId(quiz.id);
                         setMonitoringQuizName(quiz.name);
                       }}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                       title="View attempts & logs"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1206,7 +1206,7 @@ export default function QuizzesPage() {
                           setError(err?.message || "Failed to delete quiz.");
                         }
                       }}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                       title="Delete quiz"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1519,14 +1519,14 @@ export default function QuizzesPage() {
                 {editingQuiz && editQuizTab === "retakes" && (
                   <div className="space-y-4">
                     <div className="rounded-xl border border-gray-200 bg-white px-4 py-3">
-                      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                        <div className="min-w-0">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
                           <h3 className="text-base font-semibold text-gray-900">Manage retakes</h3>
                           <p className="mt-0.5 text-xs text-gray-500">
                             Grant one extra attempt per student. Use bulk action to apply to everyone listed.
                           </p>
                         </div>
-                        <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        <div className="flex shrink-0 items-center gap-2">
                           {retakeLoading && (
                             <span className="text-xs font-medium text-gray-500">Loading…</span>
                           )}
@@ -1611,7 +1611,7 @@ export default function QuizzesPage() {
                         <ul className="max-h-[min(40vh,320px)] divide-y divide-gray-100 overflow-y-auto overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
                           {retakeRows.map((r) => (
                             <li key={r.studentDbId} className="px-4 py-3">
-                              <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                              <div className="flex items-start justify-between gap-2">
                                 <div className="min-w-0 flex-1">
                                   <p className="text-sm font-semibold text-gray-900 break-words">{r.name}</p>
                                   <p className="mt-0.5 text-xs text-gray-500 break-all">{r.email}</p>
@@ -1673,7 +1673,7 @@ export default function QuizzesPage() {
                                       setError(e.message || "Failed to grant retake");
                                     }
                                   }}
-                                  className="shrink-0 self-start rounded-lg border border-red-200 bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:text-sm"
+                                  className="shrink-0 rounded-lg border border-red-200 bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:text-sm"
                                 >
                                   Grant +1
                                 </button>

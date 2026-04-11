@@ -429,9 +429,9 @@ export default function AssignmentsPage() {
                         key={assignment.id}
                         className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-all duration-200"
                       >
-                        <div className="flex flex-col lg:flex-row lg:items-start lg:justify-between gap-4">
-                          <div className="flex items-start gap-4 flex-1 min-w-0">
-                            <div className="shrink-0 w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="flex items-start gap-3 sm:gap-4 flex-1 min-w-0">
+                            <div className="hidden sm:flex w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl items-center justify-center">
                               <svg className="w-6 h-6 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path
                                   strokeLinecap="round"
@@ -441,29 +441,31 @@ export default function AssignmentsPage() {
                                 />
                               </svg>
                             </div>
-                            <div className="flex-1 min-w-0">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" 
+                            <div className="flex-1 min-w-0 space-y-1">
+                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate" 
                                 title={assignment.title}
                               >
                                 {assignment.title}</h3>
                               {assignment.description && (
-                                <p className="text-gray-600 mb-3 truncate" 
+                                <p className="text-gray-600 truncate" 
                                 title={assignment.description}
                                 >
                                   {assignment.description}</p>
                               )}
-                              <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
+                              <div className="flex flex-wrap items-center gap-1 sm:gap-2 text-sm text-gray-500">
                                 {assignment.pdfUrl && (
                                   <a
                                     href={assignment.pdfUrl}
                                     target="_blank"
                                     rel="noopener noreferrer"
-                                    className="inline-flex items-center gap-2 text-red-600 hover:text-red-800 font-medium break-all"
+                                    className="inline-flex min-w-0 items-center gap-2 text-red-600 hover:text-red-800 font-medium"
                                   >
-                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="hidden sm:block w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 21h10a2 2 0 002-2V9.414a1 1 0 00-.293-.707l-5.414-5.414A1 1 0 0012.586 3H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
                                     </svg>
+                                    <span className="truncate">
                                     View PDF {assignment.pdfFileName && `(${assignment.pdfFileName})`}
+                                    </span>
                                   </a>
                                 )}
                                 {assignment.createdAt && (
@@ -478,7 +480,7 @@ export default function AssignmentsPage() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex w-full lg:w-auto items-center justify-end gap-2 lg:self-start">
+                          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
                             <button
                               onClick={async () => {
                                 setAssignmentForSubmissions(assignment);
@@ -493,7 +495,7 @@ export default function AssignmentsPage() {
                                   setSubmissionsLoading(false);
                                 }
                               }}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="View student submissions"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -515,7 +517,7 @@ export default function AssignmentsPage() {
                                 });
                                 setEditPdfFile(null);
                               }}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Edit assignment"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -534,7 +536,7 @@ export default function AssignmentsPage() {
                                   setError(err.message || "Failed to delete.");
                                 }
                               }}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                              className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete assignment"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
