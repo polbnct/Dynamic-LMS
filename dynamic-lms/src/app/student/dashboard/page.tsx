@@ -194,7 +194,7 @@ export default function StudentDashboard() {
                 }}
                 >
                   <div className="flex items-center justify-between gap-2 mb-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate flex-1" title={course.name}> 
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate flex-1" title={course.name}> 
                     {course.name}
                   </h3>
                   <svg

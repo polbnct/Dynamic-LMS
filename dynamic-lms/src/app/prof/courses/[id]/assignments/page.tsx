@@ -442,7 +442,7 @@ export default function AssignmentsPage() {
                               </svg>
                             </div>
                             <div className="flex-1 min-w-0 space-y-1">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 truncate" 
+                              <h3 className="text-md sm:text-lg font-bold text-gray-800 truncate" 
                                 title={assignment.title}
                               >
                                 {assignment.title}</h3>

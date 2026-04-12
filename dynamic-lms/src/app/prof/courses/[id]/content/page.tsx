@@ -776,7 +776,7 @@ const getValidatedStudyAidCount = (
                   </div>
 
                   {/* Lessons in Category */}
-                  <div className="space-y-4">
+                  <div className="space-y-3">
                     {categoryLessons.map((lesson) => (
                       <div
                         key={lesson.id}
@@ -795,16 +795,12 @@ const getValidatedStudyAidCount = (
                               </svg>
                             </div>
                             <div className="flex-1 min-w-0">
-                              <h3 className="text-lg sm:text-xl font-bold text-gray-800 mb-2 truncate" title={lesson.title}>
+                              <h3 className="text-md lg:text-lg font-bold text-gray-800 mb-1 truncate" title={lesson.title}>
                                 {lesson.title}
                               </h3>
-
-                              {lesson.description && (
-                                <p className="text-gray-600 mb-3 break-words">{lesson.description}</p>
-                              )}
                               <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-sm text-gray-500">
                                 {lesson.pdfFileName && (
-                                  <div className="flex items-center gap-2 min-w-0">
+                                  <div className="flex items-center gap-1 min-w-0">
                                     <svg className="w-4 h-4 text-red-600 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                       <path
                                         strokeLinecap="round"
@@ -844,7 +840,7 @@ const getValidatedStudyAidCount = (
                             <button
                               type="button"
                               onClick={() => openEditLessonModal(lesson)}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-1 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Edit lesson"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -879,7 +875,7 @@ const getValidatedStudyAidCount = (
                                   setError(err?.message || "Failed to delete lesson.");
                                 }
                               }}
-                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                              className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete lesson"
                             >
                               <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">

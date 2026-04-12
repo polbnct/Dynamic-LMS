@@ -140,11 +140,13 @@ export default function ProfessorDashboard() {
                 </p>
               </div>
             ) : (
+          <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm p-4">
+            <div className="max-h-[520px] overflow-y-auto pr-2">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredCourses.map((course) => (
                   <div
                     key={course.id}
-                    className="group min-w-0 overflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-xl hover:-translate-y-1 transition-all duration-200"
+                    className="group min-w-0 overflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-lg transition-all duration-200"
                   >
                     <Link href={`/prof/courses/${course.id}/content`} className="block min-w-0"
                     onClick={() => {
@@ -152,7 +154,7 @@ export default function ProfessorDashboard() {
                     }}>
                       <div className="flex items-start justify-between mb-4">
                         <div className="flex-1 min-w-0">
-                          <h3 className="text-lg font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate" 
+                          <h3 className="text-md font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate" 
                           title={course.name}
                           >
                             {course.name}
@@ -200,9 +202,11 @@ export default function ProfessorDashboard() {
                   </div>
                 ))}
               </div>
-            )}
-          </>
+            </div>
+          </div>
         )}
+      </>
+    )}
 
         {/* Professors can no longer edit or delete courses here; course management is admin-only. */}
       </main>
