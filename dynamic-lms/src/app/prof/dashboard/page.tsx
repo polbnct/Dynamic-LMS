@@ -140,8 +140,8 @@ export default function ProfessorDashboard() {
                 </p>
               </div>
             ) : (
-          <div className="bg-white/80 backdrop-blur-sm border border-gray-200 rounded-2xl shadow-sm p-4">
-            <div className="max-h-[520px] overflow-y-auto pr-2">
+          <div className="bg-white/80 border border-gray-300 rounded-2xl shadow-sm p-5">
+            <div className="max-h-[380px] overflow-y-auto pr-2">
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredCourses.map((course) => (
                   <div
