@@ -58,18 +58,6 @@ async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   return data as T;
 }
 
-function generateCourseCode(): string {
-  return `CS${Math.floor(Math.random() * 900) + 100}`;
-}
-
-function generateInviteCode(): string {
-  const letters = "ABCDEFGHJKLMNPQRSTUVWXYZ";
-  let code = "";
-  for (let i = 0; i < 3; i++) code += letters[Math.floor(Math.random() * letters.length)];
-  code += String(Math.floor(Math.random() * 10000)).padStart(4, "0");
-  return code;
-}
-
 export default function AdminDashboardPage() {
   const router = useRouter();
   const supabase = createClient();
@@ -102,7 +90,7 @@ export default function AdminDashboardPage() {
   const [selectedStudentToAdd, setSelectedStudentToAdd] = useState("");
   const [editCourseForm, setEditCourseForm] = useState({ name: "", code: "" });
   const [savingCourse, setSavingCourse] = useState(false);
-
+  const [search, setSearch] = useState("");
   const [manageAccountOpen, setManageAccountOpen] = useState(false);
   const [manageAccountUser, setManageAccountUser] = useState<{
     userId: string;
@@ -281,6 +269,33 @@ export default function AdminDashboardPage() {
       setManageAccountSaving(false);
     }
   };
+
+  const filteredCourses = useMemo(() => {
+  return courses.filter((c) =>
+    [c.name, c.code, c.professorName || ""]
+      .join(" ")
+      .toLowerCase()
+      .includes(search.toLowerCase())
+  );
+}, [courses, search]);
+
+  const filteredProfessors = useMemo(() => {
+    return professorOptions.filter((p) =>
+      [p.name, p.email]
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [professorOptions, search]);
+
+  const filteredStudents = useMemo(() => {
+    return students.filter((s) =>
+      [s.name, s.email, s.student_id]
+        .join(" ")
+        .toLowerCase()
+        .includes(search.toLowerCase())
+    );
+  }, [students, search]);
 
   const refreshAll = async () => {
     setLoading(true);
@@ -586,27 +601,21 @@ export default function AdminDashboardPage() {
     <div className="min-h-screen pb-12">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md shadow-sm shadow-slate-900/5">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 sm:py-5">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-start gap-3 sm:items-center min-w-0">
+          <div className="flex items-center justify-between gap-3">
+            <div className="flex items-center gap-3 min-w-0">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
                 <img src="/logo.png" alt="Logo" className="h-7 w-7 object-contain" />
               </div>
-              <div className="min-w-0">
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-500">
+              <div className="min-w-0 flex-1">
+                <p className="text-base sm:text-lg font-extrabold uppercase tracking-wider text-slate-700 leading-none truncate">
                   Administration
-                </p>
-                <h1 className="text-xl sm:text-2xl font-semibold tracking-tight text-slate-900 truncate">
-                  Control center
-                </h1>
-                <p className="mt-0.5 text-sm text-slate-600 hidden sm:block">
-                  Manage courses, faculty, and student accounts.
                 </p>
               </div>
             </div>
             <button
               type="button"
               onClick={handleLogout}
-              className="inline-flex items-center justify-center gap-2 rounded-lg border border-slate-200 bg-white px-4 py-2.5 text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
+              className="shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 hover:border-slate-300"
             >
               Sign out
             </button>
@@ -615,7 +624,7 @@ export default function AdminDashboardPage() {
       </header>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-6 sm:pt-8">
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 mb-6">
+        <div className="grid grid-cols-3 gap-3 sm:gap-4 mb-6">
           {statCards.map((s) => (
             <div
               key={s.label}
@@ -670,8 +679,18 @@ export default function AdminDashboardPage() {
             </div>
           </div>
         </div>
+        
+        <div className="mt-4 flex justify-end">
+          <input
+            type="text"
+            placeholder={`Search ${activeTab}...`}
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full sm:w-[400px] rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm shadow-sm focus:outline-none focus:ring-2 focus:ring-red-500"
+          />
+        </div>
 
-        <div className="mt-6">
+        <div className="mt-4">
           {loading ? (
             <div className="rounded-2xl border border-slate-200/90 bg-white px-6 py-16 text-center shadow-sm">
               <div className="mx-auto mb-3 h-8 w-8 animate-spin rounded-full border-2 border-slate-200 border-t-red-600" />
@@ -679,76 +698,93 @@ export default function AdminDashboardPage() {
               <p className="mt-1 text-xs text-slate-500">Fetching courses, faculty, and students.</p>
             </div>
           ) : activeTab === "courses" ? (
-            <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
-              {courses.map((c) => (
-                <div
-                  key={c.id}
-                  className="group rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
-                >
-                  <div className="flex items-start justify-between gap-4 min-w-0">
-                    <button
-                      type="button"
-                      onClick={() => openManageCourse(c)}
-                      className="text-left flex-1 min-w-0 rounded-lg outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-red-500"
-                    >
-                      <div className="min-w-0">
-                        <div className="text-base font-semibold text-slate-900 truncate group-hover:text-red-700 transition-colors">
-                          {c.name}
-                        </div>
-                        <div className="mt-1 font-mono text-sm text-slate-600">{c.code}</div>
-                        <div className="mt-3 text-xs text-slate-500">
-                          <span className="text-slate-400">Instructor · </span>
-                          {c.professorName || "Unassigned"}
-                        </div>
+            <div className="border border-slate-200 rounded-2xl bg-white p-4 shadow-sm">
+              <div className="max-h-[400px] overflow-y-auto pr-1">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-2 gap-4">
+                    {courses.length === 0 ? (
+                      <div className="col-span-full px-5 py-14 text-center text-sm text-slate-500">
+                        No courses yet.
                       </div>
-                    </button>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
-                        {c.studentsCount} enrolled
-                      </span>
-                      <button
-                        type="button"
-                        disabled={deletingCourseId === c.id}
-                        onClick={() => handleDeleteCourse(c.id)}
-                        className="text-xs font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
-                      >
-                        {deletingCourseId === c.id ? "Deleting…" : "Delete"}
-                      </button>
+                    ) : filteredCourses.length === 0 ? (
+                      <div className="col-span-full px-5 py-14 text-center text-sm text-slate-500">
+                        No results found.
+                      </div>
+                    ) : (
+                  filteredCourses.map((c) => (
+                    <div
+                      key={c.id}
+                      className="group rounded-2xl border border-slate-200/90 bg-white p-5 shadow-sm transition hover:border-slate-300 hover:shadow-md"
+                    >
+                      <div className="flex items-start justify-between gap-4 min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => openManageCourse(c)}
+                          className="text-left flex-1 min-w-0 rounded-lg outline-none ring-offset-2 focus-visible:ring-2 focus-visible:ring-red-500"
+                        >
+                          <div className="min-w-0">
+                            <div className="text-base font-semibold text-slate-900 truncate group-hover:text-red-700 transition-colors">
+                              {c.name}
+                            </div>
+                            <div className="mt-1 font-mono text-sm text-slate-600">{c.code}</div>
+                            <div className="mt-3 text-xs text-slate-500">
+                              <span className="text-slate-400">Instructor · </span>
+                              {c.professorName || "Unassigned"}
+                            </div>
+                          </div>
+                        </button>
+                        <div className="flex flex-col items-end gap-2 shrink-0">
+                          <span className="inline-flex items-center rounded-lg bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-700">
+                            {c.studentsCount} enrolled
+                          </span>
+                          <button
+                            type="button"
+                            disabled={deletingCourseId === c.id}
+                            onClick={() => handleDeleteCourse(c.id)}
+                            className="text-xs font-medium text-red-600 hover:text-red-800 disabled:opacity-50"
+                          >
+                            {deletingCourseId === c.id ? "Deleting…" : "Delete"}
+                          </button>
+                      </div>
                     </div>
                   </div>
+                  ))
+                )}
                 </div>
-              ))}
-
-              {courses.length === 0 && (
-                <div className="rounded-2xl border border-dashed border-slate-300 bg-white/80 px-6 py-14 text-center lg:col-span-2">
-                  <p className="text-sm font-medium text-slate-700">No courses yet</p>
-                  <p className="mt-1 text-sm text-slate-500">Create a course to get started.</p>
-                </div>
-              )}
+              </div>
             </div>
           ) : activeTab === "professors" ? (
             <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-              <div className="flex flex-col gap-3 border-b border-slate-200 bg-slate-50/80 px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
-                <div>
-                  <h2 className="text-sm font-semibold text-slate-900">Professors</h2>
-                  <p className="text-xs text-slate-500">{professors.length} registered</p>
-                </div>
+              <div className="max-h-[450px] overflow-y-auto pr-1">
+                <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-slate-50/90 px-5 py-4 backdrop-blur sm:flex-row">
+                  <div>
+                    <h2 className="text-sm font-semibold text-slate-900">Professors</h2>
+                    <p className="text-xs text-slate-500">{professors.length} registered</p>
+                  </div>
                 <button
                   type="button"
                   onClick={openCreateProfessor}
-                  className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60"
+                  className="inline-flex items-center justify-center rounded-lg bg-red-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-red-700 disabled:opacity-60 cursor-pointer" 
                   disabled={createProfessorSaving}
                 >
                   Add professor
                 </button>
               </div>
               <div className="divide-y divide-slate-100">
-                {professorOptions.map((p) => (
+                {professors.length === 0 ? (
+                  <div className="px-5 py-14 text-center text-sm text-slate-500">
+                    No professors yet.
+                  </div>
+                ) : filteredProfessors.length === 0 ? (
+                  <div className="px-5 py-14 text-center text-sm text-slate-500">
+                    No results found.
+                  </div>
+                ) : (
+                filteredProfessors.map((p) => (
                   <div
                     key={p.id}
-                    className="flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50/80"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="font-semibold text-slate-900 truncate">{p.name}</div>
                       <div className="text-sm text-slate-600 truncate">{p.email}</div>
                     </div>
@@ -763,39 +799,47 @@ export default function AdminDashboardPage() {
                             kind: "professor",
                           })
                         }
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50 cursor-pointer"
                       >
-                        Manage account
+                        Manage
                       </button>
                       <button
                         type="button"
                         disabled={deletingProfessorId === p.id}
                         onClick={() => handleDeleteProfessor(p.id)}
-                        className="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-red-700 shadow-sm hover:bg-red-50 disabled:opacity-50 cursor-pointer"
                       >
                         {deletingProfessorId === p.id ? "Deleting…" : "Delete"}
                       </button>
                     </div>
                   </div>
-                ))}
-                {professors.length === 0 && (
-                  <div className="px-5 py-14 text-center text-sm text-slate-500">No professors yet.</div>
-                )}
+                  )))}
+                </div>
               </div>
             </div>
           ) : (
             <div className="overflow-hidden rounded-2xl border border-slate-200/90 bg-white shadow-sm">
-              <div className="border-b border-slate-200 bg-slate-50/80 px-5 py-4">
-                <h2 className="text-sm font-semibold text-slate-900">Students</h2>
-                <p className="text-xs text-slate-500">{students.length} registered</p>
-              </div>
+              <div className="max-h-[450px] overflow-y-auto pr-1">
+                <div className="sticky top-0 z-10 flex items-center justify-between border-b border-slate-200 bg-slate-50/90 px-5 py-4 backdrop-blur">
+                  <h2 className="text-sm font-semibold text-slate-900">Students</h2>
+                  <p className="text-xs text-slate-500">{students.length} registered</p>
+                </div>
               <div className="divide-y divide-slate-100">
-                {students.map((s) => (
+                {students.length === 0 ? (
+                  <div className="px-5 py-14 text-center text-sm text-slate-500">
+                    No students yet.
+                  </div>
+                ) : filteredStudents.length === 0 ? (
+                  <div className="px-5 py-14 text-center text-sm text-slate-500">
+                    No results found.
+                  </div>
+                ) : (
+                  filteredStudents.map((s) => (
                   <div
                     key={s.id}
-                    className="flex flex-col gap-3 px-5 py-4 transition hover:bg-slate-50/80 sm:flex-row sm:items-center sm:justify-between"
+                    className="flex items-center justify-between gap-3 px-5 py-4 transition hover:bg-slate-50/80"
                   >
-                    <div className="min-w-0">
+                    <div className="min-w-0 flex-1">
                       <div className="font-semibold text-slate-900 truncate">{s.name}</div>
                       <div className="text-sm text-slate-600 truncate">{s.email}</div>
                       <div className="mt-0.5 font-mono text-xs text-slate-500">{s.student_id}</div>
@@ -811,26 +855,25 @@ export default function AdminDashboardPage() {
                             kind: "student",
                           })
                         }
-                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-50"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 shadow-sm transition hover:bg-slate-100"
                       >
-                        Manage account
+                        Manage
                       </button>
                       <button
                         type="button"
                         disabled={deletingStudentId === s.id}
                         onClick={() => handleDeleteStudent(s.id)}
-                        className="rounded-lg px-3 py-2 text-xs font-medium text-red-600 hover:bg-red-50 disabled:opacity-50"
+                        className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium shadow-sm text-red-600 hover:bg-red-50 disabled:opacity-50"
                       >
                         {deletingStudentId === s.id ? "Deleting…" : "Delete"}
                       </button>
                     </div>
                   </div>
+                  )
                 ))}
-                {students.length === 0 && (
-                  <div className="px-5 py-14 text-center text-sm text-slate-500">No students yet.</div>
-                )}
               </div>
             </div>
+          </div>
           )}
         </div>
       </div>
@@ -881,6 +924,7 @@ export default function AdminDashboardPage() {
                   <label className="text-sm font-semibold text-slate-700">Course code</label>
                   <input
                     value={createCourseForm.code}
+                    maxLength={32}
                     onChange={(e) => setCreateCourseForm((p) => ({ ...p, code: e.target.value }))}
                     className="mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm outline-none focus:border-red-400 focus:bg-white"
                     placeholder="Set course code here"
