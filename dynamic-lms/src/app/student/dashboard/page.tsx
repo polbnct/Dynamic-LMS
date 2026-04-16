@@ -139,7 +139,7 @@ export default function StudentDashboard() {
         <div className="mb-8">
           <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <h2 className="text-2xl font-bold text-gray-800 mb-4">My Courses</h2>
-          <div className="w-full sm:w-98 flex items-center rounded-2xl border border-red-200 bg-white px-3 py-2 shadow-sm focus-within:border-red-400 focus-within:ring-4 focus-within:ring-red-100 transition">
+          <div className="w-full sm:w-[387px] flex items-center rounded-2xl border border-red-200 bg-white px-3 py-2 shadow-sm focus-within:border-red-400 focus-within:ring-4 focus-within:ring-red-100 transition">
       <svg
         className="h-5 w-5 text-gray-400 ml-2"
         fill="none"
@@ -183,18 +183,20 @@ export default function StudentDashboard() {
               <p className="text-gray-600">No matching courses found</p>
             </div>
           ) : (
+        <div className="border border-gray-300 rounded-2xl shadow-sm p-5 bg-white/80">    
+          <div className="max-h-[380px] overflow-y-auto pr-2">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
-              {filteredCourses.slice(0, 6).map((course) => (
+              {filteredCourses.map((course) => (
                 <Link
                   key={course.id}
                   href={`/student/dashboard/${course.id}/content`}
-                  className="bg-white/90 backdrop-blur-sm rounded-3xl shadow-lg border border-rose-100 p-6 hover:shadow-2xl transition-all duration-200 transform hover:-translate-y-1"
+                  className="bg-white/90 backdrop-blur-sm rounded-xl border border-gray-300 p-6 hover:shadow-xl transition-all duration-200 transform"
                   onClick={() => {
                   localStorage.setItem("lastAccessedCourse", course.id);
                 }}
                 >
-                  <div className="flex items-center justify-between gap-2 mb-1">
-                  <h3 className="text-xl font-semibold text-gray-900 mb-1 truncate flex-1" title={course.name}> 
+                  <div className="flex items-center justify-between gap-2 mb-1 mt-1">
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1 truncate flex-1" title={course.name}> 
                     {course.name}
                   </h3>
                   <svg
@@ -234,6 +236,8 @@ export default function StudentDashboard() {
                 </Link>
               ))}
             </div>
+          </div>
+        </div>
           )}
         </div>
 

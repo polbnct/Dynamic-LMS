@@ -48,7 +48,10 @@ export default function ProfessorNavbar({
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-16 gap-3">
             {/* Logo */}
-            <Link href="/student" className="flex min-w-0 items-center gap-2">
+            <Link href="/prof" className={`flex min-w-0 items-center gap-2 transition-opacity duration-200 ${
+                  mobileMenuOpen ? "opacity-0 pointer-events-none" : "opacity-100"
+                }`}
+              >
               <img
                 src="/logo.png"
                 alt="Logo"
@@ -213,11 +216,7 @@ export default function ProfessorNavbar({
                 aria-label="Toggle menu"
               >
                 <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  {mobileMenuOpen ? (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  ) : (
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
-                  )}
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
                 </svg>
               </button>
             </div>
@@ -225,44 +224,81 @@ export default function ProfessorNavbar({
         </div>
       </nav>
 
-      {mobileMenuOpen && (
-        <div className="md:hidden border-t border-gray-200 bg-white p-4 space-y-2 shadow-inner">
-          <Link
-            href="/prof"
-            className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Dashboard
-          </Link>
-          <Link
-            href="/prof/profile"
-            className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Profile
-          </Link>
-          <Link
-            href="/prof/dashboard"
-            className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
-            onClick={() => setMobileMenuOpen(false)}
-          >
-            Courses
-          </Link>
-          <hr className="border-gray-200" />
-          <button
-            onClick={() => {
-              setMobileMenuOpen(false);
-              handleLogout();
-            }}
-            className="flex w-full items-center gap-2 rounded-lg px-4 py-3 text-base font-semibold text-red-600 hover:bg-red-50"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Logout
-          </button>
+      <>
+        <div
+          className={`fixed inset-0 z-40 bg-black/20 md:hidden transition-opacity duration-300 ${
+            mobileMenuOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"
+          }`}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+
+        <div
+          className={`fixed top-0 right-0 h-full w-72 max-w-[80%] z-50 bg-white shadow-2xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out md:hidden ${
+            mobileMenuOpen ? "translate-x-0" : "translate-x-full"
+          }`}
+        >
+          <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
+            <div className="flex items-center gap-2 min-w-0">
+              <img
+                src="/logo.png"
+                alt="Logo"
+                className="w-9 h-9 rounded-xl shadow-md"
+              />
+              <span className="text-lg font-bold text-gray-900 truncate">
+                LohikAral
+              </span>
+            </div>
+
+            <button
+              onClick={() => setMobileMenuOpen(false)}
+              className="p-2 rounded-lg hover:bg-red-50 text-gray-800"
+            >
+              ✕
+            </button>
+          </div>
+
+          <div className="p-4 space-y-2">
+            <Link
+              href="/prof"
+              className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Dashboard
+            </Link>
+
+            <Link
+              href="/prof/profile"
+              className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Profile
+            </Link>
+
+            <Link
+              href="/prof/dashboard"
+              className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
+              onClick={() => setMobileMenuOpen(false)}
+            >
+              Courses
+            </Link>
+
+            <hr className="border-gray-200" />
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleLogout();
+              }}
+              className="flex w-full items-center gap-2 rounded-lg px-4 py-3 text-base font-semibold text-red-600 hover:bg-red-50"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Logout
+            </button>
+          </div>
         </div>
-      )}
+      </>
 
       {/* Course creation is admin-managed (no professor modal). */}
     </>
