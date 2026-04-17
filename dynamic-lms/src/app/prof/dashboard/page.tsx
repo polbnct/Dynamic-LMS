@@ -56,14 +56,12 @@ export default function ProfessorDashboard() {
         {/* Header */}
         <div className="mb-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
 
-        {/* Left side */}
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mb-1">
             Welcome Back, Professor!
           </h1>
             <p className="text-gray-600">Manage your courses and students</p>
         </div>
-          {/* Right side */}
             <div className="w-full sm:w-96 flex items-center rounded-2xl border border-red-200 bg-white px-3 py-2 shadow-sm focus-within:border-red-400 focus-within:ring-4 focus-within:ring-red-100 transition">
               <svg
                 className="h-5 w-5 text-gray-400 ml-2"
@@ -141,61 +139,58 @@ export default function ProfessorDashboard() {
               </div>
             ) : (
           <div className="bg-white/80 border border-gray-300 rounded-2xl shadow-sm p-5">
-            <div className="max-h-[380px] overflow-y-auto pr-2">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            <div className="max-h-[405px] overflow-y-auto pr-3 pb-4 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {filteredCourses.map((course) => (
                   <div
                     key={course.id}
-                    className="group min-w-0 overflow-hidden bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-6 hover:shadow-lg transition-all duration-200"
+                    className="group min-w-0 overflow-hidden bg-white/80 backdrop-blur-sm rounded-xl shadow-md border border-gray-200 p-6 hover:shadow-lg transition-all duration-200"
                   >
                     <Link href={`/prof/courses/${course.id}/content`} className="block min-w-0"
                     onClick={() => {
                       localStorage.setItem("lastAccessedCourse", course.id);
                     }}>
-                      <div className="flex items-start justify-between mb-4">
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-md font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate" 
-                          title={course.name}
-                          >
-                            {course.name}
-                          </h3>
-                          <p className="text-sm text-gray-500 mt-1 truncate">{course.code}</p>
-                        </div>
-                        <div className="w-16 h-16 bg-gradient-to-br from-red-100 to-rose-100 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
-                          <svg
-                            className="w-8 h-8 text-red-600"
-                            fill="none"
-                            stroke="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path
-                              strokeLinecap="round"
-                              strokeLinejoin="round"
-                              strokeWidth={2}
-                              d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                            />
-                          </svg>
-                        </div>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <h3 className="text-md font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate flex-1" 
+                        title={course.name}
+                        >
+                          {course.name}
+                        </h3>
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="w-8 h-8 text-gray-700 shrink-0 hidden md:block"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={1.8}
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M12 6.253v11.494m0-11.494C10.832 5.477 9.246 5 7.5 5A3.5 3.5 0 004 8.5v9A3.5 3.5 0 017.5 14c1.746 0 3.332.477 4.5 1.253m0-9C13.168 5.477 14.754 5 16.5 5A3.5 3.5 0 0120 8.5v9A3.5 3.5 0 0016.5 14c-1.746 0-3.332.477-4.5 1.253"
+                          />
+                        </svg>
                       </div>
+                      <p className="text-sm text-gray-500 mt-1 truncate">{course.code}</p>
                       <div className="mt-4 grid grid-cols-4 border border-gray-200 rounded-xl overflow-hidden divide-x divide-gray-200">
                         <div className="py-3 text-center">
                           <div className="text-sm font-semibold text-gray-900">{course.studentsCount || 0}</div>
-                          <div className="text-xs text-gray-500">Students</div>
+                          <div className="text-xs text-gray-500 truncate">Students</div>
                         </div>
 
                         <div className="py-3 text-center">
                           <div className="text-sm font-semibold text-gray-900">{course.lessonsCount || 0}</div>
-                          <div className="text-xs text-gray-500">Lessons</div>
+                          <div className="text-xs text-gray-500 truncate">Lessons</div>
                         </div>
 
                         <div className="py-3 text-center">
                           <div className="text-sm font-semibold text-gray-900">{course.assignmentsCount || 0}</div>
-                          <div className="text-xs text-gray-500">Assignments</div>
+                          <div className="text-xs text-gray-500 truncate">Assignments</div>
                         </div>
 
                         <div className="py-3 text-center">
                           <div className="text-sm font-semibold text-gray-900">{course.quizzesCount || 0}</div>
-                          <div className="text-xs text-gray-500">Quizzes</div>
+                          <div className="text-xs text-gray-500 truncate">Quizzes</div>
                         </div>
                       </div>
                     </Link>
@@ -207,8 +202,6 @@ export default function ProfessorDashboard() {
         )}
       </>
     )}
-
-        {/* Professors can no longer edit or delete courses here; course management is admin-only. */}
       </main>
     </div>
   );
