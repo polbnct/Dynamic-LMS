@@ -148,6 +148,10 @@ export default function QuizzesPage() {
   const [retakeLoading, setRetakeLoading] = useState(false);
   const [editQuizTab, setEditQuizTab] = useState<"settings" | "question_bank" | "retakes">("settings");
   const [grantingAllRetakes, setGrantingAllRetakes] = useState(false);
+  const [grantConfirmOpen, setGrantConfirmOpen] = useState(false);
+  const [grantConfirmType, setGrantConfirmType] = useState<"all" | "single">("all");
+  const [grantConfirmStudent, setGrantConfirmStudent] = useState<any>(null);
+  const [grantingFromConfirm, setGrantingFromConfirm] = useState(false);
   const { handledCourses } = useProfessorCourses();
 
   useSyncMessagesToToast(error, success);
@@ -1259,11 +1263,11 @@ export default function QuizzesPage() {
             </div>
 
             <div className="border-b border-gray-200 px-3 sm:px-6 pt-2">
-              <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setEditQuizTab("settings")}
-                  className={`px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                  className={`shrink-0 flex-1 text-center px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
                     editQuizTab === "settings"
                       ? "text-red-700 border-red-600"
                       : "text-gray-600 border-transparent hover:text-red-600"
@@ -1274,7 +1278,7 @@ export default function QuizzesPage() {
                 <button
                   type="button"
                   onClick={() => setEditQuizTab("question_bank")}
-                  className={`px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                  className={`shrink-0 flex-1 text-center px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
                     editQuizTab === "question_bank"
                       ? "text-red-700 border-red-600"
                       : "text-gray-600 border-transparent hover:text-red-600"
@@ -1286,7 +1290,7 @@ export default function QuizzesPage() {
                   <button
                     type="button"
                     onClick={() => setEditQuizTab("retakes")}
-                    className={`px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                    className={`shrink-0 flex-1 text-center px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
                       editQuizTab === "retakes"
                         ? "text-red-700 border-red-600"
                         : "text-gray-600 border-transparent hover:text-red-600"
@@ -1533,43 +1537,9 @@ export default function QuizzesPage() {
                           <button
                             type="button"
                             disabled={retakeLoading || grantingAllRetakes || retakeRows.length === 0}
-                            onClick={async () => {
-                              if (!editingQuiz || retakeRows.length === 0) return;
-                              try {
-                                setGrantingAllRetakes(true);
-                                await Promise.all(
-                                  retakeRows.map(async (r) => {
-                                    const res = await fetch("/api/quizzes/retakes/grant", {
-                                      method: "POST",
-                                      headers: { "Content-Type": "application/json" },
-                                      body: JSON.stringify({
-                                        quizId: editingQuiz.id,
-                                        studentId: r.studentDbId,
-                                        incrementBy: 1,
-                                      }),
-                                    });
-                                    const data = await res.json().catch(() => ({}));
-                                    if (!res.ok) throw new Error(data?.error || "Failed to grant retake");
-                                    return { studentDbId: r.studentDbId, extraAttempts: data.extra_attempts };
-                                  })
-                                );
-                                const refreshRes = await fetch("/api/quizzes/retakes/list", {
-                                  method: "POST",
-                                  headers: { "Content-Type": "application/json" },
-                                  body: JSON.stringify({ quizId: editingQuiz.id }),
-                                });
-                                const refreshData = await refreshRes.json().catch(() => ({}));
-                                if (refreshRes.ok) {
-                                  setRetakeRows(Array.isArray(refreshData?.rows) ? refreshData.rows : []);
-                                }
-                                setSuccess("Granted 1 retake to all students.");
-                                setTimeout(() => setSuccess(""), 2500);
-                              } catch (e: any) {
-                                console.error("Error granting all retakes:", e);
-                                setError(e.message || "Failed to grant all retakes.");
-                              } finally {
-                                setGrantingAllRetakes(false);
-                              }
+                            onClick={() => {
+                              setGrantConfirmType("all");
+                              setGrantConfirmOpen(true);
                             }}
                             className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-800 shadow-sm transition hover:border-gray-400 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-50"
                           >
@@ -1632,46 +1602,10 @@ export default function QuizzesPage() {
                                 </div>
                                 <button
                                   type="button"
-                                  onClick={async () => {
-                                    try {
-                                      const res = await fetch("/api/quizzes/retakes/grant", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                          quizId: editingQuiz.id,
-                                          studentId: r.studentDbId,
-                                          incrementBy: 1,
-                                        }),
-                                      });
-                                      const data = await res.json().catch(() => ({}));
-                                      if (!res.ok) {
-                                        throw new Error(data?.error || "Failed to grant retake");
-                                      }
-                                      setRetakeRows((prev) =>
-                                        prev.map((x) =>
-                                          x.studentDbId === r.studentDbId
-                                            ? {
-                                                ...x,
-                                                extraAttempts: data.extra_attempts,
-                                                allowedAttempts:
-                                                  x.maxAttempts == null
-                                                    ? null
-                                                    : x.maxAttempts + data.extra_attempts,
-                                                remainingAttempts:
-                                                  x.maxAttempts == null
-                                                    ? null
-                                                    : Math.max(
-                                                        (x.maxAttempts + data.extra_attempts) - x.attemptsUsed,
-                                                        0
-                                                      ),
-                                              }
-                                            : x
-                                        )
-                                      );
-                                    } catch (e: any) {
-                                      console.error("Error granting retake:", e);
-                                      setError(e.message || "Failed to grant retake");
-                                    }
+                                  onClick={() => {
+                                    setGrantConfirmType("single");
+                                    setGrantConfirmStudent(r);
+                                    setGrantConfirmOpen(true);
                                   }}
                                   className="shrink-0 rounded-lg border border-red-200 bg-red-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 sm:text-sm"
                                 >
@@ -1762,7 +1696,7 @@ export default function QuizzesPage() {
 
               <p className="text-gray-600 mb-4">Select a lesson or PDF to generate questions from:</p>
 
-              <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+              <div className="space-y-3 max-h-[395px] overflow-y-auto border-2 border-gray-200 rounded-xl bg-white px-3 pt-5 pb-6 scrollbar-thin">
                 {lessons.length === 0 ? (
                   <div className="rounded-xl border border-dashed border-gray-300 p-4 text-center text-gray-500">
                     No lessons available. Create lessons first to generate questions.
@@ -1986,6 +1920,149 @@ export default function QuizzesPage() {
             </div>
           </div>
         )}
+
+      {/* Grant Retake Confirmation Modal */}
+      {grantConfirmOpen && (
+        <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="mb-4">
+              <h3 className="text-lg font-bold text-gray-900">Confirm Retake Grant</h3>
+              <p className="text-sm text-gray-600 mt-1">
+                {grantConfirmType === "all"
+                  ? `Grant 1 extra attempt to all ${retakeRows.length} student${retakeRows.length !== 1 ? "s" : ""}?`
+                  : `Grant 1 extra attempt to ${grantConfirmStudent?.name}?`}
+              </p>
+            </div>
+            
+            {grantConfirmType === "single" && grantConfirmStudent && (
+              <div className="mb-4 p-3 rounded-lg bg-gray-50 border border-gray-200">
+                <p className="text-xs font-semibold text-gray-700 mb-2">Student Details:</p>
+                <p className="text-sm text-gray-900 font-medium">{grantConfirmStudent.name}</p>
+                <p className="text-xs text-gray-600">{grantConfirmStudent.email}</p>
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  <span className="inline-flex items-center rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                    Used {grantConfirmStudent.attemptsUsed}
+                  </span>
+                  <span className="inline-flex items-center rounded-md border border-gray-200 bg-white px-2 py-0.5 text-[11px] font-medium text-gray-700">
+                    Extra +{grantConfirmStudent.extraAttempts}
+                  </span>
+                </div>
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  setGrantConfirmOpen(false);
+                  setGrantConfirmStudent(null);
+                }}
+                disabled={grantingFromConfirm}
+                className="flex-1 rounded-lg border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  if (grantConfirmType === "all") {
+                    if (!editingQuiz || retakeRows.length === 0) return;
+                    try {
+                      setGrantingFromConfirm(true);
+                      setGrantingAllRetakes(true);
+                      await Promise.all(
+                        retakeRows.map(async (r) => {
+                          const res = await fetch("/api/quizzes/retakes/grant", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              quizId: editingQuiz.id,
+                              studentId: r.studentDbId,
+                              incrementBy: 1,
+                            }),
+                          });
+                          const data = await res.json().catch(() => ({}));
+                          if (!res.ok) throw new Error(data?.error || "Failed to grant retake");
+                          return { studentDbId: r.studentDbId, extraAttempts: data.extra_attempts };
+                        })
+                      );
+                      const refreshRes = await fetch("/api/quizzes/retakes/list", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ quizId: editingQuiz.id }),
+                      });
+                      const refreshData = await refreshRes.json().catch(() => ({}));
+                      if (refreshRes.ok) {
+                        setRetakeRows(Array.isArray(refreshData?.rows) ? refreshData.rows : []);
+                      }
+                      setSuccess("Granted 1 retake to all students.");
+                      setTimeout(() => setSuccess(""), 2500);
+                    } catch (e: any) {
+                      console.error("Error granting all retakes:", e);
+                      setError(e.message || "Failed to grant all retakes.");
+                    } finally {
+                      setGrantingAllRetakes(false);
+                      setGrantingFromConfirm(false);
+                      setGrantConfirmOpen(false);
+                    }
+                  } else if (grantConfirmType === "single" && grantConfirmStudent) {
+                    try {
+                      setGrantingFromConfirm(true);
+                      const res = await fetch("/api/quizzes/retakes/grant", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                          quizId: editingQuiz.id,
+                          studentId: grantConfirmStudent.studentDbId,
+                          incrementBy: 1,
+                        }),
+                      });
+                      const data = await res.json().catch(() => ({}));
+                      if (!res.ok) {
+                        throw new Error(data?.error || "Failed to grant retake");
+                      }
+                      setRetakeRows((prev) =>
+                        prev.map((x) =>
+                          x.studentDbId === grantConfirmStudent.studentDbId
+                            ? {
+                                ...x,
+                                extraAttempts: data.extra_attempts,
+                                allowedAttempts:
+                                  x.maxAttempts == null
+                                    ? null
+                                    : x.maxAttempts + data.extra_attempts,
+                                remainingAttempts:
+                                  x.maxAttempts == null
+                                    ? null
+                                    : Math.max(
+                                        (x.maxAttempts + data.extra_attempts) - x.attemptsUsed,
+                                        0
+                                      ),
+                              }
+                            : x
+                        )
+                      );
+                      setSuccess(`Granted 1 retake to ${grantConfirmStudent.name}.`);
+                      setTimeout(() => setSuccess(""), 2500);
+                    } catch (e: any) {
+                      console.error("Error granting retake:", e);
+                      setError(e.message || "Failed to grant retake");
+                    } finally {
+                      setGrantingFromConfirm(false);
+                      setGrantConfirmOpen(false);
+                      setGrantConfirmStudent(null);
+                    }
+                  }
+                }}
+                disabled={grantingFromConfirm}
+                className="flex-1 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:opacity-50"
+              >
+                {grantingFromConfirm ? "Granting…" : "Confirm & Grant"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Quiz attempts & activity logs modal */}
       {monitoringQuizId && (

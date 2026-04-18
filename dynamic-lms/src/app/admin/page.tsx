@@ -71,9 +71,10 @@ export default function AdminDashboardPage() {
   const [courses, setCourses] = useState<AdminCourse[]>([]);
   const [professors, setProfessors] = useState<AdminProfessor[]>([]);
   const [students, setStudents] = useState<AdminStudent[]>([]);
-  const [deletingProfessorId, setDeletingProfessorId] = useState<string | null>(null);
-  const [deletingStudentId, setDeletingStudentId] = useState<string | null>(null);
-  const [deletingCourseId, setDeletingCourseId] = useState<string | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleteType, setDeleteType] = useState<'course' | 'professor' | 'student' | null>(null);
+  const [itemToDelete, setItemToDelete] = useState<AdminCourse | AdminProfessor | AdminStudent | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   const [createCourseOpen, setCreateCourseOpen] = useState(false);
   const [creatingCourse, setCreatingCourse] = useState(false);
@@ -509,85 +510,75 @@ export default function AdminDashboardPage() {
   const handleDeleteCourse = async (courseId: string) => {
     if (!courseId) return;
     const course = courses.find((c) => c.id === courseId);
-    if (
-      !course ||
-      !confirm(
-        `Delete course "${course.name}"? This will remove lessons, assignments, quizzes, enrollments, and cannot be undone.`
-      )
-    ) {
-      return;
-    }
-    setError("");
-    setSuccess("");
-    setDeletingCourseId(courseId);
-    try {
-      await fetchJson<{ ok: true }>(`/api/admin/courses/${encodeURIComponent(courseId)}`, {
-        method: "DELETE",
-      });
-      setCourses((prev) => prev.filter((c) => c.id !== courseId));
-      setSuccess("Course deleted.");
-    } catch (e: any) {
-      setError(e?.message || "Failed to delete course.");
-    } finally {
-      setDeletingCourseId(null);
-    }
+    if (!course) return;
+    setDeleteType('course');
+    setItemToDelete(course);
+    setDeleteConfirmOpen(true);
   };
 
   const handleDeleteProfessor = async (professorId: string) => {
     if (!professorId) return;
     const prof = professors.find((p) => p.id === professorId);
-    if (
-      !prof ||
-      !confirm(
-        `Delete professor account "${prof.name}" (${prof.email})? This will remove their auth account and related data.`
-      )
-    ) {
-      return;
-    }
-    setError("");
-    setSuccess("");
-    setDeletingProfessorId(professorId);
-    try {
-      await fetchJson<{ ok: true }>(`/api/admin/professors/${encodeURIComponent(professorId)}`, {
-        method: "DELETE",
-      });
-      setProfessors((prev) => prev.filter((p) => p.id !== professorId));
-      setCourses((prev) =>
-        prev.map((c) => (c.professor_id === professorId ? { ...c, professor_id: null, professorName: null } : c))
-      );
-      setSuccess("Professor account deleted.");
-    } catch (e: any) {
-      setError(e?.message || "Failed to delete professor account.");
-    } finally {
-      setDeletingProfessorId(null);
-    }
+    if (!prof) return;
+    setDeleteType('professor');
+    setItemToDelete(prof);
+    setDeleteConfirmOpen(true);
   };
 
   const handleDeleteStudent = async (studentId: string) => {
     if (!studentId) return;
     const s = students.find((st) => st.id === studentId);
-    if (
-      !s ||
-      !confirm(
-        `Delete student account "${s.name}" (${s.email})? This will remove their auth account and related data.`
-      )
-    ) {
-      return;
-    }
+    if (!s) return;
+    setDeleteType('student');
+    setItemToDelete(s);
+    setDeleteConfirmOpen(true);
+  };
+
+  const closeDeleteConfirm = () => {
+    setDeleteConfirmOpen(false);
+    setItemToDelete(null);
+    setDeleteType(null);
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!itemToDelete || !deleteType) return;
     setError("");
     setSuccess("");
-    setDeletingStudentId(studentId);
+    setIsDeleting(true);
+    setDeleteConfirmOpen(false);
+
     try {
-      await fetchJson<{ ok: true }>(`/api/admin/students/${encodeURIComponent(studentId)}`, {
-        method: "DELETE",
-      });
-      setStudents((prev) => prev.filter((st) => st.id !== studentId));
-      // Enrollments in courses are cascaded by FK; we don't reload all courses here.
-      setSuccess("Student account deleted.");
+      if (deleteType === 'course') {
+        const course = itemToDelete as AdminCourse;
+        await fetchJson<{ ok: true }>(`/api/admin/courses/${encodeURIComponent(course.id)}`, {
+          method: "DELETE",
+        });
+        setCourses((prev) => prev.filter((c) => c.id !== course.id));
+        setSuccess("Course deleted.");
+      } else if (deleteType === 'professor') {
+        const prof = itemToDelete as AdminProfessor;
+        await fetchJson<{ ok: true }>(`/api/admin/professors/${encodeURIComponent(prof.id)}`, {
+          method: "DELETE",
+        });
+        setProfessors((prev) => prev.filter((p) => p.id !== prof.id));
+        setCourses((prev) =>
+          prev.map((c) => (c.professor_id === prof.id ? { ...c, professor_id: null, professorName: null } : c))
+        );
+        setSuccess("Professor account deleted.");
+      } else if (deleteType === 'student') {
+        const student = itemToDelete as AdminStudent;
+        await fetchJson<{ ok: true }>(`/api/admin/students/${encodeURIComponent(student.id)}`, {
+          method: "DELETE",
+        });
+        setStudents((prev) => prev.filter((st) => st.id !== student.id));
+        setSuccess("Student account deleted.");
+      }
     } catch (e: any) {
-      setError(e?.message || "Failed to delete student account.");
+      setError(e?.message || "Failed to delete item.");
     } finally {
-      setDeletingStudentId(null);
+      setIsDeleting(false);
+      setItemToDelete(null);
+      setDeleteType(null);
     }
   };
 
@@ -600,7 +591,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen pb-12">
       <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-md shadow-sm shadow-slate-900/5">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3.5 sm:py-4.5">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-2 sm:py-3">
           <div className="flex items-center justify-between gap-3">
             <div className="flex items-center gap-3 min-w-0">
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -741,11 +732,11 @@ export default function AdminDashboardPage() {
                           </span>
                           <button
                             type="button"
-                            disabled={deletingCourseId === c.id}
+                            disabled={isDeleting}
                             onClick={() => handleDeleteCourse(c.id)}
                             className="rounded-lg border border-slate-200 shadow-sm bg-white px-5 py-1.5 text-xs font-medium text-red-600 hover:text-red-800 hover:bg-red-50 disabled:opacity-50 cursor-pointer mt-2"
                           >
-                            {deletingCourseId === c.id ? "Deleting…" : "Delete"}
+                            {isDeleting && deleteType === 'course' && (itemToDelete as AdminCourse)?.id === c.id ? "Deleting…" : "Delete"}
                           </button>
                       </div>
                     </div>
@@ -808,11 +799,11 @@ export default function AdminDashboardPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={deletingProfessorId === p.id}
+                        disabled={isDeleting}
                         onClick={() => handleDeleteProfessor(p.id)}
                         className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-red-700 shadow-sm hover:bg-red-100 disabled:opacity-50 cursor-pointer"
                       >
-                        {deletingProfessorId === p.id ? "Deleting…" : "Delete"}
+                        {isDeleting && deleteType === 'professor' && (itemToDelete as AdminProfessor)?.id === p.id ? "Deleting…" : "Delete"}
                       </button>
                     </div>
                   </div>
@@ -864,11 +855,11 @@ export default function AdminDashboardPage() {
                       </button>
                       <button
                         type="button"
-                        disabled={deletingStudentId === s.id}
+                        disabled={isDeleting}
                         onClick={() => handleDeleteStudent(s.id)}
                         className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-medium shadow-sm text-red-600 hover:bg-red-50 disabled:opacity-50 cursor-pointer"
                       >
-                        {deletingStudentId === s.id ? "Deleting…" : "Delete"}
+                        {isDeleting && deleteType === 'student' && (itemToDelete as AdminStudent)?.id === s.id ? "Deleting…" : "Delete"}
                       </button>
                     </div>
                   </div>
@@ -1340,6 +1331,55 @@ export default function AdminDashboardPage() {
           </div>
         </div>
       </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirmOpen && itemToDelete && deleteType && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm"
+          onClick={closeDeleteConfirm}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/90">
+              <div className="text-lg font-semibold text-slate-900">
+                {deleteType === 'course' ? 'Delete course?' : `Delete ${deleteType} account?`}
+              </div>
+              <p className="mt-2 text-sm text-slate-600">
+                {deleteType === 'course' ? (
+                  <>
+                    This action will permanently delete <span className="font-semibold break-words">{(itemToDelete as AdminCourse).name}</span> and remove all associated lessons, assignments, quizzes, and enrollments.
+                  </>
+                ) : (
+                  <>
+                    This action will permanently delete the account for <span className="font-semibold break-words">{(itemToDelete as AdminProfessor | AdminStudent).name}</span> ({(itemToDelete as AdminProfessor | AdminStudent).email}) and remove their auth account and related data.
+                  </>
+                )}
+              </p>
+              <p className="mt-3 text-xs text-slate-500">This cannot be undone.</p>
+            </div>
+
+            <div className="flex flex-col gap-2 p-6 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="w-full sm:flex-1 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmDelete}
+                disabled={isDeleting}
+                className="w-full sm:flex-1 rounded-2xl bg-red-600 hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 cursor-pointer"
+              >
+                {isDeleting ? "Deleting…" : `Delete ${deleteType === 'course' ? 'course' : 'account'}`}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );
