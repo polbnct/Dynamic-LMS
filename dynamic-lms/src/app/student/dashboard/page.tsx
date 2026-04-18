@@ -184,13 +184,13 @@ export default function StudentDashboard() {
             </div>
           ) : (
         <div className="border border-gray-300 rounded-2xl shadow-sm p-5 bg-white/80">    
-          <div className="max-h-[380px] overflow-y-auto pr-2">
+          <div className="max-h-[380px] overflow-y-auto pr-2 pb-4.5 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {filteredCourses.map((course) => (
                 <Link
                   key={course.id}
                   href={`/student/dashboard/${course.id}/content`}
-                  className="bg-white/90 backdrop-blur-sm rounded-xl border border-gray-300 p-6 hover:shadow-xl transition-all duration-200 transform"
+                  className="bg-white/90 backdrop-blur-sm rounded-xl border border-gray-300 p-6 hover:shadow-lg transition-all duration-200 transform"
                   onClick={() => {
                   localStorage.setItem("lastAccessedCourse", course.id);
                 }}
@@ -201,7 +201,7 @@ export default function StudentDashboard() {
                   </h3>
                   <svg
                     xmlns="http://www.w3.org/2000/svg"
-                    className="w-8 h-8 text-gray-700 ml-2 shrink-0"
+                    className="w-8 h-8 text-gray-700 ml-2 shrink-0 hidden md:block"
                     fill="none"
                     viewBox="0 0 24 24"
                     stroke="currentColor"
