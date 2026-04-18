@@ -169,6 +169,58 @@ CREATE TABLE IF NOT EXISTS public.study_aid_attempts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 15. Course announcements (professor-authored posts per course)
+CREATE TABLE IF NOT EXISTS public.course_announcements (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  course_id UUID NOT NULL REFERENCES public.courses(id) ON DELETE CASCADE,
+  professor_id UUID NOT NULL REFERENCES public.professors(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ
+);
+
+CREATE INDEX IF NOT EXISTS idx_course_announcements_course_created
+  ON public.course_announcements (course_id, created_at DESC);
+
+-- 16. Announcement comments (enrolled students only)
+CREATE TABLE IF NOT EXISTS public.announcement_comments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  announcement_id UUID NOT NULL REFERENCES public.course_announcements(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  body TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcement_comments_announcement_created
+  ON public.announcement_comments (announcement_id, created_at);
+
+-- 17. Announcement file attachments (Supabase Storage paths; bucket: announcement-files)
+CREATE TABLE IF NOT EXISTS public.announcement_attachments (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  announcement_id UUID NOT NULL REFERENCES public.course_announcements(id) ON DELETE CASCADE,
+  file_path TEXT NOT NULL,
+  file_name TEXT NOT NULL,
+  created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_announcement_attachments_announcement
+  ON public.announcement_attachments (announcement_id);
+
+-- Existing DB upgrade (run in Supabase SQL editor if tables were created without IF NOT EXISTS):
+-- CREATE TABLE public.course_announcements (...);
+-- CREATE TABLE public.announcement_comments (...);
+
+-- RLS temporarily disabled for announcement feature tables.
+-- (Run these in Supabase SQL editor for existing databases.)
+ALTER TABLE public.course_announcements DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcement_comments DISABLE ROW LEVEL SECURITY;
+ALTER TABLE public.announcement_attachments DISABLE ROW LEVEL SECURITY;
+
+-- Storage: create bucket "announcement-files" (public read), same pattern as assignment-pdfs.
+-- If StorageApiError still appears, add permissive storage policies for this bucket
+-- (or temporarily disable RLS on storage.objects if acceptable for your environment).
+
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS trigger AS $$
 BEGIN
