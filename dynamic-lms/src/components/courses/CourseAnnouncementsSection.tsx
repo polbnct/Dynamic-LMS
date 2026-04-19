@@ -29,6 +29,7 @@ export interface CourseAnnouncementsSectionProps {
   onDeleteAttachment: (attachmentId: string) => Promise<void>;
   onAddComment: (announcementId: string, body: string) => Promise<void>;
   onDeleteComment: (commentId: string) => Promise<void>;
+  onUpdateComment: (commentId: string, body: string) => Promise<void>;
 }
 
 export default function CourseAnnouncementsSection({
@@ -41,6 +42,7 @@ export default function CourseAnnouncementsSection({
   onDeleteAttachment,
   onAddComment,
   onDeleteComment,
+  onUpdateComment,
 }: CourseAnnouncementsSectionProps) {
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
@@ -55,6 +57,18 @@ export default function CourseAnnouncementsSection({
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Record<string, boolean>>({});
   const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
+  const [editingCommentId, setEditingCommentId] = useState<string | null>(null);
+  const [editCommentBody, setEditCommentBody] = useState("");
+
+  const startEditingComment = (id: string, body: string) => {
+  setEditingCommentId(id);
+  setEditCommentBody(body);
+  };
+
+  const cancelEditingComment = () => {
+    setEditingCommentId(null);
+    setEditCommentBody("");
+  };
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -401,6 +415,31 @@ export default function CourseAnnouncementsSection({
 
               <div className="border-t border-gray-100 pt-4">
                 <h4 className="text-sm font-semibold text-gray-700 mb-4">Comments</h4>
+                
+                {mode === "student" && (
+                  <div className="bg-gray-50/80 rounded-lg p-4 mb-4 border border-gray-200">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Add a comment
+                    </label>
+                    <textarea
+                      value={commentDrafts[a.id] ?? ""}
+                      onChange={(e) => setDraft(a.id, e.target.value)}
+                      rows={3}
+                      placeholder="Share your thoughts..."
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm text-gray-800 placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent resize-none"
+                    />
+                  <div className="flex">
+                    <button
+                      onClick={() => submitComment(a.id)}
+                      disabled={busy !== null || !(commentDrafts[a.id] ?? "").trim()}
+                      className="w-full sm:w-auto sm:ml-auto mt-2 px-4 py-2 bg-red-600 text-white text-sm font-medium rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                    >
+                      {busy === `c-${a.id}` ? "Posting…" : "Post comment"}
+                    </button>
+                    </div>
+                  </div>
+                )}
+                
                 {comments.length === 0 ? (
                   <p className="text-sm text-gray-500 mb-4">No comments yet.</p>
                 ) : (
@@ -411,82 +450,136 @@ export default function CourseAnnouncementsSection({
 
                     return (
                       <>
-                        <ul className="space-y-3 mb-2">
+                        <ul className="space-y-3 mb-4">
                           {visibleComments.map((c) => (
-                      <li
-                        key={c.id}
-                        className="rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"
-                      >
-                        <div className="min-w-0">
-                          <p className="text-sm font-medium text-gray-900">{c.student_name}</p>
-                          <p className="text-xs text-gray-500">{formatWhen(c.created_at)}</p>
-                          <div className="mt-1">
-                            <p
-                              className={`text-gray-800 whitespace-pre-wrap break-words ${
-                                expanded[c.id] ? "" : "line-clamp-4"
-                              }`}
+                            <li
+                              key={c.id}
+                              className="rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 flex flex-col gap-2"
                             >
-                              {c.body}
-                            </p>
+                              <div className="flex justify-between items-start gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-sm font-medium text-gray-900">{c.student_name}</p>
+                                  <p className="text-xs text-gray-500">{formatWhen(c.created_at)}</p>
+                                </div>
+                                {canDeleteComment(c.student_id) && (
+                                  <div className="flex gap-2">
+                                    {mode === "student" && c.student_id === currentStudentId && (
+                                      <button
+                                        onClick={() => startEditingComment(c.id, c.body)}
+                                        className="text-xs text-gray-600 placeholder:text-gray-400 hover:bg-gray-100 border border-gray-300 rounded-lg px-4 py-1 disabled:opacity-50"
+                                      >
+                                        Edit
+                                      </button>
+                                    )}
+                                    <button
+                                      onClick={async () => {
+                                        setBusy(`del-c-${c.id}`);
+                                        try {
+                                          await onDeleteComment(c.id);
+                                        } finally {
+                                          setBusy(null);
+                                        }
+                                      }}
+                                      disabled={busy === `del-c-${c.id}`}
+                                      className="text-xs text-red-600 hover:text-red-800 hover:bg-red-100 border border-gray-300 rounded-lg px-3 py-1 disabled:opacity-50"
+                                    >
+                                      {busy === `del-c-${c.id}` ? "…" : "Delete"}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                              {editingCommentId === c.id ? (
+                                <div className="space-y-2">
+                                  <textarea
+                                    value={editCommentBody}
+                                    onChange={(e) => setEditCommentBody(e.target.value)}
+                                    rows={3}
+                                    className="w-full px-3 py-2 border border-gray-400 rounded-lg text-sm border border-gray text-gray-800"
+                                  />
 
-                            {c.body.length > 100 && (
-                              <button
-                                onClick={() =>
-                                  setExpanded((prev) => ({
-                                    ...prev,
-                                    [c.id]: !prev[c.id],
-                                  }))
-                                }
-                                className="text-xs text-red-600 hover:underline mt-1"
-                              >
-                                {expanded[c.id] ? "Show less" : "View more"}
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                        {/* Comment removal intentionally hidden in UI */}
-                      </li>
-                    ))}
-                  </ul>
-                  {comments.length > 4 && (
-                    <button
-                      onClick={() =>
-                        setShowAllComments((prev) => ({
-                          ...prev,
-                          [a.id]: !prev[a.id],
-                        }))
-                      }
-                      className="text-sm text-gray-600 hover:text-red-600 mb-4"
-                    >
-                      {showAllComments[a.id]
-                        ? "Show less comments"
-                        : `View ${comments.length - 4} more comments`}
-                    </button>
-                  )}
-                </>
-              );})
-            ())}
-                {mode === "student" && (
-                  <div className="flex flex-col gap-2">
-                    <textarea
-                      value={commentDrafts[a.id] ?? ""}
-                      maxLength={1024}
-                      onChange={(e) => setDraft(a.id, e.target.value)}
-                      rows={3}
-                      placeholder="Write a comment…"
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-white resize-y"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => submitComment(a.id)}
-                      disabled={
-                        busy === `c-${a.id}` || !(commentDrafts[a.id] ?? "").trim()
-                      }
-                      className="w-full sm:w-auto self-end inline-flex justify-center bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-2 mt-2 rounded-xl text-sm font-semibold hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
-                    >
-                      {busy === `c-${a.id}` ? "Posting…" : "Comment"}
-                    </button>
-                  </div>
+                                  <div className="flex gap-2 justify-end">
+                                    <button
+                                      onClick={cancelEditingComment}
+                                      className="text-xs px-3 py-1 border rounded-lg text-gray-600 hover:text-gray-800 hover:bg-gray-100 border-gray-300 cursor-pointer"
+                                    >
+                                      Cancel
+                                    </button>
+
+                                    <button
+                                      onClick={async () => {
+                                        if (!editCommentBody.trim()) return;
+                                        setBusy(`edit-c-${c.id}`);
+                                        try {
+                                          await onUpdateComment(c.id, editCommentBody.trim());
+                                          cancelEditingComment();
+                                        } finally {
+                                          setBusy(null);
+                                        }
+                                      }}
+                                      disabled={busy === `edit-c-${c.id}`}
+                                      className="text-xs px-3 py-1 bg-red-600 text-white rounded-lg cursor-pointer hover:bg-red-700 disabled:opacity-50"
+                                    >
+                                      {busy === `edit-c-${c.id}` ? "Saving…" : "Save"}
+                                    </button>
+                                  </div>
+                                </div>
+                              ) : (
+                                <div className="mt-1">
+                                  <p
+                                    className={`text-gray-800 whitespace-pre-wrap break-words ${
+                                      expanded[c.id] ? "" : "line-clamp-4"
+                                    }`}
+                                  >
+                                    {c.body}
+                                  </p>
+
+                                  {c.body.length > 150 && (
+                                    <button
+                                      onClick={() =>
+                                        setExpanded((prev) => ({
+                                          ...prev,
+                                          [c.id]: !prev[c.id],
+                                        }))
+                                      }
+                                      className="text-xs text-red-600 hover:underline mt-1"
+                                    >
+                                      {expanded[c.id] ? "Show less" : "View more"}
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                        {comments.length > 4 && !showAllComments[a.id] && (
+                          <button
+                            onClick={() =>
+                              setShowAllComments((prev) => ({
+                                ...prev,
+                                [a.id]: true,
+                              }))
+                            }
+                            className="text-sm text-red-600 hover:underline font-medium"
+                          >
+                            Show all {comments.length} comments
+                          </button>
+                        )}
+                        {showAllComments[a.id] && comments.length > 4 && (
+                          <button
+                            onClick={() =>
+                              setShowAllComments((prev) => ({
+                                ...prev,
+                                [a.id]: false,
+                              }))
+                            }
+                            className="text-sm text-red-600 hover:underline font-medium"
+                          >
+                            Show less
+                          </button>
+                        )}
+                      </>
+                    );
+                  })()
                 )}
               </div>
             </li>

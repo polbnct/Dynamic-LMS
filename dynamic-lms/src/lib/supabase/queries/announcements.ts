@@ -577,3 +577,24 @@ export async function deleteComment(commentId: string): Promise<void> {
 
   throw new Error("You do not have permission to delete this comment.");
 }
+
+export async function updateComment(commentId: string, body: string): Promise<void> {
+  const supabase = createClient();
+
+  const text = body.trim();
+  if (!text) {
+    throw new Error("Comment cannot be empty.");
+  }
+
+  const { error } = await supabase
+    .from("announcement_comments")
+    .update({ body: text })
+    .eq("id", commentId);
+
+  if (error) {
+    const debug = toDebugError(error);
+    console.error("Error updating comment:", debug, error);
+    const msg = typeof debug.message === "string" ? debug.message : "Failed to update comment.";
+    throw new Error(msg);
+  }
+}

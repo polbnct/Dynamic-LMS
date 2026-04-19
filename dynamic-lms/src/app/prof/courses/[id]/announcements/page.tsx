@@ -179,6 +179,7 @@ export default function ProfessorCourseAnnouncementsPage() {
           onDeleteAttachment={handleDeleteAttachment}
           onAddComment={async () => {}}
           onDeleteComment={handleDeleteComment}
+          onUpdateComment={async () => {}}
         />
       </main>
     </div>

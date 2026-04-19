@@ -12,6 +12,7 @@ import {
   getAnnouncementsWithCommentsForCourse,
   addComment,
   deleteComment,
+  updateComment,
   type AnnouncementWithComments,
 } from "@/lib/supabase/queries/announcements";
 
@@ -82,6 +83,18 @@ export default function StudentCourseAnnouncementsPage() {
     }
   };
 
+  const handleUpdateComment = async (commentId: string, body: string) => {
+    setError("");
+    setSuccess("");
+    try {
+      await updateComment(commentId, body);
+      setSuccess("Comment updated.");
+      await load();
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : "Failed to update comment.");
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
@@ -149,6 +162,7 @@ export default function StudentCourseAnnouncementsPage() {
           onDeleteAttachment={async (_attachmentId: string) => {}}
           onAddComment={handleAddComment}
           onDeleteComment={handleDeleteComment}
+          onUpdateComment={handleUpdateComment}
         />
       </main>
     </div>
