@@ -52,6 +52,9 @@ export default function CourseAnnouncementsSection({
   const [editNewFiles, setEditNewFiles] = useState<File[]>([]);
   const [commentDrafts, setCommentDrafts] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [expanded, setExpanded] = useState<Record<string, boolean>>({});
+  const [showAllComments, setShowAllComments] = useState<Record<string, boolean>>({});
 
   const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -111,12 +114,13 @@ export default function CourseAnnouncementsSection({
             <div>
               <label
                 htmlFor="announcement-title"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Title
               </label>
               <input
                 id="announcement-title"
+                maxLength={128}
                 type="text"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
@@ -127,13 +131,14 @@ export default function CourseAnnouncementsSection({
             <div>
               <label
                 htmlFor="announcement-body"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Message
               </label>
               <textarea
                 id="announcement-body"
                 value={body}
+                maxLength={2056}
                 onChange={(e) => setBody(e.target.value)}
                 rows={5}
                 className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white resize-y min-h-[120px]"
@@ -143,7 +148,7 @@ export default function CourseAnnouncementsSection({
             <div>
               <label
                 htmlFor="announcement-files"
-                className="block text-sm font-medium text-gray-700 mb-1"
+                className="block text-sm font-medium text-gray-700 mb-2"
               >
                 Attachments (optional)
               </label>
@@ -152,7 +157,7 @@ export default function CourseAnnouncementsSection({
                 type="file"
                 multiple
                 onChange={(e) => setCreateFiles(Array.from(e.target.files ?? []))}
-                className="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                className="w-full border border-gray-300 p-2 rounded-xl text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
               />
               {createFiles.length > 0 && (
                 <p className="text-xs text-gray-500 mt-2">
@@ -160,13 +165,15 @@ export default function CourseAnnouncementsSection({
                 </p>
               )}
             </div>
+            <div className="flex">
             <button
               type="submit"
               disabled={creating || !title.trim() || !body.trim()}
-              className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              className="w-full sm:w-auto sm:ml-auto flex items-center justify-center gap-2 bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-3 mt-1 rounded-xl font-semibold hover:shadow-lg transition-all duration-200 hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
             >
               {creating ? "Posting…" : "Post announcement"}
             </button>
+            </div>
           </form>
         </div>
       )}
@@ -203,20 +210,20 @@ export default function CourseAnnouncementsSection({
               key={a.id}
               className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 hover:shadow-xl transition-shadow duration-200"
             >
-              <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3 mb-4">
-                <div className="min-w-0">
+              <div className="flex items-start justify-between gap-4 mb-3">
+                <div className="min-w-0 flex-1">
                   <h3 className="text-xl font-bold text-gray-900 break-words">{a.title}</h3>
                   <p className="text-sm text-gray-500 mt-1">
                     {a.professor_name} · {formatWhen(a.created_at)}
                   </p>
                 </div>
                 {mode === "professor" && (
-                  <div className="shrink-0 flex items-center gap-2">
+                  <div className="shrink-0 flex  flex-col sm:flex-row gap-2">
                     <button
                       type="button"
                       onClick={() => startEditing(a.id, a.title, a.body)}
                       disabled={busy !== null}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-gray-50 hover:border-gray-400 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white shadow-sm px-5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
@@ -230,26 +237,11 @@ export default function CourseAnnouncementsSection({
                     </button>
                     <button
                       type="button"
-                      onClick={async () => {
-                        setBusy(`del-a-${a.id}`);
-                        try {
-                          await onDeleteAnnouncement(a.id);
-                        } finally {
-                          setBusy(null);
-                        }
-                      }}
+                      onClick={() => setConfirmDeleteId(a.id)}
                       disabled={busy === `del-a-${a.id}` || editingAnnouncementId === a.id}
-                      className="inline-flex items-center gap-1.5 rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 hover:border-red-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white shadow-sm px-5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition"
                     >
-                      <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6M9 7V4a1 1 0 011-1h4a1 1 0 011 1v3M4 7h16"
-                        />
-                      </svg>
-                      {busy === `del-a-${a.id}` ? "Deleting..." : "Delete"}
+                      Delete
                     </button>
                   </div>
                 )}
@@ -291,13 +283,13 @@ export default function CourseAnnouncementsSection({
                   <div>
                     <p className="block text-sm font-medium text-gray-700 mb-2">Current files</p>
                     {attachments.length === 0 ? (
-                      <p className="text-sm text-gray-500 mb-2">No attachments.</p>
+                      <p className="text-sm text-red-500 mb-5">No attachments.</p>
                     ) : (
                       <ul className="space-y-2 mb-3">
                         {attachments.map((att) => (
                           <li
                             key={att.id}
-                            className="flex items-center justify-between gap-2 rounded-lg border border-gray-100 bg-gray-50/80 px-3 py-2"
+                            className="flex items-center justify-between gap-2 rounded-lg border border-gray-300 bg-gray-50/80 px-3 py-2"
                           >
                             <span className="text-sm text-gray-800 truncate">{att.file_name}</span>
                             <button
@@ -326,20 +318,14 @@ export default function CourseAnnouncementsSection({
                       type="file"
                       multiple
                       onChange={(e) => setEditNewFiles(Array.from(e.target.files ?? []))}
-                      className="w-full text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
+                      className="w-full border border-gray-300 rounded-xl p-2 text-sm text-gray-700 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-semibold file:bg-red-50 file:text-red-700 hover:file:bg-red-100"
                     />
-                    {editNewFiles.length > 0 && (
-                      <p className="text-xs text-gray-500 mt-2">
-                        {editNewFiles.length} new file{editNewFiles.length !== 1 ? "s" : ""} will be
-                        added on save
-                      </p>
-                    )}
                   </div>
-                  <div className="flex items-center gap-2">
+                  <div className="w-full flex justify-end gap-2 mt-4">
                     <button
                       type="submit"
                       disabled={busy === `edit-a-${a.id}` || !editTitle.trim() || !editBody.trim()}
-                      className="inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2 text-sm font-semibold text-white hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                      className="w-1/2 sm:w-auto px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-100 transition"
                     >
                       {busy === `edit-a-${a.id}` ? "Saving..." : "Save changes"}
                     </button>
@@ -347,7 +333,7 @@ export default function CourseAnnouncementsSection({
                       type="button"
                       onClick={cancelEditing}
                       disabled={busy === `edit-a-${a.id}`}
-                      className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+                      className="w-1/2 sm:w-auto px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition"
                     >
                       Cancel
                     </button>
@@ -355,7 +341,29 @@ export default function CourseAnnouncementsSection({
                 </form>
               ) : (
                 <>
-                  <p className="text-gray-800 whitespace-pre-wrap break-words mb-4">{a.body}</p>
+                  <div className="mb-4">
+                    <p
+                      className={`text-gray-800 whitespace-pre-wrap break-words ${
+                        expanded[a.id] ? "" : "line-clamp-4"
+                      }`}
+                    >
+                      {a.body}
+                    </p>
+
+                    {a.body.length > 150 && (
+                      <button
+                        onClick={() =>
+                          setExpanded((prev) => ({
+                            ...prev,
+                            [a.id]: !prev[a.id],
+                          }))
+                        }
+                        className="text-sm text-red-600 hover:underline mt-1"
+                      >
+                        {expanded[a.id] ? "Show less" : "See more"}
+                      </button>
+                    )}
+                  </div>
                   {attachments.length > 0 && (
                     <div className="mb-6">
                       <p className="text-sm font-medium text-gray-700 mb-2">Attachments</p>
@@ -392,12 +400,19 @@ export default function CourseAnnouncementsSection({
               )}
 
               <div className="border-t border-gray-100 pt-4">
-                <h4 className="text-sm font-semibold text-gray-700 mb-3">Comments</h4>
+                <h4 className="text-sm font-semibold text-gray-700 mb-4">Comments</h4>
                 {comments.length === 0 ? (
                   <p className="text-sm text-gray-500 mb-4">No comments yet.</p>
                 ) : (
-                  <ul className="space-y-3 mb-4">
-                    {comments.map((c) => (
+                  (() => {
+                    const visibleComments = showAllComments[a.id]
+                      ? comments
+                      : comments.slice(0, 4);
+
+                    return (
+                      <>
+                        <ul className="space-y-3 mb-2">
+                          {visibleComments.map((c) => (
                       <li
                         key={c.id}
                         className="rounded-xl border border-gray-100 bg-gray-50/80 px-4 py-3 flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2"
@@ -405,20 +420,57 @@ export default function CourseAnnouncementsSection({
                         <div className="min-w-0">
                           <p className="text-sm font-medium text-gray-900">{c.student_name}</p>
                           <p className="text-xs text-gray-500">{formatWhen(c.created_at)}</p>
-                          <p className="text-gray-800 whitespace-pre-wrap break-words mt-1">
-                            {c.body}
-                          </p>
+                          <div className="mt-1">
+                            <p
+                              className={`text-gray-800 whitespace-pre-wrap break-words ${
+                                expanded[c.id] ? "" : "line-clamp-4"
+                              }`}
+                            >
+                              {c.body}
+                            </p>
+
+                            {c.body.length > 100 && (
+                              <button
+                                onClick={() =>
+                                  setExpanded((prev) => ({
+                                    ...prev,
+                                    [c.id]: !prev[c.id],
+                                  }))
+                                }
+                                className="text-xs text-red-600 hover:underline mt-1"
+                              >
+                                {expanded[c.id] ? "Show less" : "View more"}
+                              </button>
+                            )}
+                          </div>
                         </div>
                         {/* Comment removal intentionally hidden in UI */}
                       </li>
                     ))}
                   </ul>
-                )}
-
+                  {comments.length > 4 && (
+                    <button
+                      onClick={() =>
+                        setShowAllComments((prev) => ({
+                          ...prev,
+                          [a.id]: !prev[a.id],
+                        }))
+                      }
+                      className="text-sm text-gray-600 hover:text-red-600 mb-4"
+                    >
+                      {showAllComments[a.id]
+                        ? "Show less comments"
+                        : `View ${comments.length - 4} more comments`}
+                    </button>
+                  )}
+                </>
+              );})
+            ())}
                 {mode === "student" && (
                   <div className="flex flex-col gap-2">
                     <textarea
                       value={commentDrafts[a.id] ?? ""}
+                      maxLength={1024}
                       onChange={(e) => setDraft(a.id, e.target.value)}
                       rows={3}
                       placeholder="Write a comment…"
@@ -430,7 +482,7 @@ export default function CourseAnnouncementsSection({
                       disabled={
                         busy === `c-${a.id}` || !(commentDrafts[a.id] ?? "").trim()
                       }
-                      className="self-start inline-flex bg-gradient-to-r from-red-600 to-rose-600 text-white px-4 py-2 rounded-xl text-sm font-semibold hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                      className="w-full sm:w-auto self-end inline-flex justify-center bg-gradient-to-r from-red-600 to-rose-600 text-white px-6 py-2 mt-2 rounded-xl text-sm font-semibold hover:from-red-700 hover:to-rose-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                     >
                       {busy === `c-${a.id}` ? "Posting…" : "Comment"}
                     </button>
@@ -441,6 +493,46 @@ export default function CourseAnnouncementsSection({
           ))}
         </ul>
       )}
+        {confirmDeleteId && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
+              
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                Delete Announcement
+              </h3>
+
+              <p className="text-sm text-gray-600 mb-6">
+                Are you sure you want to delete this announcement? This action cannot be undone.
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+                <button
+                  onClick={() => setConfirmDeleteId(null)}
+                  className="w-full sm:w-[20%] px-4 py-2 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100"
+                >
+                  Cancel
+                </button>
+
+                <button
+                  onClick={async () => {
+                    if (!confirmDeleteId) return;
+
+                    setBusy(`del-a-${confirmDeleteId}`);
+                    try {
+                      await onDeleteAnnouncement(confirmDeleteId);
+                      setConfirmDeleteId(null);
+                    } finally {
+                      setBusy(null);
+                    }
+                  }}
+                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white border border-gray-300 hover:bg-red-100 text-gray-900 font-semibold"
+                >
+                  Delete
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
     </div>
   );
 }
