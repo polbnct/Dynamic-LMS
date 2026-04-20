@@ -143,6 +143,32 @@ export default function QuizzesPage() {
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmButtonText: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const openDeleteConfirm = (options: {
+    title: string;
+    message: string;
+    confirmButtonText?: string;
+    onConfirm: () => Promise<void>;
+  }) => {
+    setDeleteConfirm({
+      title: options.title,
+      message: options.message,
+      confirmButtonText: options.confirmButtonText ?? "Delete",
+      onConfirm: options.onConfirm,
+    });
+  };
+
+  const closeDeleteConfirm = () => {
+    if (!confirmingDelete) setDeleteConfirm(null);
+  };
+
   // Retake management state (now shown inside the Edit Quiz modal)
   const [retakeRows, setRetakeRows] = useState<any[]>([]);
   const [retakeLoading, setRetakeLoading] = useState(false);
@@ -742,7 +768,7 @@ export default function QuizzesPage() {
       return (
         <li
           key={question.id}
-          className={`border-b border-gray-100 transition-opacity duration-300 ease-out last:border-b-0 ${
+          className={`border-b border-gray-400 transition-opacity duration-300 ease-out last:border-b-0 ${
             fading ? "pointer-events-none opacity-0" : "opacity-100"
           }`}
         >
@@ -752,55 +778,67 @@ export default function QuizzesPage() {
                 {idx + 1}
               </div>
               <div className="min-w-0 flex-1">
-                <p className="text-xs leading-snug text-gray-900 sm:text-sm sm:leading-6 break-words">{question.question}</p>
+                <div className="flex items-start justify-between gap-2">
+                <p className="text-xs leading-snug text-gray-900 sm:text-sm sm:leading-6 flex-1" style={{ overflowWrap: 'break-word', wordBreak: 'break-word' }}>
+                  {question.question}
+                </p>
+                <button
+                  type="button"
+                  onClick={() => handleAddFromBankWithFade(question)}
+                  disabled={fading}
+                  className="shrink-0 rounded-md border border-red-600 bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-700 disabled:opacity-40 sm:px-2.5 sm:text-xs cursor-pointer"
+                >
+                  Add
+                </button>
+              </div>
                 {question.source && (
                   <p className="mt-1 text-[11px] text-gray-500 sm:text-xs">
                     {question.sourceType === "lesson" ? "Lesson source" : "PDF source"}
                   </p>
                 )}
-              </div>
+                </div>
             </div>
             <div className="mt-2 flex flex-wrap items-center justify-end gap-1.5 pl-8">
               <button
                 type="button"
                 onClick={() => openQuestionEditor(question)}
                 disabled={fading}
-                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 sm:px-2.5 sm:text-xs"
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-40 sm:px-2.5 sm:text-xs cursor-pointer"
               >
                 Edit
               </button>
               <button
                 type="button"
-                onClick={async () => {
+                onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
                   if (deletingQuestionId) return;
-                  if (!confirm("Delete this question? This cannot be undone.")) return;
-                  try {
-                    setDeletingQuestionId(question.id);
-                    await deleteQuestion(question.id);
-                    setQuizBank((prev) => prev.filter((q) => q.id !== question.id));
-                    setFilteredBank((prev) => prev.filter((q) => q.id !== question.id));
-                    setSelectedQuestions((prev) => prev.filter((q) => q.id !== question.id));
-                    setSuccess("Question deleted.");
-                    setTimeout(() => setSuccess(""), 2500);
-                  } catch (err: any) {
-                    console.error("Error deleting question:", err);
-                    setError(err?.message || "Failed to delete question.");
-                  } finally {
-                    setDeletingQuestionId(null);
-                  }
+                  openDeleteConfirm({
+                    title: "Delete this question?",
+                    message: "This will permanently remove this question from the question bank and any quizzes using it. This cannot be undone.",
+                    confirmButtonText: "Delete question",
+                    onConfirm: async () => {
+                      try {
+                        setDeletingQuestionId(question.id);
+                        await deleteQuestion(question.id);
+                        setQuizBank((prev) => prev.filter((q) => q.id !== question.id));
+                        setFilteredBank((prev) => prev.filter((q) => q.id !== question.id));
+                        setSelectedQuestions((prev) => prev.filter((q) => q.id !== question.id));
+                        setSuccess("Question deleted.");
+                        setTimeout(() => setSuccess(""), 2500);
+                      } catch (err: any) {
+                        console.error("Error deleting question:", err);
+                        setError(err?.message || "Failed to delete question.");
+                      } finally {
+                        setDeletingQuestionId(null);
+                      }
+                    },
+                  });
                 }}
-                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:border-red-200 hover:bg-red-50 hover:text-red-800 disabled:opacity-50 sm:px-2.5 sm:text-xs"
+                className="rounded-md border border-gray-300 px-2 py-1 text-[11px] font-medium text-gray-700 hover:border-red-200 hover:bg-red-50 hover:text-red-800 disabled:opacity-50 sm:px-2.5 sm:text-xs cursor-pointer"
                 disabled={deletingQuestionId === question.id || fading}
               >
                 Delete
-              </button>
-              <button
-                type="button"
-                onClick={() => handleAddFromBankWithFade(question)}
-                disabled={fading}
-                className="rounded-md border border-red-600 bg-red-600 px-2 py-1 text-[11px] font-medium text-white hover:bg-red-700 disabled:opacity-40 sm:px-2.5 sm:text-xs"
-              >
-                Add
               </button>
             </div>
           </div>
@@ -835,30 +873,30 @@ export default function QuizzesPage() {
                 <button
                   type="button"
                   onClick={openCreateQuestion}
-                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50"
+                  className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-semibold text-gray-800 hover:bg-gray-50 cursor-pointer"
                 >
                   Create
                 </button>
               </div>
             </div>
           </div>
-
-          <button
-            type="button"
-            onClick={handleGenerateQuiz}
-            className="flex w-full min-h-9 items-center justify-center gap-2 rounded-lg border border-red-700 bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700"
-          >
-            <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
-              />
-            </svg>
-            <span className="truncate">Generate more</span>
-          </button>
-
+          <div className="sm:flex sm:justify-end">
+            <button
+              type="button"
+              onClick={handleGenerateQuiz}
+              className="flex w-full items-center justify-center gap-1.5 rounded-lg border border-red-600 bg-red-600 px-2.5 py-2 text-xs font-semibold text-white hover:bg-red-700 sm:w-auto sm:px-4 sm:py-2.5 cursor-pointer"
+            >
+              <svg className="h-3.5 w-3.5 shrink-0 sm:h-4 sm:w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"
+                />
+              </svg>
+              <span className="truncate">Generate More</span>
+            </button>
+          </div>
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Question type</label>
@@ -880,7 +918,7 @@ export default function QuizzesPage() {
                 onChange={(e) => setBankSourceFilter(e.target.value)}
                 className="w-full min-w-0 max-w-full truncate rounded-lg border border-gray-300 bg-white px-2.5 py-2 text-sm text-gray-900 focus:border-red-500 focus:outline-none focus:ring-1 focus:ring-red-500"
               >
-                <option value="all">All sources</option>
+                <option value="all">All Sources</option>
                 <option value="manual">Created manually (no lesson)</option>
                 {sourceFilterOptions.map((sourceOpt) => (
                   <option key={sourceOpt.id} value={sourceOpt.id}>
@@ -912,7 +950,7 @@ export default function QuizzesPage() {
               {bankGroups.map((group) => (
                 <section
                   key={group.key}
-                  className={`${categorySectionClass} ${categorySectionWidthClass} h-[min(320px,48vh)] md:h-[min(380px,52vh)]`}
+                  className={`${categorySectionClass} ${categorySectionWidthClass} h-[min(320px,48vh)] md:h-[min(380px,52vh)] overflow-x-hidden`}
                 >
                   <div className="flex shrink-0 items-center justify-between border-b border-gray-100 px-3 py-2.5">
                     <h4 className="text-xs font-semibold text-gray-800 sm:text-sm">{group.label}</h4>
@@ -921,8 +959,8 @@ export default function QuizzesPage() {
                     </span>
                   </div>
                   {group.items.length === 0 ? (
-                    <div className="flex min-h-0 flex-1 items-center px-3 py-4">
-                      <p className="text-xs text-gray-500 sm:text-sm">No questions for this filter.</p>
+                    <div className="flex min-h-0 flex-1 items-center justify-center px-3 py-4">
+                      <p className="text-xs text-gray-500 sm:text-sm text-center">No questions for this filter.</p>
                     </div>
                   ) : (
                     <ul className="min-h-0 flex-1 overflow-y-auto overscroll-y-contain [-webkit-overflow-scrolling:touch]">
@@ -1196,21 +1234,28 @@ export default function QuizzesPage() {
                       </svg>
                     </button>
                     <button
-                      onClick={async () => {
-                        if (!confirm(`Delete quiz "${quiz.name}"? This will also remove its attempts and answers.`)) {
-                          return;
-                        }
-                        try {
-                          await deleteQuiz(quiz.id);
-                          setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
-                          setSuccess("Quiz deleted.");
-                          setTimeout(() => setSuccess(""), 3000);
-                        } catch (err: any) {
-                          console.error("Error deleting quiz:", err);
-                          setError(err?.message || "Failed to delete quiz.");
-                        }
+                      type="button"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        openDeleteConfirm({
+                          title: `Delete quiz "${quiz.name}"?`,
+                          message: "This will permanently remove the quiz, all student attempts, and answers. This cannot be undone.",
+                          confirmButtonText: "Delete quiz",
+                          onConfirm: async () => {
+                            try {
+                              await deleteQuiz(quiz.id);
+                              setQuizzes((prev) => prev.filter((q) => q.id !== quiz.id));
+                              setSuccess("Quiz deleted.");
+                              setTimeout(() => setSuccess(""), 3000);
+                            } catch (err: any) {
+                              console.error("Error deleting quiz:", err);
+                              setError(err?.message || "Failed to delete quiz.");
+                            }
+                          },
+                        });
                       }}
-                      className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
+                      className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer relative z-10"
                       title="Delete quiz"
                     >
                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1628,14 +1673,14 @@ export default function QuizzesPage() {
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-50 max-lg:min-h-10 max-lg:text-sm sm:py-3 sm:text-base"
+                  className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 transition-colors hover:bg-gray-100 max-lg:min-h-10 max-lg:text-sm sm:py-3 sm:text-base cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="button"
                   onClick={handleCreateQuiz}
-                  className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-2.5 text-sm font-semibold text-white shadow-md transition hover:shadow-lg max-lg:min-h-10 max-lg:text-sm sm:py-3 sm:text-base lg:transform lg:hover:-translate-y-0.5"
+                  className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-2.5 text-sm font-semibold text-white shadow-md hover:shadow-xl hover:from-red-700 hover:to-rose-700 transition-all duration-200 max-lg:min-h-10 sm:py-3 sm:text-base cursor-pointer"
                 >
                   {editingQuiz ? "Save changes" : "Create Quiz"}
                 </button>
@@ -2076,6 +2121,66 @@ export default function QuizzesPage() {
           }}
         />
       )}
+        {deleteConfirm && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm"
+            onClick={closeDeleteConfirm}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-gray-200 bg-slate-50/90">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">{deleteConfirm.title}</h3>
+                    <p className="text-sm text-gray-600 mt-0.5">{deleteConfirm.message}</p>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex flex-col-reverse sm:flex-row gap-3 p-6 bg-white">
+                <button
+                  type="button"
+                  onClick={closeDeleteConfirm}
+                  className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 cursor-pointer"
+                  disabled={confirmingDelete}
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  disabled={confirmingDelete}
+                  onClick={async () => {
+                    if (!deleteConfirm) return;
+                    setConfirmingDelete(true);
+                    try {
+                      await deleteConfirm.onConfirm();
+                      closeDeleteConfirm();
+                    } catch (error) {
+                      console.error('Delete failed:', error);
+                    } finally {
+                      setConfirmingDelete(false);
+                    }
+                  }}
+                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold hover:from-red-700 hover:to-rose-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                >
+                  {confirmingDelete ? (
+                    <>
+                      <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Deleting...
+                    </>
+                  ) : (
+                    deleteConfirm.confirmButtonText
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </main>
     </div>
   );

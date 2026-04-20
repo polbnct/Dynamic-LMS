@@ -76,6 +76,31 @@ export default function AssignmentsPage() {
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
   const [saving, setSaving] = useState(false);
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmButtonText: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const openDeleteConfirm = (options: {
+    title: string;
+    message: string;
+    confirmButtonText?: string;
+    onConfirm: () => Promise<void>;
+  }) => {
+    setDeleteConfirm({
+      title: options.title,
+      message: options.message,
+      confirmButtonText: options.confirmButtonText ?? "Delete",
+      onConfirm: options.onConfirm,
+    });
+  };
+
+  const closeDeleteConfirm = () => {
+    if (!confirmingDelete) setDeleteConfirm(null);
+  };
   const [creatingAssignment, setCreatingAssignment] = useState(false);
   const [submissionsModalOpen, setSubmissionsModalOpen] = useState(false);
   const [assignmentForSubmissions, setAssignmentForSubmissions] = useState<AssignmentWithUI | null>(null);
@@ -525,16 +550,25 @@ export default function AssignmentsPage() {
                               </svg>
                             </button>
                             <button
-                              onClick={async () => {
-                                if (!confirm(`Delete assignment "${assignment.title}"? This cannot be undone.`)) return;
-                                try {
-                                  await deleteAssignment(assignment.id);
-                                  setAssignments((prev) => prev.filter((a) => a.id !== assignment.id));
-                                  setSuccess("Assignment deleted.");
-                                  setTimeout(() => setSuccess(""), 3000);
-                                } catch (err: any) {
-                                  setError(err.message || "Failed to delete.");
-                                }
+                              type="button"
+                              onClick={(e) => {
+                                e.preventDefault();
+                                e.stopPropagation();
+                                openDeleteConfirm({
+                                  title: `Delete assignment "${assignment.title}"?`,
+                                  message: "This will permanently remove the assignment and all student submissions. This cannot be undone.",
+                                  confirmButtonText: "Delete assignment",
+                                  onConfirm: async () => {
+                                    try {
+                                      await deleteAssignment(assignment.id);
+                                      setAssignments((prev) => prev.filter((a) => a.id !== assignment.id));
+                                      setSuccess("Assignment deleted.");
+                                      setTimeout(() => setSuccess(""), 3000);
+                                    } catch (err: any) {
+                                      setError(err.message || "Failed to delete.");
+                                    }
+                                  },
+                                });
                               }}
                               className="p-1.5 sm:p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete assignment"
@@ -572,7 +606,7 @@ export default function AssignmentsPage() {
                 </h2>
                 <button
                   onClick={handleCancel}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -752,14 +786,14 @@ export default function AssignmentsPage() {
                     type="button"
                     onClick={handleCancel}
                     disabled={creatingAssignment}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition-colors disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creatingAssignment}
-                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:from-red-700 hover:to-rose-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                   >
                     {creatingAssignment ? "Creating..." : "Create Assignment"}
                   </button>
@@ -929,6 +963,7 @@ export default function AssignmentsPage() {
                   setSubmissionsList([]);
                   setSelectedSubmission(null);
                   setExpandedStudents(new Set());
+                  setGradeForm({ score: "", max_score: "100", feedback: "" });
                 }}
                 className="text-gray-500 hover:text-gray-800 transition-colors cursor-pointer shrink-0"
               >
@@ -949,8 +984,7 @@ export default function AssignmentsPage() {
                 </div>
               ) : (
                 <>
-                  {/* Left: students + submissions dropdown */}
-                  <div className="w-full lg:w-72 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto bg-gray-50/50 max-h-[38vh] lg:max-h-none">
+                  <div className="w-full lg:w-80 shrink-0 border-b lg:border-b-0 lg:border-r border-gray-200 overflow-y-auto bg-gray-50/50 max-h-[38vh] lg:max-h-none">
                     <div className="p-3 space-y-2">
                       {submissionsGroupedByStudent.map((student) => {
                         const isExpanded = expandedStudents.has(student.studentId);
@@ -1238,6 +1272,67 @@ export default function AssignmentsPage() {
               {!submissionsLoading && submissionsList.length > 0 && (
                 <span>{submissionsList.length} submission{submissionsList.length !== 1 ? "s" : ""}</span>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Delete Confirmation Modal */}
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+          onClick={closeDeleteConfirm}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-gray-200 bg-slate-50/90">
+              <div className="flex items-center gap-3">
+                <div>
+                  <h3 className="text-lg font-bold text-gray-900">{deleteConfirm.title}</h3>
+                  <p className="text-sm text-gray-600 mt-0.5">{deleteConfirm.message}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col-reverse sm:flex-row gap-3 p-6 bg-white">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 cursor-pointer"
+                disabled={confirmingDelete}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={confirmingDelete}
+                onClick={async () => {
+                  if (!deleteConfirm) return;
+                  setConfirmingDelete(true);
+                  try {
+                    await deleteConfirm.onConfirm();
+                    closeDeleteConfirm();
+                  } catch (error) {
+                    console.error('Delete failed:', error);
+                  } finally {
+                    setConfirmingDelete(false);
+                  }
+                }}
+                className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold hover:from-red-700 hover:to-rose-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
+              >
+                {confirmingDelete ? (
+                  <>
+                    <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Deleting...
+                  </>
+                ) : (
+                  deleteConfirm.confirmButtonText
+                )}
+              </button>
             </div>
           </div>
         </div>

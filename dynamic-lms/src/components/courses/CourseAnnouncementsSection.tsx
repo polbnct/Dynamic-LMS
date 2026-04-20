@@ -237,7 +237,7 @@ export default function CourseAnnouncementsSection({
                       type="button"
                       onClick={() => startEditing(a.id, a.title, a.body)}
                       disabled={busy !== null}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white shadow-sm px-5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white shadow-sm px-5 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition cursor-pointer"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path
@@ -253,7 +253,7 @@ export default function CourseAnnouncementsSection({
                       type="button"
                       onClick={() => setConfirmDeleteId(a.id)}
                       disabled={busy === `del-a-${a.id}` || editingAnnouncementId === a.id}
-                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg border border-gray-300 bg-white shadow-sm px-5 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 hover:border-red-300 transition"
+                      className="w-full sm:w-auto inline-flex items-center justify-center gap-1.5 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-5 py-1.5 text-sm font-semibold text-white shadow-md hover:shadow-xl hover:from-red-700 hover:to-rose-700 transition-all duration-200 cursor-pointer"
                     >
                       Delete
                     </button>
@@ -317,7 +317,7 @@ export default function CourseAnnouncementsSection({
                                 }
                               }}
                               disabled={busy === `rm-att-${att.id}`}
-                              className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50"
+                              className="shrink-0 text-xs font-semibold text-red-600 hover:text-red-800 disabled:opacity-50 cursor-pointer" 
                             >
                               {busy === `rm-att-${att.id}` ? "…" : "Remove"}
                             </button>
@@ -339,7 +339,7 @@ export default function CourseAnnouncementsSection({
                     <button
                       type="submit"
                       disabled={busy === `edit-a-${a.id}` || !editTitle.trim() || !editBody.trim()}
-                      className="w-1/2 sm:w-auto px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-100 transition"
+                      className="w-1/2 sm:w-auto px-4 py-2 rounded-lg border border-gray-300 bg-white text-gray-700 font-medium hover:bg-gray-100 transition cursor-pointer"
                     >
                       {busy === `edit-a-${a.id}` ? "Saving..." : "Save changes"}
                     </button>
@@ -347,7 +347,7 @@ export default function CourseAnnouncementsSection({
                       type="button"
                       onClick={cancelEditing}
                       disabled={busy === `edit-a-${a.id}`}
-                      className="w-1/2 sm:w-auto px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition"
+                      className="w-1/2 sm:w-auto px-4 py-2 rounded-lg bg-red-600 text-white font-medium hover:bg-red-700 transition cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -466,7 +466,7 @@ export default function CourseAnnouncementsSection({
                                     {mode === "student" && c.student_id === currentStudentId && (
                                       <button
                                         onClick={() => startEditingComment(c.id, c.body)}
-                                        className="text-xs text-gray-600 placeholder:text-gray-400 hover:bg-gray-100 border border-gray-300 rounded-lg px-4 py-1 disabled:opacity-50"
+                                        className="text-xs text-gray-600 placeholder:text-gray-400 hover:bg-gray-100 border border-gray-300 rounded-lg px-4 py-1 disabled:opacity-50 cursor-pointer"
                                       >
                                         Edit
                                       </button>
@@ -481,7 +481,7 @@ export default function CourseAnnouncementsSection({
                                         }
                                       }}
                                       disabled={busy === `del-c-${c.id}`}
-                                      className="text-xs text-red-600 hover:text-red-800 hover:bg-red-100 border border-gray-300 rounded-lg px-3 py-1 disabled:opacity-50"
+                                      className="text-xs text-red-600 hover:text-red-800 hover:bg-red-100 border border-gray-300 rounded-lg px-3 py-1 disabled:opacity-50 cursor-pointer"
                                     >
                                       {busy === `del-c-${c.id}` ? "…" : "Delete"}
                                     </button>
@@ -587,38 +587,47 @@ export default function CourseAnnouncementsSection({
         </ul>
       )}
         {confirmDeleteId && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-            <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6">
-              
-              <h3 className="text-lg font-semibold text-gray-900 mb-2">
-                Delete Announcement
-              </h3>
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm"
+            onClick={() => setConfirmDeleteId(null)}
+          >
+            <div
+              className="w-full max-w-md rounded-2xl bg-white shadow-2xl overflow-hidden"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="px-6 py-5 border-b border-gray-200 bg-slate-50/90">
+                <div className="flex items-center gap-3">
+                  <div>
+                    <h3 className="text-lg font-bold text-gray-900">Delete Announcement</h3>
+                    <p className="text-sm text-gray-600 mt-0.5">
+                      Are you sure you want to delete this announcement? This action cannot be undone.
+                    </p>
+                  </div>
+                </div>
+              </div>
 
-              <p className="text-sm text-gray-600 mb-6">
-                Are you sure you want to delete this announcement? This action cannot be undone.
-              </p>
-
-              <div className="flex flex-col sm:flex-row gap-3 sm:justify-end">
+              <div className="flex flex-col-reverse sm:flex-row gap-3 p-6 bg-white">
                 <button
+                  type="button"
                   onClick={() => setConfirmDeleteId(null)}
-                  className="w-full sm:w-[20%] px-4 py-2 rounded-xl border border-gray-300 text-gray-900 hover:bg-gray-100"
+                  className="w-full sm:flex-1 px-4 py-2.5 rounded-xl border-2 border-gray-200 bg-white text-gray-700 text-sm font-semibold hover:bg-gray-50 hover:border-gray-300 transition-all duration-200 cursor-pointer"
                 >
                   Cancel
                 </button>
-
                 <button
+                  type="button"
                   onClick={async () => {
                     if (!confirmDeleteId) return;
-
-                    setBusy(`del-a-${confirmDeleteId}`);
+                    const announcementId = confirmDeleteId;
+                    setConfirmDeleteId(null); // Close modal immediately
+                    setBusy(`del-a-${announcementId}`);
                     try {
-                      await onDeleteAnnouncement(confirmDeleteId);
-                      setConfirmDeleteId(null);
+                      await onDeleteAnnouncement(announcementId);
                     } finally {
                       setBusy(null);
                     }
                   }}
-                  className="w-full sm:w-auto px-4 py-2 rounded-xl bg-white border border-gray-300 hover:bg-red-100 text-gray-900 font-semibold"
+                  className="w-full sm:flex-1 inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold hover:from-red-700 hover:to-rose-700 shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
                   Delete
                 </button>

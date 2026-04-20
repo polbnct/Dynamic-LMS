@@ -12,7 +12,7 @@ import React, {
 
 type ToastKind = "success" | "error" | "info";
 
-type ToastItem = { id: number; kind: ToastKind; message: string };
+type ToastItem = { id: number; kind: ToastKind; message: string; leaving?: boolean };
 
 type ToastContextValue = {
   show: (kind: ToastKind, message: string) => void;
@@ -25,35 +25,24 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const idRef = useRef(0);
 
   const remove = useCallback((id: number) => {
-    setToasts((t) => t.filter((x) => x.id !== id));
+    setToasts((t) =>
+      t.map((x) => (x.id === id ? { ...x, leaving: true } : x))
+    );
+
+    setTimeout(() => {
+      setToasts((t) => t.filter((x) => x.id !== id));
+    }, 300);
   }, []);
 
   const timeoutsRef = useRef<Record<number, number>>({});
 
   const show = useCallback((kind: ToastKind, message: string) => {
-    const trimmed = message?.trim();
+  const trimmed = message?.trim();
     if (!trimmed) return;
 
     const duration = kind === "error" ? 4000 : 4500;
 
     setToasts((current) => {
-      const existing = current.find(
-        (t) => t.kind === kind && t.message === trimmed
-      );
-      if (existing) {
-        const oldTimeout = timeoutsRef.current[existing.id];
-        if (oldTimeout) {
-          clearTimeout(oldTimeout);
-        }
-
-        timeoutsRef.current[existing.id] = window.setTimeout(() => {
-          remove(existing.id);
-          delete timeoutsRef.current[existing.id];
-        }, duration);
-
-        return current;
-      }
-
       const id = ++idRef.current;
 
       timeoutsRef.current[id] = window.setTimeout(() => {
@@ -71,51 +60,80 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
     <ToastContext.Provider value={value}>
       {children}
       <div
-        className="pointer-events-none fixed inset-x-0 top-4 sm:top-16 z-[300] flex w-full max-w-md mx-auto flex-col gap-2 px-4 sm:top-4 sm:right-4 sm:left-auto sm:mx-0 sm:px-0"
+        className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center px-4"
         aria-live="polite"
         aria-relevant="additions text"
       >
-        {toasts.map((t) => (
+        {toasts.length > 0 && (
+          <div className="absolute inset-0 bg-black/30" />
+        )}
+
+        <div className="relative z-10">
+          {toasts.map((t) => (
           <div
             key={t.id}
             role="alert"
-            className={`pointer-events-auto flex items-start gap-3 rounded-xl border px-4 py-3 text-sm shadow-lg shadow-red-100z animate-[toast-in_0.25s_ease-out] ${
-              t.kind === "success"
-                ? "border-emerald-300 bg-emerald-100 text-emerald-800"
-                : t.kind === "error"
-                  ? "border-red-300 bg-red-100 text-red-800"
-                  : "border-sky-200 bg-sky-50 text-sky-900"
+            className={`pointer-events-auto w-[90vw] max-w-[420px] min-h-[240px] sm:min-h-[260px] flex flex-col items-center justify-center rounded-3xl px-6 sm:px-10 py-7 sm:py-9 bg-white text-gray-800 shadow-2xl   ${
+              t.leaving
+                ? "animate-[modal-out_0.3s_ease-in]"
+                : "animate-[modal-in_0.3s_ease-out]"
             }`}
           >
-            <span className="mt-0.5 shrink-0" aria-hidden>
-              {t.kind === "success" ? (
-                <svg className="h-5 w-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : t.kind === "error" ? (
-                <svg className="h-5 w-5 text-red-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              ) : (
-                <svg className="h-5 w-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                </svg>
-              )}
-            </span>
-            <p className="min-w-0 flex-1 leading-snug">{t.message}</p>
-            <button
-              type="button"
-              onClick={() => remove(t.id)}
-              className="shrink-0 rounded-lg p-1 text-current opacity-60 hover:opacity-100"
-              aria-label="Dismiss notification"
-            >
-              <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+            <div className="flex flex-col items-center text-center gap-5">
+              <div className="animate-[fadeIn_0.2s_ease-out_0.1s_both]">
+                {t.kind === "success" && (
+                  <div className="flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full bg-emerald-100 animate-[icon-in_0.35s_ease-out]">
+                    <svg className="h-10 w-10 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2.5}
+                        d="M5 13l4 4L19 7"
+                      />
+                    </svg>
+                  </div>
+                )}
+
+                {t.kind === "error" && (
+                  <div className="flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full bg-emerald-100 animate-[icon-in_0.35s_ease-out]">
+                    <svg className="h-8 w-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01" />
+                    </svg>
+                  </div>
+                )}
+
+                {t.kind === "info" && (
+                  <div className="flex h-20 w-20 sm:h-24 sm:w-24 items-center justify-center rounded-full bg-emerald-100 animate-[icon-in_0.35s_ease-out]">
+                    <svg className="h-8 w-8 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4" />
+                    </svg>
+                  </div>
+                )}
+              </div>
+
+              <p className="text-lg sm:text-xl font-semibold">
+                {t.kind === "success"
+                  ? "Success"
+                  : t.kind === "error"
+                  ? "Error"
+                  : "Notice"}
+              </p>
+
+              <p className="text-gray-600 leading-relaxed text-sm px-2">
+                {t.message}
+              </p>
+              <button
+                type="button"
+                onClick={() => remove(t.id)}
+                className="mt-2 rounded-xl border border-slate-200 rounded-lg bg-white px-6 py-2 text-sm font-medium text-slate-700 hover:bg-slate-200 transition cursor-pointer"
+              >
+                Okay
+              </button>
+            </div>
           </div>
         ))}
       </div>
+    </div>
     </ToastContext.Provider>
   );
 }

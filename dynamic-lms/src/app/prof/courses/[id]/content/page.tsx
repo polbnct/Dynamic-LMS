@@ -311,6 +311,32 @@ export default function ContentPage() {
 
   useSyncMessagesToToast(error, success);
 
+  const [deleteConfirm, setDeleteConfirm] = useState<{
+    title: string;
+    message: string;
+    confirmButtonText: string;
+    onConfirm: () => Promise<void>;
+  } | null>(null);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+
+  const openDeleteConfirm = (options: {
+    title: string;
+    message: string;
+    confirmButtonText?: string;
+    onConfirm: () => Promise<void>;
+  }) => {
+    setDeleteConfirm({
+      title: options.title,
+      message: options.message,
+      confirmButtonText: options.confirmButtonText ?? "Delete",
+      onConfirm: options.onConfirm,
+    });
+  };
+
+  const closeDeleteConfirm = () => {
+    if (!confirmingDelete) setDeleteConfirm(null);
+  };
+
   useEffect(() => {
   setSelectedStudyAidIds((prev) => {
     const validIds = new Set(studyAidQuestions.map((q) => q.id));
@@ -854,26 +880,32 @@ const getValidatedStudyAidCount = (
                             </button>
                             <button
                               type="button"
-                              onClick={async () => {
-                                if (!confirm(`Delete lesson "${lesson.title}"? This cannot be undone.`)) return;
-                                setError("");
-                                setSuccess("");
-                                try {
-                                  await deleteLesson(lesson.id);
-                                  setLessons((prev) => prev.filter((l) => l.id !== lesson.id));
-                                  if (studyAidLesson?.id === lesson.id) {
-                                    setStudyAidLesson(null);
-                                    setStudyAidQuestions([]);
-                                    setEditingStudyQuestion(null);
-                                    setGeneratedForStudy([]);
-                                    setSelectedGenerated(new Set());
-                                  }
-                                  setSuccess("Lesson deleted.");
-                                  setTimeout(() => setSuccess(""), 2500);
-                                } catch (err: any) {
-                                  console.error("Error deleting lesson:", err);
-                                  setError(err?.message || "Failed to delete lesson.");
-                                }
+                              onClick={() => {
+                                openDeleteConfirm({
+                                  title: `Delete lesson "${lesson.title}"?`,
+                                  message: "This cannot be undone.",
+                                  confirmButtonText: "Delete lesson",
+                                  onConfirm: async () => {
+                                    setError("");
+                                    setSuccess("");
+                                    try {
+                                      await deleteLesson(lesson.id);
+                                      setLessons((prev) => prev.filter((l) => l.id !== lesson.id));
+                                      if (studyAidLesson?.id === lesson.id) {
+                                        setStudyAidLesson(null);
+                                        setStudyAidQuestions([]);
+                                        setEditingStudyQuestion(null);
+                                        setGeneratedForStudy([]);
+                                        setSelectedGenerated(new Set());
+                                      }
+                                      setSuccess("Lesson deleted.");
+                                      setTimeout(() => setSuccess(""), 2500);
+                                    } catch (err: any) {
+                                      console.error("Error deleting lesson:", err);
+                                      setError(err?.message || "Failed to delete lesson.");
+                                    }
+                                  },
+                                });
                               }}
                               className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors cursor-pointer"
                               title="Delete lesson"
@@ -916,7 +948,7 @@ const getValidatedStudyAidCount = (
                 </h2>
                 <button
                   onClick={handleCancel}
-                  className="text-gray-400 hover:text-gray-600 transition-colors"
+                  className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
                 >
                   <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path
@@ -1035,14 +1067,14 @@ const getValidatedStudyAidCount = (
                   <button
                     type="button"
                     onClick={handleCancel}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={creatingLesson}
-                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:from-red-700 hover:to-rose-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                   >
                     {creatingLesson ? "Adding..." : "Add Lesson"}
                   </button>
@@ -1386,38 +1418,42 @@ const getValidatedStudyAidCount = (
                             <button
                               type="button"
                               disabled={selectedStudyAidIds.size === 0 || deletingSelectedStudyAids || !studyAidLesson}
-                              onClick={async () => {
+                              onClick={() => {
                                 if (!studyAidLesson || selectedStudyAidIds.size === 0) return;
 
-                                const confirmed = confirm(
-                                  `Delete ${selectedStudyAidIds.size} selected study aid${selectedStudyAidIds.size !== 1 ? "s" : ""}?`
-                                );
-                                if (!confirmed) return;
+                                openDeleteConfirm({
+                                  title: `Delete ${selectedStudyAidIds.size} selected study aid${
+                                    selectedStudyAidIds.size !== 1 ? "s" : ""
+                                  }?`,
+                                  message: "This cannot be undone.",
+                                  confirmButtonText: "Delete selected",
+                                  onConfirm: async () => {
+                                    try {
+                                      setDeletingSelectedStudyAids(true);
+                                      const idsToDelete = Array.from(selectedStudyAidIds);
 
-                                try {
-                                  setDeletingSelectedStudyAids(true);
-                                  const idsToDelete = Array.from(selectedStudyAidIds);
+                                      await Promise.all(
+                                        idsToDelete.map((id) => removeLessonStudyQuestion(studyAidLesson.id, id))
+                                      );
 
-                                  await Promise.all(
-                                    idsToDelete.map((id) => removeLessonStudyQuestion(studyAidLesson.id, id))
-                                  );
+                                      setStudyAidQuestions((prev) => prev.filter((q) => !selectedStudyAidIds.has(q.id)));
+                                      setSelectedStudyAidIds(new Set());
 
-                                  setStudyAidQuestions((prev) => prev.filter((q) => !selectedStudyAidIds.has(q.id)));
-                                  setSelectedStudyAidIds(new Set());
+                                      if (editingStudyQuestion && idsToDelete.includes(editingStudyQuestion.id)) {
+                                        setEditingStudyQuestion(null);
+                                      }
 
-                                  if (editingStudyQuestion && idsToDelete.includes(editingStudyQuestion.id)) {
-                                    setEditingStudyQuestion(null);
-                                  }
-
-                                  setSuccess(
-                                    `${idsToDelete.length} study aid${idsToDelete.length !== 1 ? "s" : ""} deleted.`
-                                  );
-                                  setTimeout(() => setSuccess(""), 2500);
-                                } catch (e) {
-                                  setError((e as Error).message);
-                                } finally {
-                                  setDeletingSelectedStudyAids(false);
-                                }
+                                      setSuccess(
+                                        `${idsToDelete.length} study aid${idsToDelete.length !== 1 ? "s" : ""} deleted.`
+                                      );
+                                      setTimeout(() => setSuccess(""), 2500);
+                                    } catch (e) {
+                                      setError((e as Error).message);
+                                    } finally {
+                                      setDeletingSelectedStudyAids(false);
+                                    }
+                                  },
+                                });
                               }}
                               className="w-full sm:w-auto px-4 py-2 text-sm font-semibold rounded-lg bg-red-600 text-white hover:bg-red-700 disabled:opacity-50"
                             >
@@ -1479,24 +1515,30 @@ const getValidatedStudyAidCount = (
 
                                     <button
                                       type="button"
-                                      onClick={async () => {
+                                      onClick={() => {
                                         if (!studyAidLesson) return;
-                                        const confirmed = confirm("Delete this study aid?");
-                                          if (!confirmed) return;
-                                         try {
-                                          await removeLessonStudyQuestion(studyAidLesson.id, q.id);
-                                          setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
-                                          setSelectedStudyAidIds((prev) => {
-                                            const next = new Set(prev);
-                                            next.delete(q.id);
-                                            return next;
-                                          });
-                                          if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
-                                          setSuccess("Study aid deleted.");
-                                          setTimeout(() => setSuccess(""), 2500);
-                                        } catch (e) {
-                                          setError((e as Error).message);
-                                        }
+
+                                        openDeleteConfirm({
+                                          title: "Delete this study aid?",
+                                          message: "This cannot be undone.",
+                                          confirmButtonText: "Delete study aid",
+                                          onConfirm: async () => {
+                                            try {
+                                              await removeLessonStudyQuestion(studyAidLesson.id, q.id);
+                                              setStudyAidQuestions((prev) => prev.filter((x) => x.id !== q.id));
+                                              setSelectedStudyAidIds((prev) => {
+                                                const next = new Set(prev);
+                                                next.delete(q.id);
+                                                return next;
+                                              });
+                                              if (editingStudyQuestion?.id === q.id) setEditingStudyQuestion(null);
+                                              setSuccess("Study aid deleted.");
+                                              setTimeout(() => setSuccess(""), 2500);
+                                            } catch (e) {
+                                              setError((e as Error).message);
+                                            }
+                                          },
+                                        });
                                       }}
                                       className="p-1.5 rounded-lg text-red-600 hover:bg-red-50 transition-colors"
                                       title="Remove"
@@ -1743,6 +1785,50 @@ const getValidatedStudyAidCount = (
                 </section>
               </div>
             )}
+          </div>
+        </div>
+      )}
+
+      {deleteConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/45 backdrop-blur-sm"
+          onClick={closeDeleteConfirm}
+        >
+          <div
+            className="w-full max-w-md rounded-2xl border border-slate-200/90 bg-white shadow-2xl shadow-slate-900/20 overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-6 py-5 border-b border-slate-200 bg-slate-50/90">
+              <div className="text-lg font-semibold text-slate-900">{deleteConfirm.title}</div>
+              <p className="mt-2 text-sm text-slate-600">{deleteConfirm.message}</p>
+            </div>
+
+            <div className="flex flex-col gap-2 p-6 sm:flex-row sm:justify-end">
+              <button
+                type="button"
+                onClick={closeDeleteConfirm}
+                className="w-full sm:flex-1 rounded-2xl border border-slate-200 bg-white hover:bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-700 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={confirmingDelete}
+                onClick={async () => {
+                  if (!deleteConfirm) return;
+                  setConfirmingDelete(true);
+                  try {
+                    await deleteConfirm.onConfirm();
+                    closeDeleteConfirm();
+                  } finally {
+                    setConfirmingDelete(false);
+                  }
+                }}
+                className="w-full sm:flex-1 rounded-2xl bg-red-600 hover:bg-red-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-60 cursor-pointer"
+              >
+                {confirmingDelete ? "Deleting…" : deleteConfirm.confirmButtonText}
+              </button>
+            </div>
           </div>
         </div>
       )}
