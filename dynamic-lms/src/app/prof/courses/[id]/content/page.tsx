@@ -17,6 +17,7 @@ import {
   updateLessonStudyQuestion,
   type StudyAidQuestion,
 } from "@/lib/supabase/queries/study-aid";
+import { buildQuestionSignature } from "@/lib/questions/signature";
 
 type LessonWithUI = Lesson & {
   pdfUrl?: string;
@@ -62,8 +63,8 @@ function EditStudyQuestionForm({
   const [correctAnswerMc, setCorrectAnswerMc] = useState(
     question.type === "multiple_choice" ? Number(normalizedCorrectAnswer) : 0
   );
-  const [correctAnswerTf, setCorrectAnswerTf] = useState(
-    question.type === "true_false" ? Boolean(normalizedCorrectAnswer) : true
+  const [correctAnswerFlashcard, setCorrectAnswerFlashcard] = useState(
+    question.type === "true_false" ? String(normalizedCorrectAnswer ?? "") : ""
   );
   const [correctAnswerFill, setCorrectAnswerFill] = useState(
     question.type === "fill_blank" || question.type === "summary" ? String(normalizedCorrectAnswer ?? "") : ""
@@ -100,7 +101,11 @@ function EditStudyQuestionForm({
         correct_answer: withExistingExplanation(correctAnswerMc),
       });
     } else if (type === "true_false") {
-      await onSave({ question: questionText.trim(), type, correct_answer: withExistingExplanation(correctAnswerTf) });
+      await onSave({
+        question: questionText.trim(),
+        type,
+        correct_answer: withExistingExplanation(correctAnswerFlashcard.trim() || "Review the lesson key idea for this card."),
+      });
     } else {
       await onSave({
         question: questionText.trim(),
@@ -117,13 +122,13 @@ function EditStudyQuestionForm({
           <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          Question text
+          {type === "true_false" ? "Front of flashcard (term/concept)" : "Question text"}
         </label>
         <textarea
           value={questionText}
           onChange={(e) => setQuestionText(e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 text-gray-900 rounded-xl text-sm min-h-[88px] focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-shadow"
-          placeholder="Enter the question..."
+          placeholder={type === "true_false" ? "Enter the front term or concept..." : "Enter the question..."}
           required
         />
       </div>
@@ -186,27 +191,13 @@ function EditStudyQuestionForm({
       )}
       {type === "true_false" && (
         <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-600 mb-1.5">Correct answer</label>
-          <div className="flex gap-3">
-            <button
-              type="button"
-              onClick={() => setCorrectAnswerTf(true)}
-              className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                correctAnswerTf ? "border-green-500 bg-green-50 text-green-600" : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
-              }`}
-            >
-              True
-            </button>
-            <button
-              type="button"
-              onClick={() => setCorrectAnswerTf(false)}
-              className={`flex-1 px-4 py-3 rounded-xl border-2 text-sm font-medium transition-all ${
-                !correctAnswerTf ? "border-green-500 bg-green-50 text-green-600" : "border-gray-200 bg-white text-gray-900 hover:border-gray-300"
-              }`}
-            >
-              False
-            </button>
-          </div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Back of flashcard (explanation)</label>
+          <textarea
+            value={correctAnswerFlashcard}
+            onChange={(e) => setCorrectAnswerFlashcard(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 min-h-[88px] focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            placeholder="Enter the explanation/definition shown on the back..."
+          />
         </div>
       )}
       {type === "fill_blank" && (
@@ -1687,14 +1678,29 @@ const getValidatedStudyAidCount = (
                                 count: getValidatedStudyAidCount(studyAidGenerateType, studyAidGenerateCount),
                                 forStudyAid: true,
                                 studyAidSummary: studyAidGenerateType === "summary",
+                                studyAidFlashcard: studyAidGenerateType === "flashcard",
                               }),
                             });
                             if (!res.ok) throw new Error((await res.json()).error || "Generate failed");
                             const data = await res.json();
-                            setGeneratedForStudy(data.questions || []);
-                            setSelectedGenerated(new Set((data.questions || []).map((_: any, i: number) => i)));
+                            const generated = Array.isArray(data.questions) ? data.questions : [];
+                            const deduped: any[] = [];
+                            const seen = new Set<string>();
+                            for (const q of generated) {
+                              const signature = buildQuestionSignature({
+                                type: q.type,
+                                question: q.question,
+                                options: q.options,
+                                correctAnswer: q.correct_answer,
+                              });
+                              if (seen.has(signature)) continue;
+                              seen.add(signature);
+                              deduped.push(q);
+                            }
+                            setGeneratedForStudy(deduped);
+                            setSelectedGenerated(new Set(deduped.map((_: any, i: number) => i)));
                             setSuccess(
-                              `${(data.questions || []).length} study aid${(data.questions || []).length !== 1 ? "s" : ""} generated.`
+                              `${deduped.length} study aid${deduped.length !== 1 ? "s" : ""} generated.`
                             );
                             setTimeout(() => setSuccess(""), 2500);
                           } catch (e) {
@@ -1760,13 +1766,19 @@ const getValidatedStudyAidCount = (
                                   options: q.options,
                                   correct_answer: q.correct_answer,
                                 }));
-                                await addLessonStudyQuestions(studyAidLesson.id, payload as any);
+                                const result = await addLessonStudyQuestions(studyAidLesson.id, payload as any);
                                 const list = await getLessonStudyQuestions(studyAidLesson.id);
                                 setStudyAidQuestions(list);
                                 setGeneratedForStudy([]);
                                 setSelectedGenerated(new Set());
                                 setSelectedStudyAidIds(new Set());
-                                setSuccess(`${payload.length} study aid${payload.length !== 1 ? "s" : ""} added.`);
+                                const duplicateNote =
+                                  result.skippedDuplicates > 0
+                                    ? ` (${result.skippedDuplicates} duplicate${result.skippedDuplicates !== 1 ? "s" : ""} skipped)`
+                                    : "";
+                                setSuccess(
+                                  `${result.added} study aid${result.added !== 1 ? "s" : ""} added${duplicateNote}.`
+                                );
                                 setTimeout(() => setSuccess(""), 2500);
                               } catch (e) {
                                 setError((e as Error).message);

@@ -13,6 +13,7 @@ import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import QuizMonitoringModal from "@/components/quiz/QuizMonitoringModal";
+import { buildQuestionSignature } from "@/lib/questions/signature";
 
 const BANK_ADD_FADE_MS = 300;
 
@@ -396,6 +397,19 @@ export default function QuizzesPage() {
       }
 
       const { questions: generatedQuestions } = await response.json();
+      const dedupedQuestions: any[] = [];
+      const seenSignatures = new Set<string>();
+      for (const q of Array.isArray(generatedQuestions) ? generatedQuestions : []) {
+        const signature = buildQuestionSignature({
+          type: q.type,
+          question: q.question,
+          options: q.options,
+          correctAnswer: q.correct_answer,
+        });
+        if (seenSignatures.has(signature)) continue;
+        seenSignatures.add(signature);
+        dedupedQuestions.push(q);
+      }
 
       // Get professor ID
       const professorId = await getCurrentProfessorId(true);
@@ -404,8 +418,8 @@ export default function QuizzesPage() {
       }
 
       // Save generated questions to database
-      const savedQuestions = await Promise.all(
-        generatedQuestions.map((q: any) =>
+      const saveResults = await Promise.allSettled(
+        dedupedQuestions.map((q: any) =>
           createQuestion({
             course_id: courseId,
             professor_id: professorId,
@@ -418,6 +432,22 @@ export default function QuizzesPage() {
           })
         )
       );
+      const savedQuestions = saveResults
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
+        .map((result) => result.value);
+      const duplicateSkips = saveResults.filter(
+        (result) =>
+          result.status === "rejected" &&
+          (result.reason as any)?.code === "DUPLICATE_QUESTION"
+      ).length;
+      const failedSaves = saveResults.filter(
+        (result) =>
+          result.status === "rejected" &&
+          (result.reason as any)?.code !== "DUPLICATE_QUESTION"
+      ).length;
+      if (failedSaves > 0) {
+        throw new Error("Some generated questions failed to save.");
+      }
 
       // Transform and add to quiz bank
       const transformedQuestions = savedQuestions.map((q) => ({
@@ -434,7 +464,11 @@ export default function QuizzesPage() {
       setQuizBank([...quizBank, ...transformedQuestions]);
       setFilteredBank([...filteredBank, ...transformedQuestions]);
       setGenerateModalOpen(false);
-      setSuccess(`Generated ${transformedQuestions.length} questions!`);
+      const duplicateNote =
+        duplicateSkips > 0
+          ? ` (${duplicateSkips} duplicate${duplicateSkips !== 1 ? "s" : ""} skipped)`
+          : "";
+      setSuccess(`Generated ${transformedQuestions.length} question${transformedQuestions.length !== 1 ? "s" : ""}${duplicateNote}.`);
       setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
       console.error("Error generating questions:", err);
@@ -536,8 +570,12 @@ export default function QuizzesPage() {
         sourceType: "lesson",
       });
     } catch (err: any) {
-      console.error("Error creating question:", err);
-      setError(err.message || "Failed to create question");
+      if (err?.code === "DUPLICATE_QUESTION") {
+        setError("A question with the same text already exists in this course.");
+      } else {
+        console.error("Error creating question:", err);
+        setError(err.message || "Failed to create question");
+      }
     }
   };
 

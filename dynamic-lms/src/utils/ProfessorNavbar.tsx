@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
@@ -25,6 +25,37 @@ export default function ProfessorNavbar({
   const supabase = createClient();
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [profileName, setProfileName] = useState("");
+
+  useEffect(() => {
+    const loadNavbarProfile = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+        if (!user) return;
+
+        const [{ data: userRow }, { data: professorRow }] = await Promise.all([
+          supabase.from("users").select("name").eq("id", user.id).maybeSingle(),
+          supabase
+            .from("professors")
+            .select("profile_image_url")
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        ]);
+
+        setProfileName((userRow as any)?.name || user.user_metadata?.name || "");
+        setProfileImageUrl((professorRow as any)?.profile_image_url || "");
+      } catch (err) {
+        console.error("Failed to load professor navbar profile:", err);
+      }
+    };
+
+    loadNavbarProfile();
+  }, [supabase]);
+
+  const profileInitial = (profileName || "P").charAt(0).toUpperCase();
 
   const handleLogout = async () => {
     try {
@@ -177,12 +208,19 @@ export default function ProfessorNavbar({
               {/* Profile */}
               <Link
                 href="/prof/profile"
-                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors ${
+                className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors inline-flex items-center gap-2 ${
                   currentPage === "profile"
                     ? "text-red-600 bg-red-50"
                     : "text-gray-700 hover:text-red-600 hover:bg-red-50"
                 }`}
               >
+                {profileImageUrl ? (
+                  <img src={profileImageUrl} alt="profile" className="w-6 h-6 rounded-full object-cover border border-red-100" />
+                ) : (
+                  <span className="w-6 h-6 rounded-full bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center border border-red-200">
+                    {profileInitial}
+                  </span>
+                )}
                 Profile
               </Link>
 
@@ -268,9 +306,16 @@ export default function ProfessorNavbar({
 
             <Link
               href="/prof/profile"
-              className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
+              className="rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center gap-2"
               onClick={() => setMobileMenuOpen(false)}
             >
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt="profile" className="w-7 h-7 rounded-full object-cover border border-red-100" />
+              ) : (
+                <span className="w-7 h-7 rounded-full bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center border border-red-200">
+                  {profileInitial}
+                </span>
+              )}
               Profile
             </Link>
 

@@ -1,4 +1,5 @@
 import { createClient } from "../client";
+import { buildQuestionSignature } from "@/lib/questions/signature";
 
 export interface Question {
   id: string;
@@ -6,6 +7,7 @@ export interface Question {
   professor_id: string;
   type: "multiple_choice" | "true_false" | "fill_blank";
   question: string;
+  question_signature?: string;
   options?: string[]; // JSON array for multiple choice
   correct_answer: string | number | boolean; // JSON
   source_lesson_id?: string;
@@ -191,11 +193,18 @@ export async function createQuestion(questionData: {
   source_type?: "lesson" | "pdf";
 }): Promise<Question> {
   const supabase = createClient();
+  const questionSignature = buildQuestionSignature({
+    type: questionData.type,
+    question: questionData.question,
+    options: questionData.options,
+    correctAnswer: questionData.correct_answer,
+  });
 
   const { data: question, error } = await supabase
     .from("questions")
     .insert({
       ...questionData,
+      question_signature: questionSignature,
       options: questionData.options ? JSON.stringify(questionData.options) : null,
       correct_answer: JSON.stringify(questionData.correct_answer),
     })
@@ -203,6 +212,11 @@ export async function createQuestion(questionData: {
     .single();
 
   if (error) {
+    if ((error as any)?.code === "23505") {
+      const duplicateError: any = new Error("Duplicate question skipped.");
+      duplicateError.code = "DUPLICATE_QUESTION";
+      throw duplicateError;
+    }
     console.error("Error creating question:", error);
     throw error;
   }

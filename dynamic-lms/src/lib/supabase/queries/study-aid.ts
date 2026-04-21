@@ -43,7 +43,7 @@ export async function addLessonStudyQuestions(
           incorrect_explanation?: string;
         };
   }>
-): Promise<{ added: number }> {
+): Promise<{ added: number; skippedDuplicates: number }> {
   const res = await fetch(`/api/lessons/${lessonId}/study-questions`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -54,7 +54,7 @@ export async function addLessonStudyQuestions(
     throw new Error(err.error || "Failed to add study questions");
   }
   const data = await res.json();
-  return { added: data.added ?? 0 };
+  return { added: data.added ?? 0, skippedDuplicates: data.skippedDuplicates ?? 0 };
 }
 
 export async function updateLessonStudyQuestion(

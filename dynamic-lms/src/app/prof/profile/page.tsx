@@ -14,6 +14,8 @@ interface ProfileData {
 export default function ProfProfile() {
   const { handledCourses } = useProfessorCourses();
   const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -50,6 +52,12 @@ export default function ProfProfile() {
         .eq("id", user.id)
         .single();
 
+      const { data: professorRow } = await supabase
+        .from("professors")
+        .select("profile_image_url")
+        .eq("user_id", user.id)
+        .maybeSingle();
+
       if (userError || !userRow) {
         setProfile({
           name: user.user_metadata?.name ?? user.email?.split("@")[0] ?? "",
@@ -62,6 +70,7 @@ export default function ProfProfile() {
         name: userRow.name ?? "",
         email: userRow.email ?? user.email ?? "",
       });
+      setProfileImageUrl((professorRow as any)?.profile_image_url || "");
     } catch (err) {
       console.error("Error fetching profile:", err);
       setError("Failed to load profile.");
@@ -73,6 +82,97 @@ export default function ProfProfile() {
   useEffect(() => {
     fetchProfile();
   }, []);
+
+  const validateImageFile = (file: File): string | null => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const maxBytes = 5 * 1024 * 1024;
+    if (!allowedTypes.includes(file.type)) {
+      return "Please upload a JPG, PNG, or WEBP image.";
+    }
+    if (file.size > maxBytes) {
+      return "Image size must be 5 MB or less.";
+    }
+    return null;
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setError(validationError);
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingImage(true);
+    setError("");
+    setSuccess("");
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in.");
+
+      const sanitizedName = file.name.replace(/\s+/g, "-").toLowerCase();
+      const path = `professors/${user.id}/${Date.now()}-${sanitizedName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(path, file, { upsert: false });
+      if (uploadError) {
+        throw new Error(`Storage upload failed: ${uploadError.message}`);
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("profile-images").getPublicUrl(path);
+
+      const { error: updateError } = await supabase
+        .from("professors")
+        .update({ profile_image_url: publicUrl })
+        .eq("user_id", user.id);
+      if (updateError) {
+        throw new Error(`Professor profile update failed: ${updateError.message}`);
+      }
+
+      setProfileImageUrl(publicUrl);
+      setSuccess("Profile photo updated.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      console.error("Professor image upload error:", err);
+      setError(err?.message || "Failed to upload profile image.");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    setUploadingImage(true);
+    setError("");
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not signed in.");
+
+      const { error: updateError } = await supabase
+        .from("professors")
+        .update({ profile_image_url: null })
+        .eq("user_id", user.id);
+      if (updateError) throw updateError;
+
+      setProfileImageUrl("");
+      setSuccess("Profile photo removed.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err?.message || "Failed to remove profile image.");
+    } finally {
+      setUploadingImage(false);
+    }
+  };
 
   const startEditing = () => {
     if (profile) {
@@ -208,7 +308,7 @@ export default function ProfProfile() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-slate-100">
       <ProfessorNavbar currentPage="profile" handledCourses={handledCourses} />
 
       <main className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
@@ -217,6 +317,47 @@ export default function ProfProfile() {
             Profile Settings
           </h1>
           <p className="text-gray-600">Manage your account information</p>
+        </div>
+
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt="profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-gray-500">
+                  {(profile?.name || "P").charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{profile?.name || "Professor"}</h2>
+              <p className="text-sm text-gray-600 truncate">{profile?.email || "No email"}</p>
+              <p className="text-xs text-gray-500 mt-1">professor account</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 cursor-pointer disabled:opacity-50">
+                {uploadingImage ? "Uploading..." : "Upload photo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+              </label>
+              {profileImageUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  disabled={uploadingImage}
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Remove photo
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {loading ? (

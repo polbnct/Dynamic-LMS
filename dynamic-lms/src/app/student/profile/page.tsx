@@ -1,13 +1,14 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import StudentNavbar from "@/utils/StudentNavbar";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 
 export default function StudentProfile() {
   const [loadingProfile, setLoadingProfile] = useState(true);
+  const [profileImageUrl, setProfileImageUrl] = useState("");
+  const [uploadingImage, setUploadingImage] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -63,7 +64,7 @@ export default function StudentProfile() {
 
         const { data: studentRow } = await supabase
           .from("students")
-          .select("student_id, phone, graduation_year")
+          .select("student_id, phone, graduation_year, profile_image_url")
           .eq("user_id", user.id)
           .maybeSingle();
 
@@ -75,6 +76,7 @@ export default function StudentProfile() {
           phone: (studentRow as any)?.phone || "",
           year: (studentRow as any)?.graduation_year || "",
         }));
+        setProfileImageUrl((studentRow as any)?.profile_image_url || "");
       } catch (err) {
         console.error("Failed to load profile:", err);
       } finally {
@@ -97,6 +99,95 @@ export default function StudentProfile() {
         ...errors,
         [name]: "",
       });
+    }
+  };
+
+  const validateImageFile = (file: File): string | null => {
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp"];
+    const maxBytes = 5 * 1024 * 1024;
+    if (!allowedTypes.includes(file.type)) {
+      return "Please upload a JPG, PNG, or WEBP image.";
+    }
+    if (file.size > maxBytes) {
+      return "Image size must be 5 MB or less.";
+    }
+    return null;
+  };
+
+  const handleImageUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      showErrorToast(validationError);
+      e.target.value = "";
+      return;
+    }
+
+    setUploadingImage(true);
+    setSuccess("");
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const sanitizedName = file.name.replace(/\s+/g, "-").toLowerCase();
+      const path = `students/${user.id}/${Date.now()}-${sanitizedName}`;
+      const { error: uploadError } = await supabase.storage
+        .from("profile-images")
+        .upload(path, file, { upsert: false });
+      if (uploadError) {
+        throw new Error(`Storage upload failed: ${uploadError.message}`);
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("profile-images").getPublicUrl(path);
+
+      const { error: updateError } = await supabase
+        .from("students")
+        .update({ profile_image_url: publicUrl })
+        .eq("user_id", user.id);
+      if (updateError) {
+        throw new Error(`Student profile update failed: ${updateError.message}`);
+      }
+
+      setProfileImageUrl(publicUrl);
+      setSuccess("Profile photo updated.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      console.error("Student image upload error:", err);
+      showErrorToast(err?.message || "Failed to upload profile image.");
+    } finally {
+      setUploadingImage(false);
+      e.target.value = "";
+    }
+  };
+
+  const handleRemoveImage = async () => {
+    setUploadingImage(true);
+    try {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) throw new Error("Not authenticated");
+
+      const { error: updateError } = await supabase
+        .from("students")
+        .update({ profile_image_url: null })
+        .eq("user_id", user.id);
+      if (updateError) throw updateError;
+
+      setProfileImageUrl("");
+      setSuccess("Profile photo removed.");
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      showErrorToast(err?.message || "Failed to remove profile image.");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -346,7 +437,7 @@ export default function StudentProfile() {
     };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
+    <div className="min-h-screen bg-gradient-to-br from-gray-50 via-white to-slate-100">
       {/* Navbar */}
       <StudentNavbar currentPage="profile" />
 
@@ -367,6 +458,47 @@ export default function StudentProfile() {
             Profile Settings
           </h1>
           <p className="text-gray-600">Manage your account information</p>
+        </div>
+
+        <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
+          <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
+            <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
+              {profileImageUrl ? (
+                <img src={profileImageUrl} alt="profile" className="w-full h-full object-cover" />
+              ) : (
+                <span className="text-2xl font-bold text-gray-500">
+                  {(formData.name || "S").charAt(0).toUpperCase()}
+                </span>
+              )}
+            </div>
+            <div className="min-w-0 flex-1">
+              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{formData.name || "Student"}</h2>
+              <p className="text-sm text-gray-600 truncate">{formData.email || "No email"}</p>
+              <p className="text-xs text-gray-500 mt-1">student account</p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 cursor-pointer disabled:opacity-50">
+                {uploadingImage ? "Uploading..." : "Upload photo"}
+                <input
+                  type="file"
+                  accept="image/png,image/jpeg,image/webp"
+                  onChange={handleImageUpload}
+                  disabled={uploadingImage}
+                  className="hidden"
+                />
+              </label>
+              {profileImageUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  disabled={uploadingImage}
+                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+                >
+                  Remove photo
+                </button>
+              )}
+            </div>
+          </div>
         </div>
 
         {/* Profile Information Card */}

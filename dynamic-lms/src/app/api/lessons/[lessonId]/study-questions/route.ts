@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { buildQuestionSignature } from "@/lib/questions/signature";
 
 export async function GET(
   request: NextRequest,
@@ -144,7 +145,9 @@ export async function POST(
     const professorId = course.professor_id;
     const courseId = lesson.course_id;
     const createdIds: string[] = [];
+    let skippedDuplicates = 0;
     let firstError: string | null = null;
+    const batchSignatures = new Set<string>();
 
     for (let i = 0; i < questionsToAdd.length; i++) {
       const q = questionsToAdd[i];
@@ -156,6 +159,19 @@ export async function POST(
         q.correct_answer !== undefined && q.correct_answer !== null
           ? JSON.stringify(q.correct_answer)
           : null;
+      const questionText = String(q.question || "").trim() || "Question";
+      const questionSignature = buildQuestionSignature({
+        type: q.type,
+        question: questionText,
+        options: q.type === "multiple_choice" && Array.isArray(q.options) ? q.options : [],
+        correctAnswer: q.correct_answer ?? "",
+      });
+
+      if (batchSignatures.has(questionSignature)) {
+        skippedDuplicates += 1;
+        continue;
+      }
+      batchSignatures.add(questionSignature);
 
       const { data: newQuestion, error: insertErr } = await supabase
         .from("questions")
@@ -163,7 +179,8 @@ export async function POST(
           course_id: courseId,
           professor_id: professorId,
           type: q.type,
-          question: String(q.question || "").trim() || "Question",
+          question: questionText,
+          question_signature: questionSignature,
           options: optionsJson,
           correct_answer: correctAnswerJson ?? JSON.stringify(""),
           source_lesson_id: lessonId,
@@ -173,6 +190,10 @@ export async function POST(
         .single();
 
       if (insertErr || !newQuestion) {
+        if ((insertErr as any)?.code === "23505") {
+          skippedDuplicates += 1;
+          continue;
+        }
         const errMsg = insertErr?.message || "Insert failed";
         console.error("Error inserting study question:", insertErr);
         if (!firstError) firstError = errMsg;
@@ -205,6 +226,7 @@ export async function POST(
     return NextResponse.json({
       success: true,
       added: createdIds.length,
+      skippedDuplicates,
       questionIds: createdIds,
     });
   } catch (e: any) {

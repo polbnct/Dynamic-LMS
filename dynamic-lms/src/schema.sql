@@ -18,6 +18,7 @@ CREATE TABLE public.professors (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   department TEXT,
+  profile_image_url TEXT,
   -- Add additional profile fields here
   CONSTRAINT unique_professor_user UNIQUE(user_id)
 );
@@ -27,6 +28,7 @@ CREATE TABLE public.students (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID REFERENCES public.users(id) ON DELETE CASCADE NOT NULL,
   student_id TEXT UNIQUE NOT NULL,
+  profile_image_url TEXT,
   -- Add additional profile fields here
   CONSTRAINT unique_student_user UNIQUE(user_id)
 );
@@ -109,12 +111,17 @@ CREATE TABLE public.questions (
   professor_id UUID REFERENCES public.professors(id) ON DELETE CASCADE,
   type question_type NOT NULL,
   question TEXT NOT NULL,
+  question_signature TEXT,
   options JSONB, -- For multiple choice: ["A", "B", "C"]
   correct_answer JSONB NOT NULL,
   source_lesson_id UUID REFERENCES public.lessons(id) ON DELETE SET NULL,
   source_type source_origin,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_questions_course_type_signature_unique
+  ON public.questions (course_id, question_signature)
+  WHERE question_signature IS NOT NULL;
 
 -- 10. Quizzes table
 CREATE TABLE public.quizzes (
