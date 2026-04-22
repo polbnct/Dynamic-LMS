@@ -25,6 +25,8 @@ export default function ProfessorNavbar({
   const supabase = createClient();
   const [coursesDropdownOpen, setCoursesDropdownOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [mobileCoursesOpen, setMobileCoursesOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [profileName, setProfileName] = useState("");
 
@@ -147,6 +149,31 @@ export default function ProfessorNavbar({
                           {handledCourses.length} course{handledCourses.length !== 1 ? "s" : ""} you manage
                         </p>
                       </div>
+                      
+                      {/* Search Bar */}
+                      <div className="p-3 border-b border-gray-200">
+                        <div className="relative">
+                          <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                          </svg>
+                          <input
+                            type="text"
+                            placeholder="Search by course name or code..."
+                            value={searchQuery}
+                            onChange={(e) => setSearchQuery(e.target.value)}
+                            className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent text-gray-800 placeholder:text-gray-400"
+                          />
+                          {searchQuery && (
+                            <button
+                              onClick={() => setSearchQuery("")}
+                              className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                      
                       <div className="max-h-96 overflow-y-auto">
                         {handledCourses.length === 0 ? (
                           <div className="p-8 text-center text-gray-500">
@@ -154,44 +181,52 @@ export default function ProfessorNavbar({
                           </div>
                         ) : (
                           <div className="divide-y divide-gray-100">
-                            {handledCourses.map((course) => (
-                              <Link
-                                key={course.id}
-                                href={`/prof/courses/${course.id}`}
-                                onClick={() => setCoursesDropdownOpen(false)}
-                                className="block p-4 hover:bg-red-50 transition-colors"
-                              >
-                                <div className="flex items-start justify-between">
-                                  <div className="flex-1 min-w-0">
-                                    <h4 className="font-semibold text-gray-800 truncate" title={course.name}
-                                    >{course.name}</h4>
-                                    <p className="text-sm text-gray-600 mt-1 truncate">{course.code}</p>
+                            {handledCourses.filter((course) => {
+                              if (!searchQuery) return true;
+                              const query = searchQuery.toLowerCase();
+                              return course.name.toLowerCase().includes(query) || 
+                                    course.code.toLowerCase().includes(query);
+                            }).length === 0 ? (
+                              <div className="p-8 text-center text-gray-500">
+                                No courses found
+                              </div>
+                            ) : (
+                              handledCourses.filter((course) => {
+                                if (!searchQuery) return true;
+                                const query = searchQuery.toLowerCase();
+                                return course.name.toLowerCase().includes(query) || 
+                                      course.code.toLowerCase().includes(query);
+                              }).map((course) => (
+                                <Link
+                                  key={course.id}
+                                  href={`/prof/courses/${course.id}`}
+                                  onClick={() => {
+                                    setCoursesDropdownOpen(false);
+                                    setSearchQuery("");
+                                  }}
+                                  className="block p-4 hover:bg-red-50 transition-colors"
+                                >
+                                  <div>
+                                    {/* Course name and code on same line with dot */}
+                                    <div className="flex items-center gap-2">
+                                      <h4 className="font-semibold text-gray-800 truncate" title={course.name}>
+                                        {course.name}
+                                      </h4>
+                                      <span className="text-gray-400">•</span>
+                                      <p className="text-sm text-gray-600 truncate" title={course.code}>
+                                        {course.code}
+                                      </p>
+                                    </div>
+                                    {/* Student count below */}
                                     {course.studentsCount !== undefined && (
                                       <p className="text-xs text-gray-500 mt-1">
                                         {course.studentsCount} student{course.studentsCount !== 1 ? "s" : ""}
                                       </p>
                                     )}
                                   </div>
-                                  <div className="ml-4">
-                                    <div className="w-12 h-12 bg-gradient-to-br from-red-100 to-rose-100 rounded-lg flex items-center justify-center">
-                                      <svg
-                                        className="w-6 h-6 text-red-600"
-                                        fill="none"
-                                        stroke="currentColor"
-                                        viewBox="0 0 24 24"
-                                      >
-                                        <path
-                                          strokeLinecap="round"
-                                          strokeLinejoin="round"
-                                          strokeWidth={2}
-                                          d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253"
-                                        />
-                                      </svg>
-                                    </div>
-                                  </div>
-                                </div>
-                              </Link>
-                            ))}
+                                </Link>
+                              ))
+                            )}
                           </div>
                         )}
                       </div>
@@ -276,15 +311,27 @@ export default function ProfessorNavbar({
           }`}
         >
           <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
-            <div className="flex items-center gap-2 min-w-0">
-              <img
-                src="/logo.png"
-                alt="Logo"
-                className="w-9 h-9 rounded-xl shadow-md"
-              />
-              <span className="text-lg font-bold text-gray-900 truncate">
-                LohikAral
-              </span>
+            <div className="flex items-center gap-3 min-w-0">
+              {/* Profile Avatar on the left */}
+              {profileImageUrl ? (
+                <img 
+                  src={profileImageUrl} 
+                  alt="Profile" 
+                  className="w-10 h-10 rounded-full object-cover border-2 border-red-200"
+                />
+              ) : (
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-red-500 to-rose-500 text-white text-base font-bold flex items-center justify-center shadow-md">
+                  {profileInitial}
+                </div>
+              )}
+              <div className="flex flex-col min-w-0">
+                <span className="text-sm font-semibold text-gray-900 truncate">
+                  {profileName || "Professor"}
+                </span>
+                <span className="text-xs text-gray-500 truncate">
+                  Professor
+                </span>
+              </div>
             </div>
 
             <button
@@ -304,29 +351,26 @@ export default function ProfessorNavbar({
               Dashboard
             </Link>
 
-            <Link
+            <button
+              onClick={() => {
+                setMobileCoursesOpen(true);
+              }}
+              className="flex w-full items-center justify-between rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
+            >
+              <span>Courses</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+
+              <Link
               href="/prof/profile"
               className="rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600 flex items-center gap-2"
               onClick={() => setMobileMenuOpen(false)}
             >
-              {profileImageUrl ? (
-                <img src={profileImageUrl} alt="profile" className="w-7 h-7 rounded-full object-cover border border-red-100" />
-              ) : (
-                <span className="w-7 h-7 rounded-full bg-red-100 text-red-700 text-xs font-bold flex items-center justify-center border border-red-200">
-                  {profileInitial}
-                </span>
-              )}
               Profile
             </Link>
-
-            <Link
-              href="/prof/dashboard"
-              className="block rounded-lg px-4 py-3 text-base font-semibold text-gray-700 hover:bg-red-50 hover:text-red-600"
-              onClick={() => setMobileMenuOpen(false)}
-            >
-              Courses
-            </Link>
-
+            
             <hr className="border-gray-200" />
 
             <button
@@ -345,7 +389,114 @@ export default function ProfessorNavbar({
         </div>
       </>
 
-      {/* Course creation is admin-managed (no professor modal). */}
+       {/* Course creation is admin-managed (no professor modal). */}
+
+      {/* Courses Drawer (Mobile) */}
+      <div
+        className={`fixed inset-0 z-50 bg-black/20 transition-opacity duration-300 md:hidden
+          ${mobileCoursesOpen ? "opacity-100 pointer-events-auto" : "opacity-0 pointer-events-none"}`}
+        onClick={() => setMobileCoursesOpen(false)}
+      />
+
+      <div
+        className={`fixed top-0 right-0 h-full w-80 max-w-[85%] z-50 bg-white shadow-2xl border-l border-gray-200 transform transition-transform duration-300 ease-in-out md:hidden
+          ${mobileCoursesOpen ? "translate-x-0" : "translate-x-full"}`}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between px-4 py-4 border-b border-gray-200">
+          <button
+            onClick={() => setMobileCoursesOpen(false)}
+            className="p-2 rounded-lg hover:bg-red-50 text-gray-900"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            </svg>
+          </button>
+          <span className="text-lg font-bold text-gray-900">Handled Courses</span>
+          <div className="w-10"></div>
+        </div>
+
+        {/* Search Bar */}
+        <div className="p-4 border-b border-gray-200">
+          <div className="relative">
+            <svg className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+            </svg>
+            <input
+              type="text"
+              placeholder="Search by name or code..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="w-full pl-9 pr-3 py-2 text-sm border border-gray-200 rounded-lg text-gray-800 focus:outline-none focus:ring-2 focus:ring-gray-400 focus:border-transparent"
+            />
+            {searchQuery && (
+              <button
+                onClick={() => setSearchQuery("")}
+                className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                ✕
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* Courses List */}
+        <div className="flex-1 overflow-y-auto h-[calc(100%-130px)]">
+          {handledCourses.length === 0 ? (
+            <div className="p-8 text-center text-gray-500">
+              <p>No courses yet. Create your first course!</p>
+            </div>
+          ) : (
+            <div className="divide-y divide-gray-100">
+              {handledCourses.filter((course) => {
+                if (!searchQuery) return true;
+                const query = searchQuery.toLowerCase();
+                return course.name.toLowerCase().includes(query) || 
+                       course.code.toLowerCase().includes(query);
+              }).length === 0 ? (
+                <div className="p-8 text-center text-gray-500">
+                  No courses found
+                </div>
+              ) : (
+                handledCourses.filter((course) => {
+                  if (!searchQuery) return true;
+                  const query = searchQuery.toLowerCase();
+                  return course.name.toLowerCase().includes(query) || 
+                         course.code.toLowerCase().includes(query);
+                }).map((course) => (
+                  <Link 
+                    key={course.id} 
+                    href={`/prof/courses/${course.id}`} 
+                    onClick={() => {
+                      setMobileCoursesOpen(false);
+                      setMobileMenuOpen(false);
+                      setSearchQuery("");
+                    }}
+                    className="block p-4 hover:bg-red-50 transition-colors"
+                  >
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h4 className="font-semibold text-gray-800 truncate" title={course.name}>
+                          {course.name}
+                        </h4>
+                        <span className="text-gray-400">•</span>
+                        <p className="text-sm text-gray-600 truncate" title={course.code}>
+                          {course.code}
+                        </p>
+                      </div>
+                      {course.studentsCount !== undefined && (
+                        <p className="text-xs text-gray-500 mt-1">
+                          {course.studentsCount} student{course.studentsCount !== 1 ? "s" : ""}
+                        </p>
+                      )}
+                    </div>
+                  </Link>     
+                ))
+              )}
+            </div>
+          )}
+        </div>
+      </div>
     </>
   );
 }

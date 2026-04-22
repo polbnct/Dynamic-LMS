@@ -1638,14 +1638,22 @@ const getValidatedStudyAidCount = (
                             type="number"
                             min={1}
                             max={10}
-                            value={studyAidGenerateCount}
+                            value={studyAidGenerateCount === 0 ? "" : studyAidGenerateCount}
                             onChange={(e) => {
-                              const raw = Number(e.target.value);
-                              if (!Number.isFinite(raw)) {
-                                setStudyAidGenerateCount(1);
+                              const value = e.target.value;
+                              if (value === "") {
+                                setStudyAidGenerateCount(0);
                                 return;
                               }
-                              setStudyAidGenerateCount(Math.min(10, Math.max(1, raw)));
+                              const raw = Number(value);
+                              if (Number.isFinite(raw) && raw > 0) {
+                                setStudyAidGenerateCount(Math.min(10, raw));
+                              }
+                            }}
+                            onBlur={() => {
+                              if (studyAidGenerateCount === 0 || studyAidGenerateCount < 1) {
+                                setStudyAidGenerateCount(1);
+                              }
                             }}
                             className="w-full px-4 py-2.5 border border-gray-300 text-gray-900 rounded-xl text-sm focus:ring-2 focus:ring-red-500 focus:border-red-500"
                           />
