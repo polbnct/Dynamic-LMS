@@ -20,6 +20,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
   const [mobileCoursesOpen, setMobileCoursesOpen] = useState(false);
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [profileName, setProfileName] = useState("");
+  const [sortedCourses, setSortedCourses] = useState<any[]>([]);
   const { courses, loading } = useStudentCourses();
 
   useEffect(() => {
@@ -48,6 +49,20 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
 
     loadNavbarProfile();
   }, [supabase]);
+
+    useEffect(() => {
+    if (courses.length === 0) return;
+    
+    const lastAccessed = localStorage.getItem("lastAccessedCourse");
+
+    const sorted = [...courses].sort((a, b) => {
+      if (a.id === lastAccessed) return -1;
+      if (b.id === lastAccessed) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    setSortedCourses(sorted);
+  }, [courses]);
 
   const profileInitial = (profileName || "S").charAt(0).toUpperCase();
 
@@ -149,7 +164,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                         <div className="p-8 text-center"><div className="mx-auto h-8 w-8 animate-spin rounded-full border-b-2 border-red-500"></div></div>
                       ) : (
                         <div className="divide-y divide-rose-50">
-                          {courses.filter((course) => {
+                          {sortedCourses.filter((course) => {
                             if (!searchQuery) return true;
                             const query = searchQuery.toLowerCase();
                             return course.name.toLowerCase().includes(query) || 
@@ -159,7 +174,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                               No courses found
                             </div>
                           ) : (
-                            courses.filter((course) => {
+                            sortedCourses.filter((course) => {
                               if (!searchQuery) return true;
                               const query = searchQuery.toLowerCase();
                               return course.name.toLowerCase().includes(query) || 
@@ -168,7 +183,10 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                               <Link 
                                 key={course.id} 
                                 href={`/student/dashboard/${course.id}/content`} 
-                                onClick={() => setCoursesDropdownOpen(false)}
+                                onClick={() => {
+                                  setCoursesDropdownOpen(false);
+                                  localStorage.setItem("lastAccessedCourse", course.id);
+                                }}
                                 className="block p-4 hover:bg-rose-50"
                               >
                                 <div className="flex items-center gap-2">
@@ -384,21 +402,21 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
             </div>
           ) : (
             <div className="divide-y divide-rose-50">
-              {courses.filter((course) => {
+              {sortedCourses.filter((course) => {
                 if (!searchQuery) return true;
                 const query = searchQuery.toLowerCase();
                 return course.name.toLowerCase().includes(query) || 
-                       course.code.toLowerCase().includes(query);
+                      course.code.toLowerCase().includes(query);
               }).length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   No courses found
                 </div>
               ) : (
-                courses.filter((course) => {
+                sortedCourses.filter((course) => {
                   if (!searchQuery) return true;
                   const query = searchQuery.toLowerCase();
                   return course.name.toLowerCase().includes(query) || 
-                         course.code.toLowerCase().includes(query);
+                        course.code.toLowerCase().includes(query);
                 }).map((course) => (
                   <Link 
                     key={course.id} 
@@ -407,6 +425,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
                       setMobileCoursesOpen(false);
                       setMobileMenuOpen(false);
                       setSearchQuery("");
+                      localStorage.setItem("lastAccessedCourse", course.id);
                     }}
                     className="block p-4 hover:bg-rose-50"
                   >

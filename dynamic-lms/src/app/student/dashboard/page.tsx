@@ -23,17 +23,21 @@ export default function StudentDashboard() {
     (course.name + " " + course.code + " " + (course.professorName || ""))
       .toLowerCase()
       .includes(search.toLowerCase())
-  );
+    );
 
   const lastAccessed = localStorage.getItem("lastAccessedCourse");
-    if (!lastAccessed) return filtered;
+    if (!lastAccessed) {
+      // Sort alphabetically if no last accessed course
+      return [...filtered].sort((a, b) => a.name.localeCompare(b.name));
+    }
 
     return [...filtered].sort((a, b) => {
-    if (a.id === lastAccessed) return -1;
-    if (b.id === lastAccessed) return 1;
-    return 0;
-  });
-}, [courses, search]);
+      if (a.id === lastAccessed) return -1;
+      if (b.id === lastAccessed) return 1;
+      // Sort remaining courses alphabetically
+      return a.name.localeCompare(b.name);
+    });
+  }, [courses, search]);
 
   const getCourseName = (courseId: string) => {
     return courses.find (c => c.id === courseId)?.name || "Unknown Course";
@@ -184,13 +188,13 @@ export default function StudentDashboard() {
             </div>
           ) : (
         <div className="border border-gray-300 rounded-2xl shadow-sm p-5 bg-white/80">    
-          <div className="max-h-[380px] overflow-y-auto pr-2 pb-4.5 pt-4">
+          <div className="max-h-[435px] overflow-y-auto pr-2 pb-4.5 pt-4">
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
               {filteredCourses.map((course) => (
                 <Link
                   key={course.id}
                   href={`/student/dashboard/${course.id}/content`}
-                  className="bg-white/90 backdrop-blur-sm rounded-xl border border-gray-300 p-6 hover:shadow-lg transition-all duration-200 transform"
+                  className="bg-white/90 backdrop-blur-sm rounded-xl border border-gray-300 p-6 shadow-lg hover:shadow-xl transition-all duration-200"
                   onClick={() => {
                   localStorage.setItem("lastAccessedCourse", course.id);
                 }}
@@ -221,15 +225,15 @@ export default function StudentDashboard() {
                     {course.professorName || "No instructor"}
                   </p>
                   <div className="mt-4 grid grid-cols-3 border border-gray-200 rounded-xl overflow-hidden divide-x divide-gray-200">
-                  <span className="py-3 text-center text-xs font-medium text-gray-700">
+                  <span className="py-3 text-center text-xs font-medium text-gray-700 truncate">
                     {course.lessonsCount|| 0} Lessons
                   </span>
 
-                  <span className="py-3 text-center text-xs font-medium text-gray-700">
+                  <span className="py-3 text-center text-xs font-medium text-gray-700 truncate">
                     {course.assignmentsCount || 0} Assignments
                   </span>
 
-                  <span className="py-3 text-center text-xs font-medium text-gray-700">
+                  <span className="py-3 text-center text-xs font-medium text-gray-700 truncate">
                     {course.quizzesCount || 0} Quizzes
                   </span>
                   </div>
@@ -273,7 +277,7 @@ export default function StudentDashboard() {
                             : "No due date"}
                         </p>
                       </div>
-                      <span className="shrink-0 text-xs font-semibold text-rose-600">View assignment</span>
+                      <span className="shrink-0 text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline transition-colors">View assignment</span>
                     </div>
                   </Link>
                 ))}
@@ -312,7 +316,7 @@ export default function StudentDashboard() {
                             : "No lock time"}
                         </p>
                       </div>
-                      <span className="text-xs font-semibold text-rose-600">View quiz</span>
+                      <span className="text-xs font-semibold text-rose-600 hover:text-rose-700 hover:underline transition-colors">View quiz</span>
                     </div>
                   </Link>
                 ))}
