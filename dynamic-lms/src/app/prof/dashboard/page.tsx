@@ -25,7 +25,7 @@ export default function ProfessorDashboard() {
   return [...filtered].sort((a, b) => {
     if (a.id === lastAccessed) return -1;
     if (b.id === lastAccessed) return 1;
-    return 0;
+    return a.name.localeCompare(b.name);
   });
   }, [courses, search]);
   useSyncMessagesToToast(combinedError, success);
@@ -139,8 +139,8 @@ export default function ProfessorDashboard() {
               </div>
             ) : (
           <div className="bg-white/80 border border-gray-300 rounded-2xl shadow-sm p-5">
-            <div className="max-h-[405px] overflow-y-auto pr-3 pb-4 pt-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="max-h-[415px] overflow-y-auto pr-2 pb-4.5 pt-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredCourses.map((course) => (
                   <div
                     key={course.id}
@@ -151,7 +151,7 @@ export default function ProfessorDashboard() {
                       localStorage.setItem("lastAccessedCourse", course.id);
                     }}>
                       <div className="flex items-center justify-between gap-2 mb-1">
-                        <h3 className="text-md font-bold text-gray-800 group-hover:text-red-600 transition-colors truncate flex-1" 
+                        <h3 className="text-lg font-semibold text-gray-800 truncate flex-1" 
                         title={course.name}
                         >
                           {course.name}

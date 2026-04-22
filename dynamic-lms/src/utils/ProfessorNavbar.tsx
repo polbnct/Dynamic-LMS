@@ -29,6 +29,7 @@ export default function ProfessorNavbar({
   const [searchQuery, setSearchQuery] = useState("");
   const [profileImageUrl, setProfileImageUrl] = useState("");
   const [profileName, setProfileName] = useState("");
+  const [sortedCourses, setSortedCourses] = useState<HandledCourse[]>([]);
 
   useEffect(() => {
     const loadNavbarProfile = async () => {
@@ -56,6 +57,20 @@ export default function ProfessorNavbar({
 
     loadNavbarProfile();
   }, [supabase]);
+
+    useEffect(() => {
+    if (handledCourses.length === 0) return;
+    
+    const lastAccessed = localStorage.getItem("lastAccessedCourse");
+    
+    const sorted = [...handledCourses].sort((a, b) => {
+      if (a.id === lastAccessed) return -1;
+      if (b.id === lastAccessed) return 1;
+      return a.name.localeCompare(b.name);
+    });
+    
+    setSortedCourses(sorted);
+  }, [handledCourses]);
 
   const profileInitial = (profileName || "P").charAt(0).toUpperCase();
 
@@ -181,7 +196,7 @@ export default function ProfessorNavbar({
                           </div>
                         ) : (
                           <div className="divide-y divide-gray-100">
-                            {handledCourses.filter((course) => {
+                            {sortedCourses.filter((course) => {
                               if (!searchQuery) return true;
                               const query = searchQuery.toLowerCase();
                               return course.name.toLowerCase().includes(query) || 
@@ -191,7 +206,7 @@ export default function ProfessorNavbar({
                                 No courses found
                               </div>
                             ) : (
-                              handledCourses.filter((course) => {
+                              sortedCourses.filter((course) => {
                                 if (!searchQuery) return true;
                                 const query = searchQuery.toLowerCase();
                                 return course.name.toLowerCase().includes(query) || 
@@ -203,6 +218,7 @@ export default function ProfessorNavbar({
                                   onClick={() => {
                                     setCoursesDropdownOpen(false);
                                     setSearchQuery("");
+                                    localStorage.setItem("lastAccessedCourse", course.id);
                                   }}
                                   className="block p-4 hover:bg-red-50 transition-colors"
                                 >
@@ -442,27 +458,27 @@ export default function ProfessorNavbar({
 
         {/* Courses List */}
         <div className="flex-1 overflow-y-auto h-[calc(100%-130px)]">
-          {handledCourses.length === 0 ? (
+          {sortedCourses.length === 0 ? (
             <div className="p-8 text-center text-gray-500">
               <p>No courses yet. Create your first course!</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
-              {handledCourses.filter((course) => {
+              {sortedCourses.filter((course) => {
                 if (!searchQuery) return true;
                 const query = searchQuery.toLowerCase();
                 return course.name.toLowerCase().includes(query) || 
-                       course.code.toLowerCase().includes(query);
+                      course.code.toLowerCase().includes(query);
               }).length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   No courses found
                 </div>
               ) : (
-                handledCourses.filter((course) => {
+                sortedCourses.filter((course) => {
                   if (!searchQuery) return true;
                   const query = searchQuery.toLowerCase();
                   return course.name.toLowerCase().includes(query) || 
-                         course.code.toLowerCase().includes(query);
+                        course.code.toLowerCase().includes(query);
                 }).map((course) => (
                   <Link 
                     key={course.id} 
@@ -471,6 +487,7 @@ export default function ProfessorNavbar({
                       setMobileCoursesOpen(false);
                       setMobileMenuOpen(false);
                       setSearchQuery("");
+                      localStorage.setItem("lastAccessedCourse", course.id);
                     }}
                     className="block p-4 hover:bg-red-50 transition-colors"
                   >
