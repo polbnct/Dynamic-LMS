@@ -190,62 +190,57 @@ export default function ProfProfile() {
   };
 
   const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!profile) return;
-    setSaving(true);
-    setError("");
-    setSuccess("");
-    const supabase = createClient();
-    try {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) {
-        setError("Not signed in.");
-        setSaving(false);
-        return;
-      }
-
-      const name = editName.trim();
-      const email = editEmail.trim().toLowerCase();
-      if (!name) {
-        setError("Name is required.");
-        setSaving(false);
-        return;
-      }
-      if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-        setError("Please enter a valid email.");
-        setSaving(false);
-        return;
-      }
-
-      const { error: updateError } = await supabase
-        .from("users")
-        .update({ name, email })
-        .eq("id", user.id);
-
-      if (updateError) {
-        setError(updateError.message || "Failed to update profile.");
-        setSaving(false);
-        return;
-      }
-
-      if (email !== user.email) {
-        const { error: authError } = await supabase.auth.updateUser({ email });
-        if (authError) {
-          setError(authError.message || "Profile updated but email change may require verification.");
-        }
-      }
-
-      setProfile({ name, email });
-      setEditing(false);
-      setSuccess("Profile updated successfully.");
-      setTimeout(() => setSuccess(""), 3000);
-    } catch (err) {
-      console.error("Error saving profile:", err);
-      setError("Failed to save profile.");
-    } finally {
+  e.preventDefault();
+  if (!profile) return;
+  setSaving(true);
+  setError("");
+  setSuccess("");
+  const supabase = createClient();
+  try {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      setError("Not signed in.");
       setSaving(false);
+      return;
     }
-  };
+
+    const name = editName.trim();
+    if (!name) {
+      setError("Name is required.");
+      setSaving(false);
+      return;
+    }
+
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({ name })
+      .eq("id", user.id);
+
+    if (updateError) {
+      setError(updateError.message || "Failed to update profile.");
+      setSaving(false);
+      return;
+    }
+
+    const { error: authError } = await supabase.auth.updateUser({
+      data: { name }
+    });
+    
+    if (authError) {
+      console.error("Error updating auth metadata:", authError);
+    }
+
+    setProfile({ name, email: profile.email });
+    setEditing(false);
+    setSuccess("Profile updated successfully.");
+    setTimeout(() => setSuccess(""), 3000);
+  } catch (err) {
+    console.error("Error saving profile:", err);
+    setError("Failed to save profile.");
+  } finally {
+    setSaving(false);
+  }
+};
 
   const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -321,22 +316,26 @@ export default function ProfProfile() {
 
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
-              {profileImageUrl ? (
-                <img src={profileImageUrl} alt="profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-gray-500">
-                  {(profile?.name || "P").charAt(0).toUpperCase()}
-                </span>
-              )}
+            <div className="flex flex-row items-center gap-4 flex-1 min-w-0">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
+                {profileImageUrl ? (
+                  <img src={profileImageUrl} alt="profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-gray-500">
+                    {(profile?.name || "P").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              
+              <div className="min-w-0 flex-1">
+                <h2 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 break-words">{profile?.name || "Professor"}</h2>
+                <p className="text-xs sm:text-sm text-gray-600 break-words">{profile?.email || "No email"}</p>
+                <p className="text-xs text-gray-500 mt-2">Professor Account</p>
+              </div>
             </div>
-            <div className="min-w-0 flex-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{profile?.name || "Professor"}</h2>
-              <p className="text-sm text-gray-600 truncate">{profile?.email || "No email"}</p>
-              <p className="text-xs text-gray-500 mt-1">professor account</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 cursor-pointer disabled:opacity-50">
+
+            <div className="flex flex-row sm:flex-col gap-2 mt-1 sm:mt-0">
+              <label className="flex-1 sm:w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 cursor-pointer disabled:opacity-50">
                 {uploadingImage ? "Uploading..." : "Upload photo"}
                 <input
                   type="file"
@@ -351,7 +350,7 @@ export default function ProfProfile() {
                   type="button"
                   onClick={handleRemoveImage}
                   disabled={uploadingImage}
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+                  className="flex-1 sm:w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
                 >
                   Remove photo
                 </button>
@@ -385,10 +384,10 @@ export default function ProfProfile() {
                   id="profile-email"
                   type="email"
                   value={editEmail}
-                  onChange={(e) => setEditEmail(e.target.value)}
-                  className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                  required
+                  disabled
+                  className="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-gray-500 bg-gray-100 cursor-not-allowed"
                 />
+                <p className="text-xs text-gray-500 mt-1">Email cannot be changed. Please contact an admin for email updates.</p>
               </div>
               <div className="flex flex-col sm:flex-row gap-3 pt-2">
                 <button

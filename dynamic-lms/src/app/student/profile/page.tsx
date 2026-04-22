@@ -40,6 +40,7 @@ export default function StudentProfile() {
     }, 0);
   };
   const [isEditing, setIsEditing] = useState(false);
+  const [editName, setEditName] = useState("");
 
   useSyncMessagesToToast(toastError, success);
 
@@ -285,7 +286,7 @@ export default function StudentProfile() {
         throw new Error("Not authenticated");
       }
 
-      const trimmedName = formData.name.trim();
+      const trimmedName = editName.trim();
 
         const { error: authMetaError } = await supabase.auth.updateUser({
           data: { name: trimmedName },
@@ -398,6 +399,13 @@ export default function StudentProfile() {
     }
   };
 
+      const startEditing = () => {
+        setEditName(formData.name);
+        setIsEditing(true);
+        setErrors({});
+        setSuccess("");
+      };
+
       const handleCancel = async () => {
       try {
         const supabase = createClient();
@@ -418,13 +426,15 @@ export default function StudentProfile() {
             .eq("user_id", user.id)
             .maybeSingle();
 
+          const refreshedName = userRow?.name || user.user_metadata?.name || "";
           setFormData({
-            name: userRow?.name || user.user_metadata?.name || "",
+            name: refreshedName,
             email: userRow?.email || user.email || "",
             studentId: studentRow?.student_id || "",
             phone: (studentRow as any)?.phone || "",
             year: (studentRow as any)?.graduation_year || "",
           });
+          setEditName(refreshedName);
         }
       } catch (err) {
         console.error("Failed to reset profile form:", err);
@@ -462,44 +472,47 @@ export default function StudentProfile() {
 
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-6">
-            <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
-              {profileImageUrl ? (
-                <img src={profileImageUrl} alt="profile" className="w-full h-full object-cover" />
-              ) : (
-                <span className="text-2xl font-bold text-gray-500">
-                  {(formData.name || "S").charAt(0).toUpperCase()}
-                </span>
-              )}
-            </div>
+            <div className="flex flex-row items-center gap-4 flex-1 min-w-0">
+              <div className="w-20 h-20 rounded-2xl overflow-hidden border border-gray-200 bg-gray-100 flex items-center justify-center shrink-0">
+                {profileImageUrl ? (
+                  <img src={profileImageUrl} alt="profile" className="w-full h-full object-cover" />
+                ) : (
+                  <span className="text-2xl font-bold text-gray-500">
+                    {(formData.name || "S").charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
             <div className="min-w-0 flex-1">
-              <h2 className="text-xl sm:text-2xl font-bold text-gray-900 truncate">{formData.name || "Student"}</h2>
-              <p className="text-sm text-gray-600 truncate">{formData.email || "No email"}</p>
-              <p className="text-xs text-gray-500 mt-1">student account</p>
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 cursor-pointer disabled:opacity-50">
-                {uploadingImage ? "Uploading..." : "Upload photo"}
-                <input
-                  type="file"
-                  accept="image/png,image/jpeg,image/webp"
-                  onChange={handleImageUpload}
-                  disabled={uploadingImage}
-                  className="hidden"
-                />
-              </label>
-              {profileImageUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveImage}
-                  disabled={uploadingImage}
-                  className="px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
-                >
-                  Remove photo
-                </button>
-              )}
+              <h2 className="text-base sm:text-xl md:text-2xl font-bold text-gray-900 break-words">{formData.name || "Student"}</h2>
+              <p className="text-xs sm:text-sm text-gray-600 break-words">{formData.email || "No email"}</p>
+              <p className="text-xs text-gray-500 mt-2">Student Account</p>
             </div>
           </div>
+
+          <div className="flex flex-row sm:flex-col gap-2 mt-1 sm:mt-0">
+            <label className="flex-1 sm:w-full inline-flex items-center justify-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-semibold hover:bg-red-700 cursor-pointer disabled:opacity-50">
+              {uploadingImage ? "Uploading..." : "Upload photo"}
+              <input
+                type="file"
+                accept="image/png,image/jpeg,image/webp"
+                onChange={handleImageUpload}
+                disabled={uploadingImage}
+                className="hidden"
+              />
+            </label>
+            {profileImageUrl && (
+              <button
+                type="button"
+                onClick={handleRemoveImage}
+                disabled={uploadingImage}
+                className="flex-1 sm:w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+              >
+                Remove photo
+              </button>
+            )}
+          </div>
         </div>
+      </div>
 
         {/* Profile Information Card */}
         <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 p-4 sm:p-6 lg:p-8 mb-6">
@@ -507,7 +520,7 @@ export default function StudentProfile() {
             <h2 className="text-xl sm:text-2xl font-bold text-gray-800 min-w-0 break-words">Personal Information</h2>
             {!isEditing && (
               <button
-                onClick={() => setIsEditing(true)}
+                onClick={startEditing}
                 className="hidden sm:flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
               >
                 <svg
@@ -556,8 +569,8 @@ export default function StudentProfile() {
                     name="name"
                     type="text"
                     maxLength={64}
-                    value={formData.name}
-                    onChange={handleInputChange}
+                    value={isEditing ? editName : formData.name}
+                    onChange={(e) => setEditName(e.target.value)}
                     disabled={!isEditing}
                     className={`w-full pl-10 pr-4 py-3 border rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 ${
                       isEditing
@@ -600,9 +613,12 @@ export default function StudentProfile() {
                     value={formData.email}
                     onChange={handleInputChange}
                     disabled
-                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-800 bg-gray-100 cursor-not-allowed">
+                    className="w-full pl-10 pr-4 py-3 border border-gray-200 rounded-xl text-gray-500 bg-gray-100 cursor-not-allowed">
                   </input>
                 </div>
+                {isEditing && (
+                  <p className="text-xs text-gray-500 mt-1">Email cannot be changed. Please contact an admin for email updates.</p>
+                )}
               </div>
 
               {/* Student ID */}
@@ -744,7 +760,7 @@ export default function StudentProfile() {
             {!isEditing && (
               <div className="pt-4 border-t border-gray-200 sm:hidden">
                 <button
-                  onClick={() => setIsEditing(true)}
+                  onClick={startEditing}
                   className="w-full sm:w-auto flex items-center justify-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
                 >
                   <svg
