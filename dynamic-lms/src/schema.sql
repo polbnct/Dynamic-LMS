@@ -176,6 +176,87 @@ CREATE TABLE IF NOT EXISTS public.study_aid_attempts (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+-- 14b. Student private lesson flashcards
+CREATE TABLE IF NOT EXISTS public.student_lesson_flashcards (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  lesson_id UUID NOT NULL REFERENCES public.lessons(id) ON DELETE CASCADE,
+  student_id UUID NOT NULL REFERENCES public.students(id) ON DELETE CASCADE,
+  question TEXT NOT NULL,
+  answer TEXT NOT NULL,
+  question_signature TEXT,
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE UNIQUE INDEX IF NOT EXISTS idx_student_lesson_flashcards_unique_signature
+  ON public.student_lesson_flashcards (lesson_id, student_id, question_signature)
+  WHERE question_signature IS NOT NULL;
+
+CREATE INDEX IF NOT EXISTS idx_student_lesson_flashcards_lesson_student_created
+  ON public.student_lesson_flashcards (lesson_id, student_id, created_at DESC);
+
+ALTER TABLE public.student_lesson_flashcards ENABLE ROW LEVEL SECURITY;
+
+DROP POLICY IF EXISTS student_lesson_flashcards_select_own ON public.student_lesson_flashcards;
+CREATE POLICY student_lesson_flashcards_select_own
+  ON public.student_lesson_flashcards
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.students s
+      WHERE s.id = student_lesson_flashcards.student_id
+        AND s.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS student_lesson_flashcards_insert_own ON public.student_lesson_flashcards;
+CREATE POLICY student_lesson_flashcards_insert_own
+  ON public.student_lesson_flashcards
+  FOR INSERT
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.students s
+      WHERE s.id = student_lesson_flashcards.student_id
+        AND s.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS student_lesson_flashcards_update_own ON public.student_lesson_flashcards;
+CREATE POLICY student_lesson_flashcards_update_own
+  ON public.student_lesson_flashcards
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.students s
+      WHERE s.id = student_lesson_flashcards.student_id
+        AND s.user_id = auth.uid()
+    )
+  )
+  WITH CHECK (
+    EXISTS (
+      SELECT 1
+      FROM public.students s
+      WHERE s.id = student_lesson_flashcards.student_id
+        AND s.user_id = auth.uid()
+    )
+  );
+
+DROP POLICY IF EXISTS student_lesson_flashcards_delete_own ON public.student_lesson_flashcards;
+CREATE POLICY student_lesson_flashcards_delete_own
+  ON public.student_lesson_flashcards
+  FOR DELETE
+  USING (
+    EXISTS (
+      SELECT 1
+      FROM public.students s
+      WHERE s.id = student_lesson_flashcards.student_id
+        AND s.user_id = auth.uid()
+    )
+  );
+
 -- 15. Course announcements (professor-authored posts per course)
 CREATE TABLE IF NOT EXISTS public.course_announcements (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),

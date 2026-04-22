@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useSyncMessagesToToast, useToast } from "@/components/feedback/ToastProvider";
@@ -9,7 +9,17 @@ import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { getLessons, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
-import { getLessonStudyQuestions, submitStudyAidAttempt, getStudyAidAttemptsForCourse, type StudyAidQuestion } from "@/lib/supabase/queries/study-aid";
+import {
+  addStudentLessonFlashcard,
+  getLessonStudyQuestions,
+  getStudentLessonFlashcards,
+  removeStudentLessonFlashcard,
+  updateStudentLessonFlashcard,
+  submitStudyAidAttempt,
+  getStudyAidAttemptsForCourse,
+  type StudyAidQuestion,
+  type StudentLessonFlashcard,
+} from "@/lib/supabase/queries/study-aid";
 import { areStudyAidAnswersEquivalent } from "@/lib/study-aid-symbols";
 
 function shuffleArray<T>(items: T[]): T[] {
@@ -53,11 +63,23 @@ const DISCRETE_SYMBOLS = [
   "∴", "∵",
 
 ] as const;
+const MAX_FLASHCARD_WORDS = 30;
 
 interface LessonWithUI extends Lesson {
   pdfUrl?: string;
   pdfFileName?: string;
   createdAt: string;
+}
+
+type StudyMethod = "flashcards" | "multiple_choice" | "fill_blank";
+type FlashcardSource = "professor" | "student";
+
+interface MergedFlashcard {
+  id: string;
+  question: string;
+  answer: string;
+  source: "professor" | "student";
+  flashcardId?: string;
 }
 
 function getStudyAidAnswerMeta(correctAnswer: StudyAidQuestion["correct_answer"]) {
@@ -76,6 +98,12 @@ function getStudyAidAnswerMeta(correctAnswer: StudyAidQuestion["correct_answer"]
   };
 }
 
+function countWords(value: string): number {
+  const trimmed = value.trim();
+  if (!trimmed) return 0;
+  return trimmed.split(/\s+/).length;
+}
+
 export default function StudentContentPage() {
   const params = useParams();
   const courseId = params.id as string;
@@ -86,12 +114,26 @@ export default function StudentContentPage() {
   const [loading, setLoading] = useState(true);
   const [studyAidModalOpen, setStudyAidModalOpen] = useState(false);
   const [selectedLesson, setSelectedLesson] = useState<LessonWithUI | null>(null);
-  const [studyAidType, setStudyAidType] = useState<"flashcards" | "multiple_choice" | "fill_blank">("flashcards");
+  const [studyAidType, setStudyAidType] = useState<StudyMethod>("flashcards");
+  const [flashcardSource, setFlashcardSource] = useState<FlashcardSource>("professor");
   const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
+  const [studentFlashcards, setStudentFlashcards] = useState<StudentLessonFlashcard[]>([]);
   const [studyAidLoading, setStudyAidLoading] = useState(false);
+  const [studentFlashcardsLoading, setStudentFlashcardsLoading] = useState(false);
   const [studyAidIndex, setStudyAidIndex] = useState(0);
   const [studyAidReveal, setStudyAidReveal] = useState(false);
   const [showSymbolPicker, setShowSymbolPicker] = useState(false);
+  const [newFlashcardQuestion, setNewFlashcardQuestion] = useState("");
+  const [newFlashcardAnswer, setNewFlashcardAnswer] = useState("");
+  const [creatingFlashcard, setCreatingFlashcard] = useState(false);
+  const [deletingFlashcardId, setDeletingFlashcardId] = useState<string | null>(null);
+  const [isManageCardsOpen, setIsManageCardsOpen] = useState(false);
+  const [editingFlashcardId, setEditingFlashcardId] = useState<string | null>(null);
+  const [editingQuestion, setEditingQuestion] = useState("");
+  const [editingAnswer, setEditingAnswer] = useState("");
+  const [savingEdit, setSavingEdit] = useState(false);
+  const [professorFlashcardOrder, setProfessorFlashcardOrder] = useState<string[] | null>(null);
+  const [studentFlashcardOrder, setStudentFlashcardOrder] = useState<string[] | null>(null);
   const [studyAidAnswers, setStudyAidAnswers] = useState<Record<string, number | string>>({});
   const [studyAidScoreSubmitted, setStudyAidScoreSubmitted] = useState(false);
   const [studyAidSubmitting, setStudyAidSubmitting] = useState(false);
@@ -103,6 +145,7 @@ export default function StudentContentPage() {
   const [lessonSummaryById, setLessonSummaryById] = useState<
     Record<string, { loading: boolean; summary: string | null; error?: string }>
   >({});
+  const [questionsShuffleNonce, setQuestionsShuffleNonce] = useState(0);
 
   useSyncMessagesToToast(studyAidSubmitError ?? "", "");
 
@@ -143,27 +186,43 @@ export default function StudentContentPage() {
     setSelectedLesson(lesson);
     setStudyAidModalOpen(true);
     setStudyAidType("flashcards");
+    setFlashcardSource("professor");
+    setIsManageCardsOpen(false);
+    setEditingFlashcardId(null);
+    setEditingQuestion("");
+    setEditingAnswer("");
+    setProfessorFlashcardOrder(null);
+    setStudentFlashcardOrder(null);
     setStudyAidQuestions([]);
+    setStudentFlashcards([]);
     setStudyAidIndex(0);
     setStudyAidReveal(false);
     setShowSymbolPicker(false);
+    setNewFlashcardQuestion("");
+    setNewFlashcardAnswer("");
     setStudyAidAnswers({});
     setStudyAidScoreSubmitted(false);
     setStudyAidSubmitError(null);
+    setQuestionsShuffleNonce((prev) => prev + 1);
     setStudyAidLoading(true);
+    setStudentFlashcardsLoading(true);
     try {
-      const questions = await getLessonStudyQuestions(lesson.id);
-      setStudyAidQuestions(shouldShuffleStudyAidQuestions ? shuffleArray(questions) : questions);
+      const [questions, privateFlashcards] = await Promise.all([
+        getLessonStudyQuestions(lesson.id),
+        getStudentLessonFlashcards(lesson.id),
+      ]);
+      setStudyAidQuestions(questions);
+      setStudentFlashcards(privateFlashcards);
     } catch (err) {
       console.error("Error loading study aid:", err);
       toastError(err instanceof Error ? err.message : "Failed to load study aid.");
     } finally {
       setStudyAidLoading(false);
+      setStudentFlashcardsLoading(false);
     }
   };
 
-  const questionsByType = (type: "flashcards" | "summary" | "multiple_choice" | "fill_blank") => {
-    if (type === "flashcards") return studyAidQuestions.filter((q) => q.type === "true_false");
+  const questionsByType = (type: "summary" | "multiple_choice" | "fill_blank") => {
     if (type === "multiple_choice") return studyAidQuestions.filter((q) => q.type === "multiple_choice");
     if (type === "fill_blank")
       return studyAidQuestions.filter((q) => q.type === "fill_blank" && !isSummaryQuestion(q));
@@ -207,64 +266,147 @@ export default function StudentContentPage() {
     }
   };
 
-  const currentList = questionsByType(studyAidType);
+  const professorFlashcards: MergedFlashcard[] = studyAidQuestions
+    .filter((q) => q.type === "true_false")
+    .map((q) => {
+      const { answer } = getStudyAidAnswerMeta(q.correct_answer);
+      return {
+        id: `prof-${q.id}`,
+        question: q.question,
+        answer: String(answer),
+        source: "professor" as const,
+      };
+    });
+
+  const privateFlashcards: MergedFlashcard[] = studentFlashcards.map((card) => ({
+    id: `student-${card.id}`,
+    question: card.question,
+    answer: card.answer,
+    source: "student" as const,
+    flashcardId: card.id,
+  }));
+
+  const applyFlashcardOrder = (cards: MergedFlashcard[], order: string[] | null) => {
+    if (!order || order.length === 0) return cards;
+    const rank = new Map(order.map((id, idx) => [id, idx]));
+    return [...cards].sort((a, b) => {
+      const rankA = rank.get(a.id);
+      const rankB = rank.get(b.id);
+      if (rankA === undefined && rankB === undefined) return 0;
+      if (rankA === undefined) return 1;
+      if (rankB === undefined) return -1;
+      return rankA - rankB;
+    });
+  };
+
+  const displayedProfessorFlashcards = applyFlashcardOrder(
+    professorFlashcards,
+    professorFlashcardOrder
+  );
+  const displayedPrivateFlashcards = applyFlashcardOrder(
+    privateFlashcards,
+    studentFlashcardOrder
+  );
+
+  const activeFlashcards =
+    flashcardSource === "professor" ? displayedProfessorFlashcards : displayedPrivateFlashcards;
+  const multipleChoiceQuestions = useMemo(() => {
+    const list = questionsByType("multiple_choice") as StudyAidQuestion[];
+    return shouldShuffleStudyAidQuestions ? shuffleArray(list) : list;
+  }, [studyAidQuestions, shouldShuffleStudyAidQuestions, questionsShuffleNonce]);
+
+  const fillBlankQuestions = useMemo(() => {
+    const list = questionsByType("fill_blank") as StudyAidQuestion[];
+    return shouldShuffleStudyAidQuestions ? shuffleArray(list) : list;
+  }, [studyAidQuestions, shouldShuffleStudyAidQuestions, questionsShuffleNonce]);
+
+  const currentList =
+    studyAidType === "flashcards" ? activeFlashcards : questionsByType(studyAidType);
   const currentQuestion = currentList[studyAidIndex];
-  const currentAnswerMeta = currentQuestion ? getStudyAidAnswerMeta(currentQuestion.correct_answer) : null;
-  const hasAnyQuestions = studyAidQuestions.length > 0;
-  const hasQuestionsForType = currentList.length > 0;
+  const currentAnswerMeta = null;
+  const hasAnyQuestions = studyAidQuestions.length > 0 || studentFlashcards.length > 0;
+  const isQuestionsTab = studyAidType === "multiple_choice" || studyAidType === "fill_blank";
+  const hasQuestionsForType = isQuestionsTab
+    ? multipleChoiceQuestions.length + fillBlankQuestions.length > 0
+    : currentList.length > 0;
 
   const isAnswerableType = studyAidType === "multiple_choice" || studyAidType === "fill_blank";
-  const allAnswered =
-    isAnswerableType &&
-    currentList.length > 0 &&
-    currentList.every((q) =>
-      studyAidType === "multiple_choice"
-        ? studyAidAnswers[q.id] !== undefined
-        : (studyAidAnswers[q.id] ?? "").toString().trim() !== ""
-    );
-  const score = isAnswerableType
-    ? currentList.filter((q) => {
-        const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
-        const ans = studyAidAnswers[q.id];
-        if (ans === undefined && studyAidType === "fill_blank") return false;
-        if (q.type === "multiple_choice") return Number(correct) === Number(ans);
-        return areStudyAidAnswersEquivalent(ans, correct);
-      }).length
-    : 0;
-  const maxScore = currentList.length;
+  const multipleChoiceAnswered =
+    multipleChoiceQuestions.length === 0 ||
+    multipleChoiceQuestions.every((q) => studyAidAnswers[q.id] !== undefined);
+  const fillBlankAnswered =
+    fillBlankQuestions.length === 0 ||
+    fillBlankQuestions.every((q) => (studyAidAnswers[q.id] ?? "").toString().trim() !== "");
+  const allAnswered = isQuestionsTab && multipleChoiceAnswered && fillBlankAnswered;
+  const multipleChoiceScore = multipleChoiceQuestions.filter((q) => {
+    const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
+    return Number(correct) === Number(studyAidAnswers[q.id]);
+  }).length;
+  const fillBlankScore = fillBlankQuestions.filter((q) => {
+    const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
+    return areStudyAidAnswersEquivalent(studyAidAnswers[q.id], correct);
+  }).length;
+  const score = multipleChoiceScore + fillBlankScore;
+  const maxScore = multipleChoiceQuestions.length + fillBlankQuestions.length;
 
   const handleSubmitAnswers = async () => {
     if (!selectedLesson || !allAnswered || studyAidSubmitting || maxScore === 0) return;
     setStudyAidSubmitting(true);
     setStudyAidSubmitError(null);
     try {
-      const fillBlankAnswers =
-        studyAidType === "fill_blank"
-          ? currentList.map((q) => {
-              const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
-              return {
-                student_answer: String(studyAidAnswers[q.id] ?? ""),
-                correct_answer: String(correct ?? ""),
-              };
-            })
-          : undefined;
-      await submitStudyAidAttempt(
-        selectedLesson.id,
-        studyAidType as "multiple_choice" | "fill_blank",
-        score,
-        maxScore,
-        fillBlankAnswers
+      const submissions: Array<{
+        lessonId: string;
+        questionType: "multiple_choice" | "fill_blank";
+        score: number;
+        maxScore: number;
+        answers?: Array<{ student_answer: string; correct_answer: string }>;
+      }> = [];
+
+      if (multipleChoiceQuestions.length > 0) {
+        submissions.push({
+          lessonId: selectedLesson.id,
+          questionType: "multiple_choice",
+          score: multipleChoiceScore,
+          maxScore: multipleChoiceQuestions.length,
+        });
+      }
+
+      if (fillBlankQuestions.length > 0) {
+        submissions.push({
+          lessonId: selectedLesson.id,
+          questionType: "fill_blank",
+          score: fillBlankScore,
+          maxScore: fillBlankQuestions.length,
+          answers: fillBlankQuestions.map((q) => {
+            const { answer: correct } = getStudyAidAnswerMeta(q.correct_answer);
+            return {
+              student_answer: String(studyAidAnswers[q.id] ?? ""),
+              correct_answer: String(correct ?? ""),
+            };
+          }),
+        });
+      }
+
+      await Promise.all(
+        submissions.map((submission) =>
+          submitStudyAidAttempt(
+            submission.lessonId,
+            submission.questionType,
+            submission.score,
+            submission.maxScore,
+            submission.answers
+          )
+        )
       );
       setStudyAidScoreSubmitted(true);
-      setStudyAidReveal(true);
       setStudyAidAttempts((prev) => [
         ...prev,
-        {
+        ...submissions.map((submission) => ({
           lesson_id: selectedLesson.id,
-          question_type: studyAidType,
-          score,
-          max_score: maxScore,
-        },
+          question_type: submission.questionType,
+          score: submission.score,
+          max_score: submission.maxScore,
+        })),
       ]);
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save attempt";
@@ -280,9 +422,139 @@ export default function StudentContentPage() {
     setStudyAidReveal(false);
     setShowSymbolPicker(false);
     setStudyAidAnswers({});
-    setStudyAidIndex(0);
     setStudyAidSubmitError(null);
-    setStudyAidQuestions((prev) => (shouldShuffleStudyAidQuestions ? shuffleArray(prev) : prev));
+    if (shouldShuffleStudyAidQuestions) {
+      setQuestionsShuffleNonce((prev) => prev + 1);
+    }
+  };
+
+  const handleStudyAidTypeChange = (nextType: StudyMethod) => {
+    setStudyAidType(nextType);
+    setStudyAidIndex(0);
+    setStudyAidReveal(false);
+    setShowSymbolPicker(false);
+    if (nextType === "multiple_choice" || nextType === "fill_blank") {
+      setStudyAidAnswers({});
+      setStudyAidScoreSubmitted(false);
+      setStudyAidSubmitError(null);
+    }
+  };
+
+  const handleFlashcardSourceChange = (nextSource: FlashcardSource) => {
+    setFlashcardSource(nextSource);
+    setStudyAidIndex(0);
+    setStudyAidReveal(false);
+    setIsManageCardsOpen(false);
+  };
+
+  const handleAddFlashcard = async () => {
+    if (!selectedLesson || creatingFlashcard) return;
+    const question = newFlashcardQuestion.trim();
+    const answer = newFlashcardAnswer.trim();
+    if (!question || !answer) {
+      toastError("Question and answer are required.");
+      return;
+    }
+    if (countWords(question) > MAX_FLASHCARD_WORDS || countWords(answer) > MAX_FLASHCARD_WORDS) {
+      toastError(`Question and answer must be ${MAX_FLASHCARD_WORDS} words or fewer.`);
+      return;
+    }
+    setCreatingFlashcard(true);
+    try {
+      const created = await addStudentLessonFlashcard(selectedLesson.id, { question, answer });
+      setStudentFlashcards((prev) => [...prev, created]);
+      setStudentFlashcardOrder((prev) => (prev ? [...prev, `student-${created.id}`] : prev));
+      setNewFlashcardQuestion("");
+      setNewFlashcardAnswer("");
+      setStudyAidType("flashcards");
+      setFlashcardSource("student");
+      setStudyAidIndex(privateFlashcards.length);
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : "Failed to add flashcard.");
+    } finally {
+      setCreatingFlashcard(false);
+    }
+  };
+
+  const handleDeleteFlashcard = async (flashcardId: string) => {
+    if (!selectedLesson || !flashcardId) return;
+    setDeletingFlashcardId(flashcardId);
+    try {
+      await removeStudentLessonFlashcard(selectedLesson.id, flashcardId);
+      setStudentFlashcardOrder((prev) =>
+        prev ? prev.filter((id) => id !== `student-${flashcardId}`) : prev
+      );
+      setStudentFlashcards((prev) => {
+        const next = prev.filter((card) => card.id !== flashcardId);
+        const nextLength =
+          flashcardSource === "student" ? next.length : displayedProfessorFlashcards.length;
+        setStudyAidIndex((current) => Math.min(current, Math.max(0, nextLength - 1)));
+        return next;
+      });
+      if (editingFlashcardId === flashcardId) {
+        setEditingFlashcardId(null);
+        setEditingQuestion("");
+        setEditingAnswer("");
+      }
+      setStudyAidReveal(false);
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : "Failed to delete flashcard.");
+    } finally {
+      setDeletingFlashcardId(null);
+    }
+  };
+
+  const handleStartEditFlashcard = (card: StudentLessonFlashcard) => {
+    setEditingFlashcardId(card.id);
+    setEditingQuestion(card.question);
+    setEditingAnswer(card.answer);
+  };
+
+  const handleSaveFlashcardEdit = async () => {
+    if (!selectedLesson || !editingFlashcardId || savingEdit) return;
+    const question = editingQuestion.trim();
+    const answer = editingAnswer.trim();
+    if (!question || !answer) {
+      toastError("Question and answer are required.");
+      return;
+    }
+    if (countWords(question) > MAX_FLASHCARD_WORDS || countWords(answer) > MAX_FLASHCARD_WORDS) {
+      toastError(`Question and answer must be ${MAX_FLASHCARD_WORDS} words or fewer.`);
+      return;
+    }
+    setSavingEdit(true);
+    try {
+      const updated = await updateStudentLessonFlashcard(selectedLesson.id, editingFlashcardId, {
+        question,
+        answer,
+      });
+      setStudentFlashcards((prev) =>
+        prev.map((card) => (card.id === updated.id ? updated : card))
+      );
+      setEditingFlashcardId(null);
+      setEditingQuestion("");
+      setEditingAnswer("");
+    } catch (error) {
+      toastError(error instanceof Error ? error.message : "Failed to update flashcard.");
+    } finally {
+      setSavingEdit(false);
+    }
+  };
+
+  const handleShuffleCurrentFlashcards = () => {
+    const ids = activeFlashcards.map((card) => card.id);
+    let shuffledIds = shuffleArray(ids);
+    if (ids.length > 1 && shuffledIds.every((id, idx) => id === ids[idx])) {
+      // Ensure visible reordering if shuffle returns identical order.
+      shuffledIds = [...ids.slice(1), ids[0]];
+    }
+    if (flashcardSource === "professor") {
+      setProfessorFlashcardOrder(shuffledIds);
+    } else {
+      setStudentFlashcardOrder(shuffledIds);
+    }
+    setStudyAidIndex(0);
+    setStudyAidReveal(false);
   };
 
   const PASSING_PERCENT = Math.min(
@@ -590,29 +862,42 @@ export default function StudentContentPage() {
             </div>
 
             {/* Study Aid Type Selection */}
-            <div className="p-3 sm:p-4 border-b border-gray-200 bg-gray-50">
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3">
-                <label className="text-sm font-semibold text-gray-700 sm:shrink-0">Study method</label>
-                <select
-                  value={studyAidType}
-                  onChange={(e) => {
-                    const nextType = e.target.value as "flashcards" | "multiple_choice" | "fill_blank";
-                    setStudyAidType(nextType);
-                    setStudyAidIndex(0);
-                    setStudyAidReveal(false);
-                    setShowSymbolPicker(false);
-                    if (nextType === "multiple_choice" || nextType === "fill_blank") {
-                      setStudyAidAnswers({});
-                      setStudyAidScoreSubmitted(false);
-                      setStudyAidSubmitError(null);
-                    }
-                  }}
-                  className="w-full sm:max-w-xs rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            <div className="border-b border-gray-200 bg-gradient-to-r from-gray-50 to-white px-3 pb-3 pt-2 sm:px-4 sm:pb-4 sm:pt-3">
+              <div className="space-y-2">
+                <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Study method</p>
+                <nav
+                  className="grid w-full grid-cols-2 gap-1 rounded-xl border border-gray-200 bg-white p-1 shadow-sm"
+                  aria-label="Study method"
                 >
-                  <option value="flashcards">Flashcards</option>
-                  <option value="multiple_choice">Multiple Choice</option>
-                  <option value="fill_blank">Fill in the blank</option>
-                </select>
+                  <button
+                    type="button"
+                    onClick={() => handleStudyAidTypeChange("flashcards")}
+                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 ${
+                      studyAidType === "flashcards"
+                        ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md"
+                        : "text-gray-700 hover:bg-red-50 hover:text-red-700"
+                    }`}
+                    aria-current={studyAidType === "flashcards" ? "page" : undefined}
+                  >
+                    Flashcards
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      handleStudyAidTypeChange(
+                        studyAidType === "fill_blank" ? "fill_blank" : "multiple_choice"
+                      )
+                    }
+                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 ${
+                      isQuestionsTab
+                        ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md"
+                        : "text-gray-700 hover:bg-red-50 hover:text-red-700"
+                    }`}
+                    aria-current={isQuestionsTab ? "page" : undefined}
+                  >
+                    Questions
+                  </button>
+                </nav>
               </div>
             </div>
 
@@ -632,288 +917,394 @@ export default function StudentContentPage() {
                   <h3 className="text-xl font-bold text-gray-800 mb-2">No study aid yet</h3>
                   <p className="text-gray-600">Your professor has not added study aid questions for this lesson yet.</p>
                 </div>
-              ) : !hasQuestionsForType ? (
+              ) : studyAidType !== "flashcards" && !hasQuestionsForType ? (
                 <div className="text-center py-12">
-                  <p className="text-gray-600">No {studyAidType.replace("_", " ")} questions for this lesson.</p>
+                  <p className="text-gray-600">
+                    No questions available for this lesson yet.
+                  </p>
                 </div>
-              ) : studyAidType === "flashcards" && currentQuestion && (
+              ) : studyAidType === "flashcards" && (
                 <div className="text-center py-4 sm:py-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Flashcards</h3>
-                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-3 sm:p-5 max-w-lg mx-auto">
-                    <p className="text-gray-500 text-sm mb-3">Click to flip</p>
-                    <button
-                      type="button"
-                      onClick={() => setStudyAidReveal((r) => !r)}
-                      className="w-full bg-white rounded-xl shadow-lg p-4 sm:p-6 min-h-[140px] sm:min-h-[170px] flex items-center justify-center text-left hover:ring-2 hover:ring-red-300 transition-all"
-                    >
-                      <p className="text-base sm:text-lg font-semibold text-gray-700">
-                        {studyAidReveal
-                          ? typeof currentAnswerMeta?.answer === "boolean"
-                            ? String(currentAnswerMeta?.answer)
-                            : currentQuestion.type === "multiple_choice" && currentQuestion.options
-                            ? currentQuestion.options[Number(currentAnswerMeta?.answer)] ?? String(currentAnswerMeta?.answer)
-                            : String(currentAnswerMeta?.answer)
-                          : currentQuestion.question}
-                      </p>
-                    </button>
-                    <p className="text-sm text-gray-600 mt-2">{studyAidReveal ? "Answer" : "Question — click to flip"}</p>
-                    <div className="flex items-center justify-center gap-3 mt-4">
-                      <button
-                        type="button"
-                        onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
-                        disabled={studyAidIndex === 0}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50 transition-colors"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
-                      <button
-                        type="button"
-                        onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
-                        disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50 transition-colors"
-                      >
-                        Next
-                      </button>
+                  <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 w-full">
+                    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                      <nav className="grid w-full grid-cols-2 gap-1.5" aria-label="Flashcard source">
+                        <button
+                          type="button"
+                          onClick={() => handleFlashcardSourceChange("professor")}
+                          className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+                            flashcardSource === "professor"
+                              ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-red-700"
+                          }`}
+                          aria-current={flashcardSource === "professor" ? "page" : undefined}
+                        >
+                          Professor ({professorFlashcards.length})
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleFlashcardSourceChange("student")}
+                          className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
+                            flashcardSource === "student"
+                              ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm"
+                              : "text-slate-700 hover:bg-slate-50 hover:text-red-700"
+                          }`}
+                          aria-current={flashcardSource === "student" ? "page" : undefined}
+                        >
+                          My Flashcards ({privateFlashcards.length})
+                        </button>
+                      </nav>
                     </div>
-                  </div>
-                </div>
-              )}
 
-              {studyAidType === "multiple_choice" && currentQuestion && currentQuestion.options && (
-                <div className="text-center py-4 sm:py-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Multiple Choice</h3>
-                  {studyAidScoreSubmitted && (
-                    <p className="mb-4 text-lg font-semibold text-red-700">
-                      Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
-                    </p>
-                  )}
-                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-3 sm:p-5 max-w-3xl mx-auto space-y-3">
-                    <div className="bg-white rounded-xl shadow-lg p-3 sm:p-4 text-left">
-                      <p className="text-base sm:text-lg font-semibold text-gray-800 mb-3">{currentQuestion.question}</p>
-                      <div className="space-y-2">
-                        {currentQuestion.options.map((option, idx) => (
-                          <label
-                            key={idx}
-                            className={`flex items-center gap-3 p-2.5 sm:p-3 border rounded-lg transition-colors ${
-                              studyAidScoreSubmitted
-                                ? Number(currentAnswerMeta?.answer) === idx
-                                  ? "border-green-500 bg-green-50"
-                                  : studyAidAnswers[currentQuestion.id] === idx
-                                    ? "border-red-400 bg-red-50"
-                                    : "border-gray-200 bg-gray-50"
-                                : studyAidAnswers[currentQuestion.id] === idx
-                                  ? "border-red-500 bg-red-50 cursor-pointer"
-                                  : "border-gray-300 hover:border-red-300 hover:bg-red-50/50 cursor-pointer"
-                            }`}
-                          >
-                            <input
-                              type="radio"
-                              name={`mc-${currentQuestion.id}`}
-                              checked={studyAidAnswers[currentQuestion.id] === idx}
-                              onChange={() => setStudyAidAnswers((prev) => ({ ...prev, [currentQuestion.id]: idx }))}
-                              disabled={studyAidScoreSubmitted}
-                              className="w-4 h-4 text-red-600"
-                            />
-                            <span className="font-medium text-gray-700">{String.fromCharCode(65 + idx)}. {option}</span>
-                            {studyAidScoreSubmitted && Number(currentAnswerMeta?.answer) === idx && (
-                              <span className="ml-auto text-green-600 text-sm font-medium">Correct</span>
-                            )}
-                          </label>
-                        ))}
-                      </div>
-                      {studyAidScoreSubmitted && (
-                        <div className="mt-4 space-y-1">
-                          <p className="text-sm text-gray-600">
-                            Correct answer: {currentQuestion.options[Number(currentAnswerMeta?.answer)]}
-                          </p>
-                          {(currentAnswerMeta?.correctExplanation || currentAnswerMeta?.incorrectExplanation) && (
-                            <p
-                              className={`text-sm ${
-                                Number(currentAnswerMeta?.answer) === Number(studyAidAnswers[currentQuestion.id])
-                                  ? "text-green-700"
-                                  : "text-red-700"
-                              }`}
-                            >
-                              {Number(currentAnswerMeta?.answer) === Number(studyAidAnswers[currentQuestion.id])
-                                ? currentAnswerMeta?.correctExplanation
-                                : currentAnswerMeta?.incorrectExplanation}
-                            </p>
-                          )}
+                    {flashcardSource === "student" && (
+                      <div className="mb-4 rounded-xl border border-red-100 bg-white p-3 sm:p-4 text-left shadow-sm">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Add your flashcard</p>
+                        <div className="grid gap-2">
+                          <input
+                            type="text"
+                            value={newFlashcardQuestion}
+                            onChange={(e) => setNewFlashcardQuestion(e.target.value)}
+                            placeholder="Question"
+                            maxLength={500}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                          />
+                          <input
+                            type="text"
+                            value={newFlashcardAnswer}
+                            onChange={(e) => setNewFlashcardAnswer(e.target.value)}
+                            placeholder="Answer"
+                            maxLength={500}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                          />
                         </div>
-                      )}
-                    </div>
-                    <div className="flex items-center justify-center gap-4 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
-                        disabled={studyAidIndex === 0}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
-                      <button
-                        type="button"
-                        onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
-                        disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Next
-                      </button>
-                      {!studyAidScoreSubmitted ? (
-                        <button
-                          type="button"
-                          onClick={handleSubmitAnswers}
-                          disabled={!allAnswered || studyAidSubmitting}
-                          className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                        >
-                          {studyAidSubmitting ? "Submitting…" : "Submit answers"}
-                        </button>
-                      ) : (
-                        <button
-                          type="button"
-                          onClick={handleTakeAgain}
-                          className="px-6 py-2 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600"
-                        >
-                          Take again
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {studyAidType === "fill_blank" && currentQuestion && (
-                <div className="text-center py-8">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Fill in the blank</h3>
-                  {studyAidScoreSubmitted && (
-                    <p className="mb-4 text-lg font-semibold text-red-700">
-                      Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
-                    </p>
-                  )}
-                  <div className="bg-gradient-to-r from-red-50 to-rose-50 rounded-2xl p-4 sm:p-8 max-w-2xl mx-auto space-y-4">
-                    <div className="bg-white rounded-xl shadow-lg p-4 sm:p-6 text-left">
-                      <p className="text-lg font-semibold text-gray-800 mb-4">{currentQuestion.question}</p>
-                      <input
-                        type="text"
-                        value={String(studyAidAnswers[currentQuestion.id] ?? "")}
-                        onChange={(e) =>
-                          setStudyAidAnswers((prev) => ({ ...prev, [currentQuestion.id]: e.target.value }))
-                        }
-                        placeholder="Type your answer here"
-                        disabled={studyAidScoreSubmitted}
-                        className="w-full px-4 py-3 border border-gray-300 text-gray-800 placeholder-text-gray-800 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-transparent disabled:bg-gray-100 mb-2"
-                      />
-                     <div className="mt-1 mb-2 flex items-center justify-end gap-2">
-                      <button
-                        type="button"
-                        disabled={studyAidScoreSubmitted}
-                        onClick={() => setShowSymbolPicker((prev) => !prev)}
-                        className="inline-flex items-center gap-2 rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
-                      >
-                        <svg
-                          className={`h-4 w-4 transition-transform ${showSymbolPicker ? "rotate-180" : ""}`}
-                          fill="none"
-                          stroke="currentColor"
-                          viewBox="0 0 24 24"
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-                        </svg>
-                        {showSymbolPicker ? "Hide symbols" : "Show symbols"}
-                      </button>
-                    </div>
-
-                    {showSymbolPicker && (
-                      <div className="mt-2 mb-4 rounded-xl border border-gray-200 bg-gray-50 p-3">
-                        <div className="max-h-38 sm:max-h-42 overflow-y-auto pr-1">
-                          <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-2">
-                            {DISCRETE_SYMBOLS.map((symbol) => (
-                            <button
-                                key={symbol}
-                                type="button"
-                                disabled={studyAidScoreSubmitted}
-                                onClick={() => {
-                                  setStudyAidAnswers((prev) => ({
-                                    ...prev,
-                                    [currentQuestion.id]: `${String(prev[currentQuestion.id] ?? "")}${symbol}`,
-                                  }));
-                                }}
-                              className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-100 disabled:opacity-50"
-                            >
-                                {symbol}
-                              </button>
-                            ))}
-                          </div>
+                        <div className="mt-2 flex items-center justify-between gap-2">
+                          <p className="text-xs text-gray-500" />
+                          <button
+                            type="button"
+                            onClick={handleAddFlashcard}
+                            disabled={creatingFlashcard}
+                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
+                          >
+                            {creatingFlashcard ? "Saving..." : "Save card"}
+                          </button>
                         </div>
                       </div>
                     )}
-                  </div>
-                      {studyAidScoreSubmitted && (
-                        <div className="mt-4 space-y-2">
-                          {(() => {
-                            const isCorrect =
-                              areStudyAidAnswersEquivalent(
-                                String(studyAidAnswers[currentQuestion.id]),
-                                String(currentAnswerMeta?.answer)
-                              );
-                            return (
-                              <>
-                          <p className="text-sm text-gray-600">Your answer: {String(studyAidAnswers[currentQuestion.id] ?? "").trim() || "(blank)"}</p>
-                                <p className={`text-sm font-medium ${isCorrect ? "text-green-700" : "text-red-700"}`}>
-                                   {isCorrect
-                              ? "Correct!"
-                              : `Correct answer: ${String(currentAnswerMeta?.answer)}`}
-                                </p>
-                                {(currentAnswerMeta?.correctExplanation || currentAnswerMeta?.incorrectExplanation) && (
-                                  <p className={`text-sm ${isCorrect ? "text-green-700" : "text-red-700"}`}>
-                                    {isCorrect ? currentAnswerMeta?.correctExplanation : currentAnswerMeta?.incorrectExplanation}
-                                  </p>
-                                )}
-                              </>
-                            );
-                          })()}
+                    {currentQuestion ? (
+                      <>
+                        <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs sm:px-4">
+                          <div
+                            className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold ${
+                              (currentQuestion as MergedFlashcard).source === "student"
+                                ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                : "bg-slate-100 text-slate-700"
+                            }`}
+                          >
+                            {(currentQuestion as MergedFlashcard).source === "student"
+                              ? "My card"
+                              : "Professor"}
+                          </div>
+                          {studentFlashcardsLoading && (
+                            <span className="text-gray-500">Loading your cards...</span>
+                          )}
                         </div>
-                      )}
-                    </div>
-                    <div className="mt-4 sm:mt-6 flex items-center justify-center gap-4 flex-wrap">
-                      <button
-                        type="button"
-                        onClick={() => setStudyAidIndex((i) => Math.max(0, i - 1))}
-                        disabled={studyAidIndex === 0}
-                        className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg font-semibold hover:bg-gray-300 disabled:opacity-50"
-                      >
-                        Previous
-                      </button>
-                      <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
-                      <button
-                        type="button"
-                        onClick={() => setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1))}
-                        disabled={studyAidIndex === currentList.length - 1}
-                        className="px-4 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 disabled:opacity-50"
-                      >
-                        Next
-                      </button>
+                        <button
+                          type="button"
+                          onClick={() => setStudyAidReveal((r) => !r)}
+                          className="w-full bg-white rounded-xl shadow-lg p-5 sm:p-8 min-h-[220px] sm:min-h-[280px] flex items-center justify-center text-left hover:ring-2 hover:ring-red-300 transition-all"
+                        >
+                          <p className="text-lg sm:text-2xl font-semibold text-gray-700 leading-relaxed">
+                            {studyAidReveal
+                              ? (currentQuestion as MergedFlashcard).answer
+                              : (currentQuestion as MergedFlashcard).question}
+                          </p>
+                        </button>
+                        <p className="text-sm text-gray-600 mt-2">{studyAidReveal ? "Answer" : "Question — click to flip"}</p>
+                        <div className="mt-4 flex items-center justify-center gap-3">
+                          <button
+                            type="button"
+                            onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
+                            disabled={studyAidIndex === 0}
+                            className="inline-flex min-w-28 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Previous
+                          </button>
+                          <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
+                          <button
+                            type="button"
+                            onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
+                            disabled={studyAidIndex === currentList.length - 1}
+                            className="inline-flex min-w-28 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            Next
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setIsManageCardsOpen((prev) => !prev)}
+                            className="inline-flex min-w-28 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
+                          >
+                            {isManageCardsOpen ? "Close Manager" : "Manage Cards"}
+                          </button>
+                        </div>
+                      </>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
+                        <p className="text-sm font-medium text-slate-700">
+                          {flashcardSource === "student"
+                            ? "You have no personal flashcards yet. Add one above to get started."
+                            : "No professor flashcards available for this lesson."}
+                        </p>
+                      </div>
+                    )}
+                    {isManageCardsOpen && (
+                      <div className="mt-4 h-72 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+                            Card tools
+                          </p>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              onClick={handleShuffleCurrentFlashcards}
+                              disabled={activeFlashcards.length <= 1}
+                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                            >
+                              Shuffle
+                            </button>
+                          </div>
+                        </div>
+
+                        {flashcardSource === "student" ? (
+                          <div className="mt-3 space-y-2">
+                            {studentFlashcards.length === 0 ? (
+                              <p className="text-sm text-slate-600">No personal cards to manage yet.</p>
+                            ) : (
+                              studentFlashcards.map((card) => (
+                                <div
+                                  key={card.id}
+                                  className="rounded-lg border border-slate-200 bg-white p-3"
+                                >
+                                  {editingFlashcardId === card.id ? (
+                                    <div className="space-y-2">
+                                      <input
+                                        type="text"
+                                        value={editingQuestion}
+                                        onChange={(e) => setEditingQuestion(e.target.value)}
+                                        maxLength={500}
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                                      />
+                                      <input
+                                        type="text"
+                                        value={editingAnswer}
+                                        onChange={(e) => setEditingAnswer(e.target.value)}
+                                        maxLength={500}
+                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                                      />
+                                      <div className="flex items-center justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditingFlashcardId(null);
+                                            setEditingQuestion("");
+                                            setEditingAnswer("");
+                                          }}
+                                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                        >
+                                          Cancel
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={handleSaveFlashcardEdit}
+                                          disabled={savingEdit}
+                                          className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
+                                        >
+                                          {savingEdit ? "Saving..." : "Save changes"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <div>
+                                      <p className="text-sm font-semibold text-slate-800">{card.question}</p>
+                                      <p className="mt-1 text-sm text-slate-600">{card.answer}</p>
+                                      <div className="mt-2 flex items-center justify-end gap-2">
+                                        <button
+                                          type="button"
+                                          onClick={() => handleStartEditFlashcard(card)}
+                                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                                        >
+                                          Edit
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleDeleteFlashcard(card.id)}
+                                          disabled={deletingFlashcardId === card.id}
+                                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
+                                        >
+                                          {deletingFlashcardId === card.id ? "Deleting..." : "Delete"}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
+                                </div>
+                              ))
+                            )}
+                          </div>
+                        ) : (
+                          <p className="mt-3 text-sm text-slate-600">
+                            Editing and deleting are available only in My Flashcards.
+                          </p>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {isQuestionsTab && (
+                <div className="text-center py-4 sm:py-6">
+                  <h3 className="text-xl font-bold text-gray-800 mb-4">Questions</h3>
+                  {studyAidScoreSubmitted && (
+                    <p className="mb-4 text-lg font-semibold text-red-700">
+                      Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
+                    </p>
+                  )}
+                  <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 max-w-4xl mx-auto space-y-4 text-left">
+                    {multipleChoiceQuestions.length > 0 && (
+                      <section>
+                        <h4 className="mb-3 text-lg font-semibold text-gray-800">Multiple Choice</h4>
+                        <div className="space-y-3">
+                          {multipleChoiceQuestions.map((question, qIndex) => {
+                            const { answer: correct, correctExplanation, incorrectExplanation } =
+                              getStudyAidAnswerMeta(question.correct_answer);
+                            const selectedAnswer = studyAidAnswers[question.id];
+                            const selectedIsCorrect = Number(correct) === Number(selectedAnswer);
+                            return (
+                              <div key={question.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="mb-3 text-base font-semibold text-gray-800">
+                                  {qIndex + 1}. {question.question}
+                                </p>
+                                <div className="space-y-2">
+                                  {(question.options ?? []).map((option, idx) => {
+                                    const selected = studyAidAnswers[question.id] === idx;
+                                    const correctOption = Number(correct) === idx;
+                                    return (
+                                      <label
+                                        key={idx}
+                                        className={`flex items-center gap-3 rounded-lg border p-2.5 transition-colors ${
+                                          studyAidScoreSubmitted
+                                            ? correctOption
+                                              ? "border-green-500 bg-green-50"
+                                              : selected
+                                                ? "border-red-300 bg-red-50"
+                                                : "border-slate-200 bg-slate-50"
+                                            : selected
+                                              ? "border-red-500 bg-red-50"
+                                              : "border-slate-300 hover:border-red-300 hover:bg-red-50/40"
+                                        }`}
+                                      >
+                                        <input
+                                          type="radio"
+                                          name={`mc-${question.id}`}
+                                          checked={selected}
+                                          onChange={() =>
+                                            setStudyAidAnswers((prev) => ({ ...prev, [question.id]: idx }))
+                                          }
+                                          disabled={studyAidScoreSubmitted}
+                                          className="h-4 w-4 text-red-600"
+                                        />
+                                        <span className="text-sm font-medium text-gray-700">
+                                          {String.fromCharCode(65 + idx)}. {option}
+                                        </span>
+                                      </label>
+                                    );
+                                  })}
+                                </div>
+                                {studyAidScoreSubmitted && (
+                                  <div className="mt-3 space-y-1">
+                                    <p className="text-sm text-gray-600">
+                                      Correct answer: {(question.options ?? [])[Number(correct)] ?? String(correct)}
+                                    </p>
+                                    {(correctExplanation || incorrectExplanation) && (
+                                      <p className={`text-sm ${selectedIsCorrect ? "text-green-700" : "text-red-700"}`}>
+                                        {selectedIsCorrect ? correctExplanation : incorrectExplanation}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
+
+                    {fillBlankQuestions.length > 0 && (
+                      <section>
+                        <h4 className="mb-3 text-lg font-semibold text-gray-800">Fill in the blank</h4>
+                        <div className="space-y-3">
+                          {fillBlankQuestions.map((question, qIndex) => {
+                            const { answer: correct, correctExplanation, incorrectExplanation } =
+                              getStudyAidAnswerMeta(question.correct_answer);
+                            const isCorrect = areStudyAidAnswersEquivalent(
+                              String(studyAidAnswers[question.id] ?? ""),
+                              String(correct ?? "")
+                            );
+                            return (
+                              <div key={question.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                                <p className="mb-3 text-base font-semibold text-gray-800">
+                                  {qIndex + 1}. {question.question}
+                                </p>
+                                <input
+                                  type="text"
+                                  value={String(studyAidAnswers[question.id] ?? "")}
+                                  onChange={(e) =>
+                                    setStudyAidAnswers((prev) => ({ ...prev, [question.id]: e.target.value }))
+                                  }
+                                  placeholder="Type your answer here"
+                                  disabled={studyAidScoreSubmitted}
+                                  className="w-full rounded-xl border border-gray-300 px-4 py-3 text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500 disabled:bg-gray-100"
+                                />
+                                {studyAidScoreSubmitted && (
+                                  <div className="mt-2 space-y-1">
+                                    <p className={`text-sm font-medium ${isCorrect ? "text-green-700" : "text-red-700"}`}>
+                                      {isCorrect ? "Correct!" : `Correct answer: ${String(correct ?? "")}`}
+                                    </p>
+                                    {(correctExplanation || incorrectExplanation) && (
+                                      <p className={`text-sm ${isCorrect ? "text-green-700" : "text-red-700"}`}>
+                                        {isCorrect ? correctExplanation : incorrectExplanation}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </section>
+                    )}
+
+                    <div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-3">
                       {!studyAidScoreSubmitted ? (
                         <button
                           type="button"
                           onClick={handleSubmitAnswers}
                           disabled={!allAnswered || studyAidSubmitting}
-                          className="px-6 py-2 bg-green-600 text-white rounded-lg font-semibold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="rounded-lg bg-green-600 px-6 py-2.5 text-sm font-semibold text-white hover:bg-green-700 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                          {studyAidSubmitting ? "Submitting…" : "Submit answers"}
+                          {studyAidSubmitting ? "Submitting…" : "Submit all answers"}
                         </button>
                       ) : (
                         <button
                           type="button"
                           onClick={handleTakeAgain}
-                          className="px-6 py-2 bg-amber-500 text-white rounded-lg font-semibold hover:bg-amber-600"
+                          className="rounded-lg bg-amber-500 px-6 py-2.5 text-sm font-semibold text-white hover:bg-amber-600"
                         >
                           Take again
                         </button>
                       )}
                     </div>
                   </div>
+                </div>
               )}
             </div>
 

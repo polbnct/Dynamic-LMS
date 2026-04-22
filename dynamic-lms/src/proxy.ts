@@ -19,6 +19,11 @@ export async function proxy(request: NextRequest) {
     })
   }
 
+  const requestCookies = request.cookies.getAll()
+  const hasSupabaseAuthCookie = requestCookies.some(({ name }) =>
+    /^sb-.*-auth-token(?:\.\d+)?$/.test(name)
+  )
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -45,9 +50,13 @@ export async function proxy(request: NextRequest) {
     }
   )
 
+  // Avoid refresh-token calls when no Supabase auth cookie is present.
+  // This prevents noisy `refresh_token_not_found` errors on public auth pages.
   const {
     data: { user },
-  } = await supabase.auth.getUser()
+  } = hasSupabaseAuthCookie
+    ? await supabase.auth.getUser()
+    : { data: { user: null } }
 
   // If accessing a protected route and not authenticated, redirect to login
   if (!isPublicRoute && !user) {
