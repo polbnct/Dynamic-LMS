@@ -25,10 +25,15 @@ A modern, full-featured Learning Management System (LMS) built with Next.js and 
 - **Student Tracking**: Monitor student progress and engagement
 - **Profile Management**: Update professor profile information
 
+### For Admin
+- **Dashboard**: Overview of Active courses, professors, and students
+- **Course Management**: Create, edit, delete, and assign professors for the course and students
+- **User Management**: Create/manage of professor account / Manage student account
+
 ### General Features
 - **Role-Based Access Control**: Separate interfaces for students and professors
 - **Secure Authentication**: Login and signup with Supabase authentication
-- **Modern UI/UX**: Beautiful, responsive design with gradient themes
+- **Modern UI/UX**: A clean and simple interface with clear organization and easy navigation.
 - **Real-time Updates**: Built with Next.js for optimal performance
 
 ## Tech Stack
