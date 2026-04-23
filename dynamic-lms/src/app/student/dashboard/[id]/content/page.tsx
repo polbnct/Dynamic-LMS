@@ -107,7 +107,7 @@ function countWords(value: string): number {
 export default function StudentContentPage() {
   const params = useParams();
   const courseId = params.id as string;
-  const { error: toastError } = useToast();
+  const { error: toastError, success: toastSuccess } = useToast();
 
   const [course, setCourse] = useState<any>(null);
   const [lessons, setLessons] = useState<LessonWithUI[]>([]);
@@ -127,7 +127,8 @@ export default function StudentContentPage() {
   const [newFlashcardAnswer, setNewFlashcardAnswer] = useState("");
   const [creatingFlashcard, setCreatingFlashcard] = useState(false);
   const [deletingFlashcardId, setDeletingFlashcardId] = useState<string | null>(null);
-  const [isManageCardsOpen, setIsManageCardsOpen] = useState(false);
+  const [isAddFlashcardModalOpen, setIsAddFlashcardModalOpen] = useState(false);
+  const [isManageCardsModalOpen, setIsManageCardsModalOpen] = useState(false);
   const [editingFlashcardId, setEditingFlashcardId] = useState<string | null>(null);
   const [editingQuestion, setEditingQuestion] = useState("");
   const [editingAnswer, setEditingAnswer] = useState("");
@@ -187,7 +188,8 @@ export default function StudentContentPage() {
     setStudyAidModalOpen(true);
     setStudyAidType("flashcards");
     setFlashcardSource("professor");
-    setIsManageCardsOpen(false);
+    setIsAddFlashcardModalOpen(false);
+    setIsManageCardsModalOpen(false);
     setEditingFlashcardId(null);
     setEditingQuestion("");
     setEditingAnswer("");
@@ -444,7 +446,8 @@ export default function StudentContentPage() {
     setFlashcardSource(nextSource);
     setStudyAidIndex(0);
     setStudyAidReveal(false);
-    setIsManageCardsOpen(false);
+    setIsAddFlashcardModalOpen(false);
+    setIsManageCardsModalOpen(false);
   };
 
   const handleAddFlashcard = async () => {
@@ -453,10 +456,6 @@ export default function StudentContentPage() {
     const answer = newFlashcardAnswer.trim();
     if (!question || !answer) {
       toastError("Question and answer are required.");
-      return;
-    }
-    if (countWords(question) > MAX_FLASHCARD_WORDS || countWords(answer) > MAX_FLASHCARD_WORDS) {
-      toastError(`Question and answer must be ${MAX_FLASHCARD_WORDS} words or fewer.`);
       return;
     }
     setCreatingFlashcard(true);
@@ -469,6 +468,7 @@ export default function StudentContentPage() {
       setStudyAidType("flashcards");
       setFlashcardSource("student");
       setStudyAidIndex(privateFlashcards.length);
+      toastSuccess("Flashcard created successfully!");
     } catch (error) {
       toastError(error instanceof Error ? error.message : "Failed to add flashcard.");
     } finally {
@@ -497,6 +497,7 @@ export default function StudentContentPage() {
         setEditingAnswer("");
       }
       setStudyAidReveal(false);
+      toastSuccess("Flashcard deleted successfully!");
     } catch (error) {
       toastError(error instanceof Error ? error.message : "Failed to delete flashcard.");
     } finally {
@@ -518,10 +519,6 @@ export default function StudentContentPage() {
       toastError("Question and answer are required.");
       return;
     }
-    if (countWords(question) > MAX_FLASHCARD_WORDS || countWords(answer) > MAX_FLASHCARD_WORDS) {
-      toastError(`Question and answer must be ${MAX_FLASHCARD_WORDS} words or fewer.`);
-      return;
-    }
     setSavingEdit(true);
     try {
       const updated = await updateStudentLessonFlashcard(selectedLesson.id, editingFlashcardId, {
@@ -534,6 +531,7 @@ export default function StudentContentPage() {
       setEditingFlashcardId(null);
       setEditingQuestion("");
       setEditingAnswer("");
+      toastSuccess("Flashcard updated successfully!");
     } catch (error) {
       toastError(error instanceof Error ? error.message : "Failed to update flashcard.");
     } finally {
@@ -872,7 +870,7 @@ export default function StudentContentPage() {
                   <button
                     type="button"
                     onClick={() => handleStudyAidTypeChange("flashcards")}
-                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 ${
+                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 cursor-pointer ${
                       studyAidType === "flashcards"
                         ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md"
                         : "text-gray-700 hover:bg-red-50 hover:text-red-700"
@@ -888,7 +886,7 @@ export default function StudentContentPage() {
                         studyAidType === "fill_blank" ? "fill_blank" : "multiple_choice"
                       )
                     }
-                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 ${
+                    className={`rounded-lg px-3 py-2.5 text-sm font-semibold transition-all sm:px-4 cursor-pointer ${
                       isQuestionsTab
                         ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-md"
                         : "text-gray-700 hover:bg-red-50 hover:text-red-700"
@@ -924,250 +922,168 @@ export default function StudentContentPage() {
                   </p>
                 </div>
               ) : studyAidType === "flashcards" && (
-                <div className="text-center py-4 sm:py-6">
-                  <h3 className="text-xl font-bold text-gray-800 mb-4">Flashcards</h3>
-                  <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 w-full">
-                    <div className="mb-4 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
-                      <nav className="grid w-full grid-cols-2 gap-1.5" aria-label="Flashcard source">
-                        <button
-                          type="button"
-                          onClick={() => handleFlashcardSourceChange("professor")}
-                          className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
-                            flashcardSource === "professor"
-                              ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm"
-                              : "text-slate-700 hover:bg-slate-50 hover:text-red-700"
-                          }`}
-                          aria-current={flashcardSource === "professor" ? "page" : undefined}
-                        >
-                          Professor ({professorFlashcards.length})
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleFlashcardSourceChange("student")}
-                          className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all ${
-                            flashcardSource === "student"
-                              ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm"
-                              : "text-slate-700 hover:bg-slate-50 hover:text-red-700"
-                          }`}
-                          aria-current={flashcardSource === "student" ? "page" : undefined}
-                        >
-                          My Flashcards ({privateFlashcards.length})
-                        </button>
-                      </nav>
-                    </div>
-
-                    {flashcardSource === "student" && (
-                      <div className="mb-4 rounded-xl border border-red-100 bg-white p-3 sm:p-4 text-left shadow-sm">
-                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">Add your flashcard</p>
-                        <div className="grid gap-2">
-                          <input
-                            type="text"
-                            value={newFlashcardQuestion}
-                            onChange={(e) => setNewFlashcardQuestion(e.target.value)}
-                            placeholder="Question"
-                            maxLength={500}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
-                          />
-                          <input
-                            type="text"
-                            value={newFlashcardAnswer}
-                            onChange={(e) => setNewFlashcardAnswer(e.target.value)}
-                            placeholder="Answer"
-                            maxLength={500}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
-                          />
-                        </div>
-                        <div className="mt-2 flex items-center justify-between gap-2">
-                          <p className="text-xs text-gray-500" />
-                          <button
-                            type="button"
-                            onClick={handleAddFlashcard}
-                            disabled={creatingFlashcard}
-                            className="rounded-lg bg-red-600 px-3 py-2 text-xs font-semibold text-white hover:bg-red-700 disabled:opacity-50"
-                          >
-                            {creatingFlashcard ? "Saving..." : "Save card"}
-                          </button>
-                        </div>
-                      </div>
-                    )}
+                <div className="mx-auto max-w-3xl py-4 sm:py-2">
+                  
+                  {/* Flashcard */}
+                  <div className="mb-6 rounded-xl border border-slate-200 bg-white p-1.5 shadow-sm">
+                    <nav className="grid w-full grid-cols-2 gap-1.5" aria-label="Flashcard source">
+                      <button
+                        type="button"
+                        onClick={() => handleFlashcardSourceChange("professor")}
+                        className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
+                          flashcardSource === "professor"
+                            ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-red-700"
+                        }`}
+                        aria-current={flashcardSource === "professor" ? "page" : undefined}
+                      >
+                        Professor ({professorFlashcards.length})
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => handleFlashcardSourceChange("student")}
+                        className={`rounded-lg px-4 py-2.5 text-sm font-semibold transition-all cursor-pointer ${
+                          flashcardSource === "student"
+                            ? "bg-gradient-to-r from-red-600 to-rose-600 text-white shadow-sm"
+                            : "text-slate-700 hover:bg-slate-50 hover:text-red-700"
+                        }`}
+                        aria-current={flashcardSource === "student" ? "page" : undefined}
+                      >
+                        My Flashcards ({privateFlashcards.length})
+                      </button>
+                    </nav>
+                  </div>
                     {currentQuestion ? (
-                      <>
-                        <div className="mb-3 flex items-center justify-between rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-xs sm:px-4">
-                          <div
-                            className={`inline-flex items-center rounded-lg px-3 py-1.5 text-xs font-semibold ${
-                              (currentQuestion as MergedFlashcard).source === "student"
-                                ? "bg-amber-100 text-amber-800 border border-amber-200"
-                                : "bg-slate-100 text-slate-700"
-                            }`}
-                          >
-                            {(currentQuestion as MergedFlashcard).source === "student"
-                              ? "My card"
-                              : "Professor"}
-                          </div>
-                          {studentFlashcardsLoading && (
-                            <span className="text-gray-500">Loading your cards...</span>
-                          )}
-                        </div>
+                      <div className="space-y-4">
                         <button
                           type="button"
                           onClick={() => setStudyAidReveal((r) => !r)}
-                          className="w-full bg-white rounded-xl shadow-lg p-5 sm:p-8 min-h-[220px] sm:min-h-[280px] flex items-center justify-center text-left hover:ring-2 hover:ring-red-300 transition-all"
+                          className="relative w-full sm:w-3/4 mx-auto block bg-white rounded-xl shadow-lg border border-gray-200 p-6 min-h-[240px] hover:shadow-xl hover:border-red-300 transition-all overflow-x-auto group"
                         >
-                          <p className="text-lg sm:text-2xl font-semibold text-gray-700 leading-relaxed">
-                            {studyAidReveal
-                              ? (currentQuestion as MergedFlashcard).answer
-                              : (currentQuestion as MergedFlashcard).question}
-                          </p>
+                          <div className="absolute top-3 left-1/2 transform -translate-x-1/2">
+                            <div
+                              className={`inline-flex items-center rounded-full px-3 py-1 text-xs font-medium ${
+                                (currentQuestion as MergedFlashcard).source === "student"
+                                  ? "bg-amber-100 text-amber-800 border border-amber-200"
+                                  : "bg-slate-100 text-slate-700 border border-slate-200"
+                              }`}
+                            >
+                              {(currentQuestion as MergedFlashcard).source === "student" ? "My Card" : "Professor"}
+                            </div>
+                          </div>
+                          
+                          <div className="flex items-center justify-center w-full sm:min-w-[240px] h-full min-h-[220px] sm:min-h-[240px] pt-6 pb-8 cursor-pointer">
+                            <p className="text-xl font-semibold text-gray-700 leading-relaxed text-center break-word whitespace-normal max-w-full">
+                              {studyAidReveal
+                                ? (currentQuestion as MergedFlashcard).answer
+                                : (currentQuestion as MergedFlashcard).question}
+                            </p>
+                          </div>
+                          
+                          <div className="absolute bottom-3 left-1/2 transform -translate-x-1/2">
+                            <div className="inline-flex items-center rounded-full px-3 py-1 text-xs font-medium bg-gray-100 text-gray-600 border border-gray-200">
+                              Card {studyAidIndex + 1} / {currentList.length}
+                            </div>
+                          </div>
                         </button>
-                        <p className="text-sm text-gray-600 mt-2">{studyAidReveal ? "Answer" : "Question — click to flip"}</p>
-                        <div className="mt-4 flex items-center justify-center gap-3">
-                          <button
-                            type="button"
-                            onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
-                            disabled={studyAidIndex === 0}
-                            className="inline-flex min-w-28 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Previous
-                          </button>
-                          <span className="text-sm text-gray-600">{studyAidIndex + 1} / {currentList.length}</span>
-                          <button
-                            type="button"
-                            onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
-                            disabled={studyAidIndex === currentList.length - 1}
-                            className="inline-flex min-w-28 items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            Next
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => setIsManageCardsOpen((prev) => !prev)}
-                            className="inline-flex min-w-28 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50"
-                          >
-                            {isManageCardsOpen ? "Close Manager" : "Manage Cards"}
-                          </button>
+                        
+                        <div className="flex items-center justify-center gap-2">
+                          <p className="text-sm text-gray-500">{studyAidReveal ? "Click to flip answer" : "Click to flip question"}</p>
                         </div>
-                      </>
-                    ) : (
-                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-4 py-8 text-center">
-                        <p className="text-sm font-medium text-slate-700">
-                          {flashcardSource === "student"
-                            ? "You have no personal flashcards yet. Add one above to get started."
-                            : "No professor flashcards available for this lesson."}
-                        </p>
-                      </div>
-                    )}
-                    {isManageCardsOpen && (
-                      <div className="mt-4 h-72 overflow-y-auto rounded-xl border border-slate-200 bg-slate-50 p-3 text-left">
-                        <div className="flex flex-wrap items-center justify-between gap-2">
-                          <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">
-                            Card tools
-                          </p>
-                          <div className="flex flex-wrap items-center gap-2">
+
+                        <div className="flex flex-col gap-4">
+                          <div className="flex flex-wrap items-center justify-center gap-2">
+                            <button
+                              type="button"
+                              onClick={() => { setStudyAidIndex((i) => Math.max(0, i - 1)); setStudyAidReveal(false); }}
+                              disabled={studyAidIndex === 0}
+                              className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-3 sm:px-4 py-2.5 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-50 cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <p>Previous</p>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => { setStudyAidIndex((i) => Math.min(currentList.length - 1, i + 1)); setStudyAidReveal(false); }}
+                              disabled={studyAidIndex === currentList.length - 1}
+                              className="flex-1 sm:flex-none inline-flex items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 sm:px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md cursor-pointer disabled:cursor-not-allowed disabled:opacity-50"
+                            >
+                              <p>Next</p>
+                            </button>
+                          </div>
+
+                          <div className="flex flex-wrap items-center justify-center gap-2 border-t border-gray-200 pt-4">
                             <button
                               type="button"
                               onClick={handleShuffleCurrentFlashcards}
                               disabled={activeFlashcards.length <= 1}
-                              className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 disabled:opacity-50"
+                              title="Shuffle cards"
+                              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2 sm:px-3 py-2 sm:py-2.5 text-sm text-slate-700 shadow-sm transition hover:bg-slate-100 disabled:opacity-50 cursor-pointer gap-1 sm:gap-2"
                             >
-                              Shuffle
+                              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                              </svg>
+                              <p className="hidden sm:inline">Shuffle</p>
                             </button>
-                          </div>
-                        </div>
-
-                        {flashcardSource === "student" ? (
-                          <div className="mt-3 space-y-2">
-                            {studentFlashcards.length === 0 ? (
-                              <p className="text-sm text-slate-600">No personal cards to manage yet.</p>
-                            ) : (
-                              studentFlashcards.map((card) => (
-                                <div
-                                  key={card.id}
-                                  className="rounded-lg border border-slate-200 bg-white p-3"
-                                >
-                                  {editingFlashcardId === card.id ? (
-                                    <div className="space-y-2">
-                                      <input
-                                        type="text"
-                                        value={editingQuestion}
-                                        onChange={(e) => setEditingQuestion(e.target.value)}
-                                        maxLength={500}
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
-                                      />
-                                      <input
-                                        type="text"
-                                        value={editingAnswer}
-                                        onChange={(e) => setEditingAnswer(e.target.value)}
-                                        maxLength={500}
-                                        className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
-                                      />
-                                      <div className="flex items-center justify-end gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditingFlashcardId(null);
-                                            setEditingQuestion("");
-                                            setEditingAnswer("");
-                                          }}
-                                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                                        >
-                                          Cancel
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={handleSaveFlashcardEdit}
-                                          disabled={savingEdit}
-                                          className="rounded-lg bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800 disabled:opacity-50"
-                                        >
-                                          {savingEdit ? "Saving..." : "Save changes"}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ) : (
-                                    <div>
-                                      <p className="text-sm font-semibold text-slate-800">{card.question}</p>
-                                      <p className="mt-1 text-sm text-slate-600">{card.answer}</p>
-                                      <div className="mt-2 flex items-center justify-end gap-2">
-                                        <button
-                                          type="button"
-                                          onClick={() => handleStartEditFlashcard(card)}
-                                          className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                                        >
-                                          Edit
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => handleDeleteFlashcard(card.id)}
-                                          disabled={deletingFlashcardId === card.id}
-                                          className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50"
-                                        >
-                                          {deletingFlashcardId === card.id ? "Deleting..." : "Delete"}
-                                        </button>
-                                      </div>
-                                    </div>
-                                  )}
-                                </div>
-                              ))
+                            {flashcardSource === "student" && (
+                              <button
+                                type="button"
+                                onClick={() => setIsAddFlashcardModalOpen(true)}
+                                title="Add new card"
+                                className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2 sm:px-3 py-2 sm:py-2.5 text-sm text-slate-700 shadow-sm transition hover:bg-slate-100 cursor-pointer gap-1 sm:gap-2"
+                              >
+                                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                                </svg>
+                                <p className="hidden sm:inline">Add Card</p>
+                              </button>
+                            )}
+                            {flashcardSource === "student" && (
+                            <button
+                              type="button"
+                              onClick={() => setIsManageCardsModalOpen(true)}
+                              title="Manage cards"
+                              className="inline-flex items-center justify-center rounded-lg border border-slate-300 bg-white px-2 sm:px-3 py-2 sm:py-2.5 text-sm text-slate-700 shadow-sm transition hover:bg-slate-100 cursor-pointer gap-1 sm:gap-2"
+                            >
+                              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                              </svg>
+                              <p className="hidden sm:inline">Manage Cards</p>
+                            </button>
                             )}
                           </div>
-                        ) : (
-                          <p className="mt-3 text-sm text-slate-600">
-                            Editing and deleting are available only in My Flashcards.
-                          </p>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center">
+                        <svg className="w-12 h-12 text-slate-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                        <p className="text-sm font-medium text-slate-700 mb-4">
+                          {flashcardSource === "student"
+                            ? "No personal flashcards yet."
+                            : "No professor flashcards available."}
+                        </p>
+                        {flashcardSource === "student" && (
+                          <button
+                            type="button"
+                            onClick={() => setIsAddFlashcardModalOpen(true)}
+                            className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md cursor-pointer"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                            </svg>
+                            Create Your First Card
+                          </button>
                         )}
                       </div>
                     )}
-                  </div>
                 </div>
               )}
 
               {isQuestionsTab && (
                 <div className="text-center py-4 sm:py-6">
                   <h3 className="text-xl font-bold text-gray-800 mb-4">Questions</h3>
-                  {studyAidScoreSubmitted && (
-                    <p className="mb-4 text-lg font-semibold text-red-700">
-                      Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
-                    </p>
-                  )}
                   <div className="rounded-2xl border border-gray-200 bg-white p-3 sm:p-5 max-w-4xl mx-auto space-y-4 text-left">
                     {multipleChoiceQuestions.length > 0 && (
                       <section>
@@ -1284,6 +1200,13 @@ export default function StudentContentPage() {
                     )}
 
                     <div className="flex flex-wrap items-center justify-center gap-3 border-t border-slate-200 pt-3">
+                      {studyAidScoreSubmitted && (
+                        <div className="w-full text-center mb-4">
+                          <p className="text-lg font-semibold text-red-700">
+                            Score: {score} / {maxScore} ({(maxScore ? (score / maxScore) * 100 : 0).toFixed(0)}%) · Saved. You can take again to improve your score.
+                          </p>
+                        </div>
+                      )}
                       {!studyAidScoreSubmitted ? (
                         <button
                           type="button"
@@ -1313,6 +1236,220 @@ export default function StudentContentPage() {
               <button
                 onClick={() => setStudyAidModalOpen(false)}
                 className="w-full bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Add Flashcard Modal */}
+      {isAddFlashcardModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsAddFlashcardModalOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-md overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Add Flashcard</h3>
+              <button
+                onClick={() => setIsAddFlashcardModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="p-4 sm:p-6 space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Question</label>
+                <input
+                  type="text"
+                  value={newFlashcardQuestion}
+                  onChange={(e) => setNewFlashcardQuestion(e.target.value)}
+                  placeholder="Enter the question"
+                  maxLength={256}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">{countWords(newFlashcardQuestion)}/{MAX_FLASHCARD_WORDS} words</p>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">Answer</label>
+                <input
+                  type="text"
+                  value={newFlashcardAnswer}
+                  onChange={(e) => setNewFlashcardAnswer(e.target.value)}
+                  placeholder="Enter the answer"
+                  maxLength={256}
+                  className="w-full rounded-lg border border-gray-300 px-4 py-3 text-gray-800 placeholder-gray-400 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                />
+                <p className="text-xs text-gray-500 mt-1">{countWords(newFlashcardAnswer)}/{MAX_FLASHCARD_WORDS} words</p>
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 p-4 sm:p-4 bg-gray-50 flex gap-4">
+              <button
+                onClick={() => setIsAddFlashcardModalOpen(false)}
+                className="flex-1 rounded-xl border border-gray-300 bg-white px-3 py-2 font-semibold text-gray-700 shadow-sm transition hover:bg-slate-100 cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  handleAddFlashcard();
+                  if (!creatingFlashcard && newFlashcardQuestion.trim() && newFlashcardAnswer.trim()) {
+                    setIsAddFlashcardModalOpen(false);
+                  }
+                }}
+                disabled={creatingFlashcard}
+                className="flex-1 rounded-xl bg-gradient-to-r from-red-600 to-rose-600 px-3 py-2 font-semibold text-white shadow-sm transition transition-all duration-200 hover:shadow-md hover:from-red-700 hover:to-rose-700 disabled:opacity-50 cursor-pointer"
+              >
+                {creatingFlashcard ? "Creating..." : "Create Card"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manage Cards Modal */}
+      {isManageCardsModalOpen && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4" onClick={() => setIsManageCardsModalOpen(false)}>
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Modal Header */}
+            <div className="flex items-center justify-between gap-3 p-4 sm:p-6 border-b border-gray-200">
+              <h3 className="text-xl sm:text-2xl font-bold text-gray-900">Manage Flashcards</h3>
+              <button
+                onClick={() => setIsManageCardsModalOpen(false)}
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Modal Content */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-6">
+              {flashcardSource === "student" ? (
+                studentFlashcards.length === 0 ? (
+                  <div className="text-center py-12">
+                    <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                    </svg>
+                    <p className="text-sm text-gray-600 mb-4">No personal flashcards yet.</p>
+                    <button
+                      type="button"
+                      onClick={() => setIsAddFlashcardModalOpen(true)}
+                      className="inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md cursor-pointer"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                      </svg>
+                      Create Your First Card
+                    </button>
+                  </div>
+                ) : (
+                  <div className="space-y-3">
+                    {studentFlashcards.map((card) => (
+                      <div
+                        key={card.id}
+                        className="rounded-lg border border-gray-200 bg-white p-4 hover:shadow-md transition"
+                      >
+                        {editingFlashcardId === card.id ? (
+                          <div className="space-y-3">
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 mb-1">Question</label>
+                              <input
+                                type="text"
+                                value={editingQuestion}
+                                onChange={(e) => setEditingQuestion(e.target.value)}
+                                maxLength={500}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                                placeholder="Enter question"
+                                
+                              />
+                            </div>
+                            <div>
+                              <label className="block text-xs font-semibold text-gray-600 mb-1">Answer</label>
+                              <input
+                                type="text"
+                                value={editingAnswer}
+                                onChange={(e) => setEditingAnswer(e.target.value)}
+                                maxLength={500}
+                                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 focus:border-red-500 focus:ring-2 focus:ring-red-500"
+                                placeholder="Enter answer"
+                              />
+                            </div>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setEditingFlashcardId(null);
+                                  setEditingQuestion("");
+                                  setEditingAnswer("");
+                                }}
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-2 text-xs font-semibold text-gray-700 hover:bg-slate-100"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleSaveFlashcardEdit}
+                                disabled={savingEdit}
+                                className="rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 py-2 text-xs font-semibold text-white shadow-sm transition-all duration-200 hover:shadow-md hover:from-red-700 hover:to-rose-700 disabled:opacity-50 cursor-pointer"
+                              >
+                                {savingEdit ? "Saving..." : "Save"}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div>
+                            <p className="text-sm font-bold text-gray-800 mb-1 break-words">Question: {card.question}</p>
+                            <p className="text-sm font-semibold text-gray-600 mb-3 break-words">Answer: {card.answer}</p>
+                            <div className="flex items-center justify-end gap-2">
+                              <button
+                                type="button"
+                                onClick={() => handleStartEditFlashcard(card)}
+                                className="rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-700 hover:bg-slate-100 cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleDeleteFlashcard(card.id)}
+                                disabled={deletingFlashcardId === card.id}
+                                className="rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-100 disabled:opacity-50 cursor-pointer"
+                              >
+                                {deletingFlashcardId === card.id ? "..." : "Delete"}
+                              </button>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )
+              ) : (
+                <div className="text-center py-12">
+                  <p className="text-sm text-gray-600">Editing and deleting are available only in <strong>My Flashcards</strong> tab.</p>
+                </div>
+              )}
+            </div>
+
+            {/* Modal Footer */}
+            <div className="border-t border-gray-200 p-4 sm:p-6 bg-gray-50">
+              <button
+                onClick={() => setIsManageCardsModalOpen(false)}
+                className="w-full rounded-lg bg-gray-300 px-4 py-3 font-semibold text-gray-800 transition hover:bg-slate-200 cursor-pointer"
               >
                 Close
               </button>
