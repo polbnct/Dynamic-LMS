@@ -36,6 +36,7 @@ function EditStudyQuestionForm({
     type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
     question?: string;
     options?: string[];
+    fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
     correct_answer?:
       | number
       | boolean
@@ -68,6 +69,9 @@ function EditStudyQuestionForm({
   );
   const [correctAnswerFill, setCorrectAnswerFill] = useState(
     question.type === "fill_blank" || question.type === "summary" ? String(normalizedCorrectAnswer ?? "") : ""
+  );
+  const [fillBlankAnswerMode, setFillBlankAnswerMode] = useState<"symbol_only" | "term_only">(
+    question.type === "fill_blank" ? (question.fill_blank_answer_mode ?? "term_only") : "term_only"
   );
   const [correctFeedback, setCorrectFeedback] = useState(
     question.correct_answer &&
@@ -110,6 +114,7 @@ function EditStudyQuestionForm({
       await onSave({
         question: questionText.trim(),
         type,
+        fill_blank_answer_mode: type === "fill_blank" ? fillBlankAnswerMode : null,
         correct_answer: withExistingExplanation(correctAnswerFill.trim() || " "),
       });
     }
@@ -210,6 +215,19 @@ function EditStudyQuestionForm({
             className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder:text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-red-500"
             placeholder="Answer that fills the blank"
           />
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5 mt-3">
+            Answer mode tag
+          </label>
+          <select
+            value={fillBlankAnswerMode}
+            onChange={(e) =>
+              setFillBlankAnswerMode(e.target.value as "symbol_only" | "term_only")
+            }
+            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
+          >
+            <option value="term_only">Term only</option>
+            <option value="symbol_only">Symbol only</option>
+          </select>
         </div>
       )}
       <div>
@@ -292,7 +310,7 @@ export default function ContentPage() {
   const [studyAidViewType, setStudyAidViewType] = useState<"summary" | "true_false" | "fill_blank" | "multiple_choice">("summary");
   const [studyAidSearch, setStudyAidSearch] = useState("");
   const [studyAidPage, setStudyAidPage] = useState(1);
-  const [editModalTab, setEditModalTab] = useState<"lesson" | "study_aid" | "lesson_settings">("lesson");
+  const [editModalTab, setEditModalTab] = useState<"lesson" | "lesson_settings">("lesson");
   const [unlockThresholdPercent, setUnlockThresholdPercent] = useState(70);
   const [shuffleStudyAidQuestions, setShuffleStudyAidQuestions] = useState(true);
   const [requireBothForUnlock, setRequireBothForUnlock] = useState(true);
@@ -787,7 +805,7 @@ const getValidatedStudyAidCount = (
                   {/* Category Header */}
                   <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
                     <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
-                    <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
+                  <span className="inline-flex items-center rounded-full border border-gray-900 bg-white px-3 py-1 text-sm font-semibold text-gray-900">
                       {categoryLessons.length} lesson{categoryLessons.length !== 1 ? "s" : ""}
                     </span>
                   </div>
@@ -1115,18 +1133,6 @@ const getValidatedStudyAidCount = (
                 </button>
                 <button
                   type="button"
-                  onClick={() => setEditModalTab("study_aid")}
-                  disabled={!editingLesson.pdf_file_path}
-                  className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
-                    editModalTab === "study_aid"
-                      ? "text-red-700 border-red-600"
-                      : "text-gray-600 border-transparent hover:text-red-600"
-                  } ${!editingLesson.pdf_file_path ? "opacity-50 cursor-not-allowed hover:text-gray-600" : ""}`}
-                >
-                  Study Aid
-                </button>
-                <button
-                  type="button"
                   onClick={() => setEditModalTab("lesson_settings")}
                   className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
                     editModalTab === "lesson_settings"
@@ -1188,6 +1194,32 @@ const getValidatedStudyAidCount = (
                   {editingLesson.pdfFileName && (
                     <p className="mt-2 text-xs text-gray-500">
                       Current PDF: <span className="font-medium">{editingLesson.pdfFileName}</span>
+                    </p>
+                  )}
+                </div>
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    disabled={!editingLesson.pdf_file_path}
+                    onClick={() =>
+                      window.open(
+                        `/prof/courses/${courseId}/content/${editingLesson.id}/study-aid`,
+                        "_blank",
+                        "noopener,noreferrer"
+                      )
+                    }
+                    className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
+                      editingLesson.pdf_file_path
+                        ? "border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
+                        : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
+                    }`}
+                  >
+                    Manage Study Aids
+                  </button>
+                  {!editingLesson.pdf_file_path && (
+                    <p className="mt-2 text-xs text-gray-500">
+                      Upload a PDF first to enable Study Aid management.
                     </p>
                   )}
                 </div>
@@ -1772,6 +1804,7 @@ const getValidatedStudyAidCount = (
                                   type: studyAidGenerateType === "summary" ? "summary" : q.type,
                                   question: q.question,
                                   options: q.options,
+                                  fill_blank_answer_mode: q.fill_blank_answer_mode ?? "term_only",
                                   correct_answer: q.correct_answer,
                                 }));
                                 const result = await addLessonStudyQuestions(studyAidLesson.id, payload as any);

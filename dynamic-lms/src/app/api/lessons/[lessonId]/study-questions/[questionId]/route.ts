@@ -61,11 +61,13 @@ export async function PATCH(
       type,
       question: questionText,
       options,
+      fill_blank_answer_mode: fillBlankAnswerMode,
       correct_answer: correctAnswer,
     } = body as {
       type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
       question?: string;
       options?: string[];
+      fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
       correct_answer?:
         | number
         | boolean
@@ -121,6 +123,9 @@ export async function PATCH(
     if (correctAnswer !== undefined && correctAnswer !== null) {
       updates.correct_answer = JSON.stringify(correctAnswer);
     }
+    if (Object.prototype.hasOwnProperty.call(body, "fill_blank_answer_mode")) {
+      updates.fill_blank_answer_mode = fillBlankAnswerMode ?? null;
+    }
 
     if (Object.keys(updates).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
@@ -130,7 +135,7 @@ export async function PATCH(
       .from("questions")
       .update(updates)
       .eq("id", questionId)
-      .select("id, type, question, options, correct_answer")
+      .select("id, type, question, options, correct_answer, fill_blank_answer_mode")
       .single();
 
     if (updateErr) {
@@ -153,6 +158,7 @@ export async function PATCH(
         typeof updated.correct_answer === "string"
           ? JSON.parse(updated.correct_answer)
           : updated.correct_answer,
+      fill_blank_answer_mode: updated.fill_blank_answer_mode ?? null,
     };
 
     return NextResponse.json({ question: formatted });

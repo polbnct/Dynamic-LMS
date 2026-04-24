@@ -10,7 +10,6 @@ import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 import { getQuizzes, getQuestions, createQuestion, updateQuestion, deleteQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
-import type { Question as DBQuestion } from "@/lib/supabase/queries/quizzes";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import QuizMonitoringModal from "@/components/quiz/QuizMonitoringModal";
 import { buildQuestionSignature } from "@/lib/questions/signature";
@@ -84,9 +83,21 @@ interface Question {
   question: string;
   options?: string[];
   correctAnswer: number | boolean | string;
+  fillBlankAnswerMode?: "symbol_only" | "term_only" | null;
   source?: string;
   sourceType?: "lesson" | "pdf";
   createdAt: string;
+}
+
+interface GeneratedDraftQuestion {
+  draftId: string;
+  type: QuestionType;
+  question: string;
+  options?: string[];
+  correct_answer: number | boolean | string;
+  fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
+  source_lesson_id?: string | null;
+  source_type?: "lesson" | "pdf" | null;
 }
 
 // Question type definition
@@ -107,6 +118,9 @@ export default function QuizzesPage() {
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingForSourceId, setGeneratingForSourceId] = useState<string | null>(null);
+  const [generatedDraftQuestions, setGeneratedDraftQuestions] = useState<GeneratedDraftQuestion[]>([]);
+  const [selectedGeneratedDraftIds, setSelectedGeneratedDraftIds] = useState<string[]>([]);
+  const [approvingGeneratedDrafts, setApprovingGeneratedDrafts] = useState(false);
   const [createQuestionModalOpen, setCreateQuestionModalOpen] = useState(false);
   const [editingBankQuestion, setEditingBankQuestion] = useState<Question | null>(null);
   const [monitoringQuizId, setMonitoringQuizId] = useState<string | null>(null);
@@ -138,6 +152,7 @@ export default function QuizzesPage() {
     correctAnswer: 0,
     trueFalseAnswer: true,
     fillBlankAnswer: "",
+    fillBlankAnswerMode: "term_only" as "symbol_only" | "term_only",
     source: "",
     sourceType: "lesson" as "lesson" | "pdf",
   });
@@ -179,6 +194,7 @@ export default function QuizzesPage() {
   const [grantConfirmType, setGrantConfirmType] = useState<"all" | "single">("all");
   const [grantConfirmStudent, setGrantConfirmStudent] = useState<any>(null);
   const [grantingFromConfirm, setGrantingFromConfirm] = useState(false);
+  const [creatingQuizForManageQuestions, setCreatingQuizForManageQuestions] = useState(false);
   const { handledCourses } = useProfessorCourses();
 
   useSyncMessagesToToast(error, success);
@@ -207,6 +223,7 @@ export default function QuizzesPage() {
           question: q.question,
           options: q.options,
           correctAnswer: q.correct_answer,
+          fillBlankAnswerMode: q.fill_blank_answer_mode ?? "term_only",
           source: q.source_lesson_id,
           sourceType: q.source_type,
           createdAt: q.created_at,
@@ -367,6 +384,8 @@ export default function QuizzesPage() {
         question.type === "true_false" ? Boolean(question.correctAnswer) : true,
       fillBlankAnswer:
         question.type === "fill_blank" ? String(question.correctAnswer ?? "") : "",
+      fillBlankAnswerMode:
+        question.type === "fill_blank" ? (question.fillBlankAnswerMode ?? "term_only") : "term_only",
       source: question.source || "",
       sourceType: question.sourceType || "lesson",
     });
@@ -411,64 +430,48 @@ export default function QuizzesPage() {
         dedupedQuestions.push(q);
       }
 
-      // Get professor ID
-      const professorId = await getCurrentProfessorId(true);
-      if (!professorId) {
-        throw new Error("Professor not found");
-      }
-
-      // Save generated questions to database
-      const saveResults = await Promise.allSettled(
-        dedupedQuestions.map((q: any) =>
-          createQuestion({
-            course_id: courseId,
-            professor_id: professorId,
+      const bankSignatures = new Set(
+        quizBank.map((q) =>
+          buildQuestionSignature({
             type: q.type,
             question: q.question,
             options: q.options,
-            correct_answer: q.correct_answer,
-            source_lesson_id: q.source_lesson_id,
-            source_type: q.source_type,
+            correctAnswer: q.correctAnswer,
           })
         )
       );
-      const savedQuestions = saveResults
-        .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
-        .map((result) => result.value);
-      const duplicateSkips = saveResults.filter(
-        (result) =>
-          result.status === "rejected" &&
-          (result.reason as any)?.code === "DUPLICATE_QUESTION"
-      ).length;
-      const failedSaves = saveResults.filter(
-        (result) =>
-          result.status === "rejected" &&
-          (result.reason as any)?.code !== "DUPLICATE_QUESTION"
-      ).length;
-      if (failedSaves > 0) {
-        throw new Error("Some generated questions failed to save.");
-      }
+      const draftQuestions = dedupedQuestions
+        .filter((q) => {
+          const signature = buildQuestionSignature({
+            type: q.type,
+            question: q.question,
+            options: q.options,
+            correctAnswer: q.correct_answer,
+          });
+          return !bankSignatures.has(signature);
+        })
+        .map((q: any, index: number) => ({
+          draftId: `draft-${Date.now()}-${index}`,
+          type: q.type,
+          question: String(q.question ?? ""),
+          options: q.options,
+          correct_answer: q.correct_answer,
+          fill_blank_answer_mode: q.fill_blank_answer_mode ?? "term_only",
+          source_lesson_id: q.source_lesson_id ?? sourceId,
+          source_type: q.source_type ?? sourceType,
+        }));
 
-      // Transform and add to quiz bank
-      const transformedQuestions = savedQuestions.map((q) => ({
-        id: q.id,
-        type: q.type,
-        question: q.question,
-        options: q.options,
-        correctAnswer: q.correct_answer,
-        source: q.source_lesson_id,
-        sourceType: q.source_type,
-        createdAt: q.created_at,
-      }));
-
-      setQuizBank([...quizBank, ...transformedQuestions]);
-      setFilteredBank([...filteredBank, ...transformedQuestions]);
+      setGeneratedDraftQuestions((prev) => [...prev, ...draftQuestions]);
+      setSelectedGeneratedDraftIds((prev) => [...new Set([...prev, ...draftQuestions.map((q) => q.draftId)])]);
       setGenerateModalOpen(false);
+      const skippedCount = dedupedQuestions.length - draftQuestions.length;
       const duplicateNote =
-        duplicateSkips > 0
-          ? ` (${duplicateSkips} duplicate${duplicateSkips !== 1 ? "s" : ""} skipped)`
+        skippedCount > 0
+          ? ` (${skippedCount} duplicate${skippedCount !== 1 ? "s" : ""} already in bank)`
           : "";
-      setSuccess(`Generated ${transformedQuestions.length} question${transformedQuestions.length !== 1 ? "s" : ""}${duplicateNote}.`);
+      setSuccess(
+        `Generated ${draftQuestions.length} draft question${draftQuestions.length !== 1 ? "s" : ""}${duplicateNote}.`
+      );
       setTimeout(() => setSuccess(""), 3000);
     } catch (err: any) {
       console.error("Error generating questions:", err);
@@ -476,6 +479,107 @@ export default function QuizzesPage() {
     } finally {
       setGeneratingQuestions(false);
       setGeneratingForSourceId(null);
+    }
+  };
+
+  const handleToggleGeneratedDraft = (draftId: string) => {
+    setSelectedGeneratedDraftIds((prev) =>
+      prev.includes(draftId) ? prev.filter((id) => id !== draftId) : [...prev, draftId]
+    );
+  };
+
+  const handleDiscardGeneratedDrafts = () => {
+    setGeneratedDraftQuestions([]);
+    setSelectedGeneratedDraftIds([]);
+  };
+
+  const handleApproveGeneratedDrafts = async () => {
+    setError("");
+    const selectedSet = new Set(selectedGeneratedDraftIds);
+    const toApprove = generatedDraftQuestions.filter((q) => selectedSet.has(q.draftId));
+    if (toApprove.length === 0) {
+      setError("Select at least one generated draft to approve.");
+      return;
+    }
+
+    try {
+      setApprovingGeneratedDrafts(true);
+      const professorId = await getCurrentProfessorId(true);
+      if (!professorId) throw new Error("Professor not found");
+
+      const saveResults = await Promise.allSettled(
+        toApprove.map((q) =>
+          createQuestion({
+            course_id: courseId,
+            professor_id: professorId,
+            type: q.type,
+            question: q.question,
+            options: q.options,
+            correct_answer: q.correct_answer,
+            fill_blank_answer_mode: q.type === "fill_blank" ? (q.fill_blank_answer_mode ?? "term_only") : null,
+            source_lesson_id: q.source_lesson_id ?? undefined,
+            source_type: q.source_type ?? undefined,
+          })
+        )
+      );
+
+      const savedQuestions = saveResults
+        .filter((result): result is PromiseFulfilledResult<any> => result.status === "fulfilled")
+        .map((result) => result.value);
+      const duplicateSkips = saveResults.filter(
+        (result) =>
+          result.status === "rejected" && (result.reason as any)?.code === "DUPLICATE_QUESTION"
+      ).length;
+      const failedSaves = saveResults.filter(
+        (result) =>
+          result.status === "rejected" && (result.reason as any)?.code !== "DUPLICATE_QUESTION"
+      ).length;
+
+      const transformedQuestions: Question[] = savedQuestions.map((q) => ({
+        id: q.id,
+        type: q.type,
+        question: q.question,
+        options: q.options,
+        correctAnswer: q.correct_answer,
+        fillBlankAnswerMode: q.fill_blank_answer_mode ?? "term_only",
+        source: q.source_lesson_id,
+        sourceType: q.source_type,
+        createdAt: q.created_at,
+      }));
+
+      setQuizBank((prev) => [...prev, ...transformedQuestions]);
+      setFilteredBank((prev) => [...prev, ...transformedQuestions]);
+
+      const resolvedDraftIds = new Set(
+        saveResults
+          .map((result, index) => ({ result, draftId: toApprove[index]?.draftId }))
+          .filter(
+            ({ result }) =>
+              result.status === "fulfilled" ||
+              ((result.reason as any)?.code === "DUPLICATE_QUESTION")
+          )
+          .map(({ draftId }) => draftId)
+          .filter((id): id is string => Boolean(id))
+      );
+      setGeneratedDraftQuestions((prev) => prev.filter((q) => !resolvedDraftIds.has(q.draftId)));
+      setSelectedGeneratedDraftIds((prev) => prev.filter((id) => !resolvedDraftIds.has(id)));
+
+      if (failedSaves > 0) {
+        throw new Error("Some selected drafts failed to save. Please try again.");
+      }
+
+      const duplicateNote =
+        duplicateSkips > 0
+          ? ` (${duplicateSkips} duplicate${duplicateSkips !== 1 ? "s" : ""} skipped)`
+          : "";
+      setSuccess(
+        `Approved ${transformedQuestions.length} question${transformedQuestions.length !== 1 ? "s" : ""}${duplicateNote}.`
+      );
+      setTimeout(() => setSuccess(""), 3000);
+    } catch (err: any) {
+      setError(err?.message || "Failed to approve generated drafts.");
+    } finally {
+      setApprovingGeneratedDrafts(false);
     }
   };
 
@@ -513,6 +617,8 @@ export default function QuizzesPage() {
                   : newQuestion.type === "true_false"
                     ? newQuestion.trueFalseAnswer
                     : newQuestion.fillBlankAnswer,
+              fill_blank_answer_mode:
+                newQuestion.type === "fill_blank" ? newQuestion.fillBlankAnswerMode : null,
               source_lesson_id: newQuestion.source || null,
               source_type: newQuestion.source ? newQuestion.sourceType : null,
             })
@@ -528,6 +634,8 @@ export default function QuizzesPage() {
                   : newQuestion.type === "true_false"
                     ? newQuestion.trueFalseAnswer
                     : newQuestion.fillBlankAnswer,
+              fill_blank_answer_mode:
+                newQuestion.type === "fill_blank" ? newQuestion.fillBlankAnswerMode : null,
               source_lesson_id: newQuestion.source || undefined,
               source_type: newQuestion.sourceType,
             });
@@ -539,6 +647,7 @@ export default function QuizzesPage() {
         question: question.question,
         options: question.options,
         correctAnswer: question.correct_answer,
+        fillBlankAnswerMode: question.fill_blank_answer_mode ?? "term_only",
         source: question.source_lesson_id,
         sourceType: question.source_type,
         createdAt: question.created_at,
@@ -566,6 +675,7 @@ export default function QuizzesPage() {
         correctAnswer: 0,
         trueFalseAnswer: true,
         fillBlankAnswer: "",
+        fillBlankAnswerMode: "term_only",
         source: "",
         sourceType: "lesson",
       });
@@ -709,6 +819,69 @@ export default function QuizzesPage() {
     setSelectedFadeInId(null);
   };
 
+  const handleOpenManageQuestionsPage = async () => {
+    setError("");
+    setSuccess("");
+    try {
+      if (editingQuiz?.id) {
+        window.open(
+          `/prof/courses/${courseId}/quizzes/${editingQuiz.id}/manage-questions`,
+          "_blank",
+          "noopener,noreferrer"
+        );
+        return;
+      }
+
+      if (creatingQuizForManageQuestions) return;
+
+      if (!quizName.trim()) {
+        setError("Please enter a quiz name first.");
+        return;
+      }
+
+      setCreatingQuizForManageQuestions(true);
+      const pendingTab = window.open("about:blank", "_blank", "noopener,noreferrer");
+      if (!pendingTab) {
+        throw new Error("Popup was blocked. Please allow popups and try again.");
+      }
+      const maxAttemptsNumber =
+        quizMaxAttempts.trim() === ""
+          ? null
+          : Number.isFinite(Number(quizMaxAttempts))
+            ? Math.max(1, Math.round(Number(quizMaxAttempts)))
+            : null;
+      const pointsPerQuestionNumber =
+        quizPointsPerQuestion.trim() === ""
+          ? 10
+          : Number.isFinite(Number(quizPointsPerQuestion))
+            ? Math.min(100, Math.max(1, Math.round(Number(quizPointsPerQuestion))))
+            : 10;
+      const quiz = await createQuiz(
+        courseId,
+        {
+          name: quizName.trim(),
+          type: quizType,
+          category: quizCategory,
+          due_date: quizDueDate ? new Date(quizDueDate).toISOString() : undefined,
+          max_attempts: maxAttemptsNumber,
+          points_per_question: pointsPerQuestionNumber,
+          reveal_correct_answers: quizRevealCorrectAnswers,
+        },
+        []
+      );
+
+      setQuizzes((prev) => [...prev, { ...quiz, questions: [] }]);
+      setCreateQuizModalOpen(false);
+      setEditingQuiz(null);
+      pendingTab.location.href = `/prof/courses/${courseId}/quizzes/${quiz.id}/manage-questions`;
+    } catch (err: any) {
+      console.error("Error opening manage questions page:", err);
+      setError(err?.message || "Failed to open manage questions.");
+    } finally {
+      setCreatingQuizForManageQuestions(false);
+    }
+  };
+
   const renderQuizAdvancedOptions = () => (
     <>
       <div className="flex items-start gap-3 rounded-xl border border-gray-200 bg-gray-50/50 p-4 max-lg:p-3">
@@ -789,6 +962,7 @@ export default function QuizzesPage() {
         correctAnswer: 0,
         trueFalseAnswer: true,
         fillBlankAnswer: "",
+        fillBlankAnswerMode: "term_only",
         source: "",
         sourceType: "lesson",
       });
@@ -935,6 +1109,79 @@ export default function QuizzesPage() {
               <span className="truncate">Generate More</span>
             </button>
           </div>
+          {generatedDraftQuestions.length > 0 && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-3 sm:p-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div>
+                  <p className="text-sm font-semibold text-amber-900">Generated Draft Questions</p>
+                  <p className="text-xs text-amber-800/90">
+                    Review and approve drafts before adding them to the question bank.
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGeneratedDraftIds(generatedDraftQuestions.map((q) => q.draftId))}
+                    className="rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                  >
+                    Select all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedGeneratedDraftIds([])}
+                    className="rounded-md border border-amber-300 bg-white px-2.5 py-1.5 text-xs font-medium text-amber-900 hover:bg-amber-100"
+                  >
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleDiscardGeneratedDrafts}
+                    className="rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                  >
+                    Discard all
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleApproveGeneratedDrafts}
+                    disabled={approvingGeneratedDrafts || selectedGeneratedDraftIds.length === 0}
+                    className="rounded-md border border-red-600 bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {approvingGeneratedDrafts
+                      ? "Approving..."
+                      : `Approve selected (${selectedGeneratedDraftIds.length})`}
+                  </button>
+                </div>
+              </div>
+              <ul className="mt-3 max-h-48 space-y-2 overflow-y-auto">
+                {generatedDraftQuestions.map((question, index) => {
+                  const selected = selectedGeneratedDraftIds.includes(question.draftId);
+                  return (
+                    <li
+                      key={question.draftId}
+                      className={`rounded-lg border px-3 py-2 ${
+                        selected ? "border-amber-300 bg-white" : "border-amber-200/80 bg-white/70"
+                      }`}
+                    >
+                      <label className="flex cursor-pointer items-start gap-2">
+                        <input
+                          type="checkbox"
+                          checked={selected}
+                          onChange={() => handleToggleGeneratedDraft(question.draftId)}
+                          className="mt-0.5 h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        />
+                        <div className="min-w-0">
+                          <p className="text-xs font-semibold uppercase tracking-wide text-amber-800">
+                            Draft {index + 1} • {question.type.replace("_", " ")}
+                          </p>
+                          <p className="mt-1 text-sm text-gray-800">{question.question}</p>
+                        </div>
+                      </label>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          )}
           <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
             <div>
               <label className="mb-1 block text-xs font-medium text-gray-600">Question type</label>
@@ -1139,7 +1386,7 @@ export default function QuizzesPage() {
               <div key={category}>
                 <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
                   <h2 className="text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
-                  <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
+                  <span className="inline-flex items-center rounded-full border border-gray-900 bg-white px-3 py-1 text-sm font-semibold text-gray-900">
                     {categoryQuizzes.length} quiz{categoryQuizzes.length !== 1 ? "zes" : ""}
                   </span>
                 </div>
@@ -1235,6 +1482,7 @@ export default function QuizzesPage() {
                             question: q.question,
                             options: q.options,
                             correctAnswer: q.correct_answer,
+                            fillBlankAnswerMode: q.fill_blank_answer_mode ?? "term_only",
                             source: q.source_lesson_id,
                             sourceType: q.source_type,
                             createdAt: q.created_at,
@@ -1357,17 +1605,6 @@ export default function QuizzesPage() {
                   }`}
                 >
                   Quiz Settings
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setEditQuizTab("question_bank")}
-                  className={`shrink-0 flex-1 text-center px-3 sm:px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
-                    editQuizTab === "question_bank"
-                      ? "text-red-700 border-red-600"
-                      : "text-gray-600 border-transparent hover:text-red-600"
-                  }`}
-                >
-                  Question Bank
                 </button>
                 {editingQuiz && (
                   <button
@@ -1499,107 +1736,26 @@ export default function QuizzesPage() {
                   </details>
                 </div>
 
-                {/* Selected Questions Section */}
-                <div className="mb-6">
-                  <div className="mb-4 rounded-xl border border-gray-200 bg-white px-4 py-3">
-                    <div className="flex items-center justify-between gap-3">
-                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Selected Questions</h3>
-                      <div className="flex items-center gap-2">
-                        <span className="inline-flex items-center rounded-md border border-gray-300 bg-gray-50 px-2 py-1 text-xs font-medium text-gray-700">
-                          {selectedQuestions.length} total
-                        </span>
-                        {selectedQuestions.length > 0 && (
-                          <button
-                            onClick={() => setSelectedQuestions([])}
-                            className="text-xs sm:text-sm text-red-600 hover:text-red-700 font-medium"
-                          >
-                            Clear all
-                          </button>
-                        )}
-                      </div>
+                <div className="mb-6 rounded-xl border border-gray-200 bg-white px-4 py-4">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <h3 className="text-base sm:text-lg font-semibold text-gray-900">Questions Management</h3>
+                      <p className="mt-1 text-sm text-gray-600">
+                        Manage Selected Questions and Question Bank on a dedicated page.
+                      </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={handleOpenManageQuestionsPage}
+                      disabled={creatingQuizForManageQuestions}
+                      className="inline-flex items-center justify-center rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                      {creatingQuizForManageQuestions ? "Preparing..." : "Manage Questions"}
+                    </button>
                   </div>
-
-                  {selectedQuestions.length === 0 ? (
-                    <div className="bg-gray-50 rounded-xl p-8 text-center">
-                      <p className="text-gray-500">No questions selected yet. Open the Question Bank tab to add questions.</p>
-                    </div>
-                  ) : (
-                    <div className="space-y-3">
-                      {[
-                        { key: "multiple_choice", label: "Multiple Choice", items: selectedQuestionsByType.multiple_choice },
-                        { key: "fill_blank", label: "Fill in the Blank", items: selectedQuestionsByType.fill_blank },
-                        { key: "true_false", label: "True or False", items: selectedQuestionsByType.true_false },
-                      ].map((group) => (
-                        <section key={group.key} className="rounded-xl border border-gray-200 bg-white h-[260px] flex flex-col">
-                          <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                            <h4 className="text-sm font-semibold text-gray-800">{group.label}</h4>
-                            <span className="text-xs font-medium px-2 py-0.5 rounded-md bg-gray-50 border border-gray-200 text-gray-700">
-                              {group.items.length}
-                            </span>
-                          </div>
-                          {group.items.length === 0 ? (
-                            <div className="flex-1 flex items-center px-4">
-                              <p className="text-sm text-gray-500">No selected questions in this category.</p>
-                            </div>
-                          ) : (
-                            <ul className="divide-y divide-gray-100 flex-1 overflow-y-auto max-lg:overscroll-y-contain max-lg:[-webkit-overflow-scrolling:touch]">
-                              {group.items.map((question, idx) => (
-                                <FadeInSelectedRow
-                                  key={question.id}
-                                  active={selectedFadeInId === question.id}
-                                  className="px-4 py-3"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-md bg-gray-100 text-xs font-semibold text-gray-700">
-                                      {idx + 1}
-                                    </div>
-                                    <div className="min-w-0 flex-1">
-                                      <p className="text-sm leading-6 text-gray-900 break-words">
-                                        {question.question}
-                                      </p>
-                                      {question.source && (
-                                        <p className="mt-1 text-xs text-gray-500">
-                                          {question.sourceType === "lesson" ? "Lesson source" : "PDF source"}
-                                        </p>
-                                      )}
-                                    </div>
-                                    <div className="shrink-0 flex items-center gap-2">
-                                      <button
-                                        type="button"
-                                        onClick={() => openQuestionEditor(question)}
-                                        className="rounded-md border border-gray-300 px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50"
-                                        title="Edit question"
-                                      >
-                                        Edit
-                                      </button>
-                                      <button
-                                        type="button"
-                                        onClick={() => handleQuestionRemove(question.id)}
-                                        className="rounded-md border border-red-200 px-2.5 py-1 text-xs font-medium text-red-700 hover:bg-red-50"
-                                        title="Remove question"
-                                      >
-                                        Remove
-                                      </button>
-                                    </div>
-                                  </div>
-                                </FadeInSelectedRow>
-                              ))}
-                            </ul>
-                          )}
-                        </section>
-                      ))}
-                    </div>
-                  )}
                 </div>
 
                   </>
-                )}
-
-                {editQuizTab === "question_bank" && (
-                  <div className="flex min-h-[min(420px,58vh)] flex-1 flex-col overflow-hidden rounded-2xl border border-gray-200 bg-gray-50">
-                    {renderQuestionBankPanel({ compact: false })}
-                  </div>
                 )}
 
                 {/* Manage Retakes (only for editing an existing quiz) */}
@@ -1961,6 +2117,22 @@ export default function QuizzesPage() {
                       placeholder="Enter the correct answer"
                       className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                     />
+                    <label className="block text-sm font-semibold text-gray-700 mt-3 mb-2">
+                      Answer Mode Tag
+                    </label>
+                    <select
+                      value={newQuestion.fillBlankAnswerMode}
+                      onChange={(e) =>
+                        setNewQuestion({
+                          ...newQuestion,
+                          fillBlankAnswerMode: e.target.value as "symbol_only" | "term_only",
+                        })
+                      }
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                    >
+                      <option value="term_only">Term only</option>
+                      <option value="symbol_only">Symbol only</option>
+                    </select>
                   </div>
                 )}
 

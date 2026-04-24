@@ -290,7 +290,10 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
 - The question context should make it clear what type of answer is expected
 - Answers should be specific terms or phrases found in or directly derived from the PDF content
 - Avoid overly vague blanks - be specific about what should fill the blank
-- Questions should test recall and understanding of key terminology and concepts`;
+- Questions should test recall and understanding of key terminology and concepts
+- For every fill-in-the-blank question, choose fill_blank_answer_mode:
+  - symbol_only: answer must be a symbol (e.g., ∩, ∪, ∈)
+  - term_only: answer must be a word/term (e.g., intersection, union, belongs to)`;
     }
   }
 
@@ -305,8 +308,8 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
       : '"correct_answer": true';
   } else {
     jsonExample = forStudyAid
-      ? '"correct_answer": "answer text",\n    "correct_explanation": "Brief explanation of why this fill-in answer is correct.",\n    "incorrect_explanation": "Brief explanation of why an incorrect fill-in response would be wrong."'
-      : '"correct_answer": "answer text"';
+      ? '"correct_answer": "answer text",\n    "fill_blank_answer_mode": "term_only",\n    "correct_explanation": "Brief explanation of why this fill-in answer is correct.",\n    "incorrect_explanation": "Brief explanation of why an incorrect fill-in response would be wrong."'
+      : '"correct_answer": "answer text",\n    "fill_blank_answer_mode": "term_only"';
   }
 
   const purposeContext = forStudyAid 
@@ -540,6 +543,11 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
             }
           : parsedAnswer;
       } else if (questionType === "fill_blank") {
+        const parsedMode =
+          q.fill_blank_answer_mode === "symbol_only" ||
+          q.fill_blank_answer_mode === "term_only"
+            ? q.fill_blank_answer_mode
+            : "term_only";
         if (!q.correct_answer || typeof q.correct_answer !== "string") {
           console.warn(`Question ${index} has invalid correct_answer, using default`);
           questionObj.correct_answer = forStudyAid
@@ -549,6 +557,7 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
                 incorrect_explanation: "Not quite. Recheck the key term used in the lesson context.",
               }
             : "answer";
+          questionObj.fill_blank_answer_mode = parsedMode;
         } else {
           const answer = q.correct_answer.trim();
           questionObj.correct_answer = forStudyAid
@@ -564,6 +573,7 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
                     : "Not correct. Check the exact term or phrase used in the lesson.",
               }
             : normalizeGeneratedText(answer);
+          questionObj.fill_blank_answer_mode = parsedMode;
         }
       }
 
@@ -615,6 +625,7 @@ function generateFallbackQuestions(text: string, questionType: string, lessonId:
           cleanSentence.replace(/\w+/g, (match, offset) => (offset === 0 ? "______" : match)) + "?"
         ),
         correct_answer: "answer",
+        fill_blank_answer_mode: "term_only",
         source_lesson_id: lessonId,
         source_type: "lesson" as const,
         created_at: new Date().toISOString(),

@@ -7,6 +7,7 @@ import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { getQuizzes, submitQuizAnswers } from "@/lib/supabase/queries/quizzes";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
 import type { Question } from "@/lib/supabase/queries/quizzes";
+import { FillBlankModeTag, FillBlankSymbolBank } from "@/components/study/FillBlankSupport";
 
 export default function TakeQuizPage() {
   const params = useParams();
@@ -35,6 +36,7 @@ export default function TakeQuizPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [timeRemaining, setTimeRemaining] = useState<number | null>(null);
+  const [lockTimeRemaining, setLockTimeRemaining] = useState<number | null>(null);
   const [error, setError] = useState("");
 
   const submitQuizRef = useRef<() => Promise<void>>(async () => {});
@@ -117,6 +119,17 @@ export default function TakeQuizPage() {
         } else if (foundQuiz.time_limit) {
           setTimeRemaining(foundQuiz.time_limit * 60);
         }
+
+        if (foundQuiz.due_date) {
+          const lockAt = new Date(foundQuiz.due_date).getTime();
+          if (!Number.isNaN(lockAt)) {
+            const left = Math.max(0, Math.floor((lockAt - Date.now()) / 1000));
+            setLockTimeRemaining(left);
+            if (left <= 0) {
+              queueMicrotask(() => void submitQuizRef.current());
+            }
+          }
+        }
       } catch (err: any) {
         console.error("Error fetching quiz:", err);
         setError(err.message || "Failed to load quiz");
@@ -129,6 +142,12 @@ export default function TakeQuizPage() {
 
   const handleAnswerChange = (questionId: string, answer: string | number | boolean) => {
     setAnswers((prev) => ({ ...prev, [questionId]: answer }));
+  };
+  const handleFillBlankInsert = (questionId: string, symbol: string) => {
+    setAnswers((prev) => ({
+      ...prev,
+      [questionId]: `${String(prev[questionId] ?? "")}${symbol}`,
+    }));
   };
 
   const handleSubmitQuiz = async () => {
@@ -175,10 +194,30 @@ export default function TakeQuizPage() {
     return () => clearInterval(timer);
   }, [timeRemaining]);
 
+  useEffect(() => {
+    if (lockTimeRemaining === null || lockTimeRemaining <= 0) return;
+
+    const timer = setInterval(() => {
+      setLockTimeRemaining((prev) => {
+        if (prev === null || prev <= 1) {
+          void submitQuizRef.current();
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [lockTimeRemaining]);
+
   const formatTime = (seconds: number) => {
-    const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
-    return `${mins}:${secs.toString().padStart(2, "0")}`;
+    const safe = Math.max(0, Math.floor(seconds));
+    const hours = Math.floor(safe / 3600);
+    const mins = Math.floor((safe % 3600) / 60);
+    const secs = safe % 60;
+    return `${hours.toString().padStart(2, "0")}:${mins.toString().padStart(2, "0")}:${secs
+      .toString()
+      .padStart(2, "0")}`;
   };
 
   const answeredCount = Object.keys(answers).length;
@@ -224,6 +263,7 @@ export default function TakeQuizPage() {
   }
 
   const timerUrgent = timeRemaining !== null && timeRemaining > 0 && timeRemaining < 300;
+  const lockTimerUrgent = lockTimeRemaining !== null && lockTimeRemaining > 0 && lockTimeRemaining < 300;
 
   return (
     <div className={`${shell} pb-28 sm:pb-24`}>
@@ -243,7 +283,13 @@ export default function TakeQuizPage() {
         </header>
 
         <div
-          className={`mb-8 grid gap-4 ${timeRemaining !== null && timeRemaining > 0 ? "sm:grid-cols-2" : "sm:grid-cols-1"}`}
+          className={`mb-8 grid gap-4 ${
+            (timeRemaining !== null && timeRemaining > 0) && (lockTimeRemaining !== null && lockTimeRemaining > 0)
+              ? "sm:grid-cols-3"
+              : (timeRemaining !== null && timeRemaining > 0) || (lockTimeRemaining !== null && lockTimeRemaining > 0)
+                ? "sm:grid-cols-2"
+                : "sm:grid-cols-1"
+          }`}
         >
           <div className="bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border border-gray-200 px-5 py-4 sm:px-6 sm:py-5">
             <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Progress</p>
@@ -259,6 +305,18 @@ export default function TakeQuizPage() {
             >
               <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Time remaining</p>
               <p className="text-2xl font-bold tabular-nums mt-1 text-red-600">{formatTime(timeRemaining)}</p>
+            </div>
+          )}
+          {lockTimeRemaining !== null && lockTimeRemaining > 0 && (
+            <div
+              className={`bg-white/80 backdrop-blur-sm rounded-2xl shadow-lg border px-5 py-4 sm:px-6 sm:py-5 sm:text-right ${
+                lockTimerUrgent ? "border-rose-200 ring-1 ring-rose-100" : "border-gray-200"
+              }`}
+            >
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Locks in</p>
+              <p className="text-2xl font-bold tabular-nums mt-1 text-rose-600">
+                {formatTime(lockTimeRemaining)}
+              </p>
             </div>
           )}
         </div>
@@ -280,6 +338,11 @@ export default function TakeQuizPage() {
                 <span className="ml-3 text-sm text-gray-500">
                   {formatType(question.type)}
                 </span>
+                {question.type === "fill_blank" && (
+                  <span className="ml-3">
+                    <FillBlankModeTag mode={question.fill_blank_answer_mode} />
+                  </span>
+                )}
               </div>
               <h2 className="text-sm sm:text-lg font-semibold text-gray-800 mb-4">{question.question}</h2>
 
@@ -336,13 +399,19 @@ export default function TakeQuizPage() {
               )}
 
               {question.type === "fill_blank" && (
-                <input
-                  type="text"
-                  value={(answers[question.id] as string) || ""}
-                  onChange={(e) => handleAnswerChange(question.id, e.target.value)}
-                  placeholder="Enter your answer"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent"
-                />
+                <div>
+                  <input
+                    type="text"
+                    value={(answers[question.id] as string) || ""}
+                    onChange={(e) => handleAnswerChange(question.id, e.target.value)}
+                    placeholder="Enter your answer"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-lg text-gray-800 placeholder:text-gray-500 focus:ring-2 focus:ring-red-500 focus:border-transparent"
+                  />
+                  <FillBlankSymbolBank
+                    mode={question.fill_blank_answer_mode}
+                    onInsert={(symbol) => handleFillBlankInsert(question.id, symbol)}
+                  />
+                </div>
               )}
             </div>
           ))}

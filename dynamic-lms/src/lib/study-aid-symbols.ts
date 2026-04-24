@@ -10,6 +10,30 @@ export const DISCRETE_SYMBOL_ALIASES: Array<{ pattern: RegExp; replacement: stri
   { pattern: /!=/g, replacement: "≠" },
 ];
 
+export const DISCRETE_SYMBOL_BANK = [
+  "∪",
+  "∩",
+  "⊆",
+  "⊂",
+  "⊇",
+  "⊃",
+  "∈",
+  "∉",
+  "∅",
+  "∀",
+  "∃",
+  "¬",
+  "∧",
+  "∨",
+  "→",
+  "↔",
+  "≠",
+  "≤",
+  "≥",
+] as const;
+
+export type FillBlankAnswerMode = "symbol_only" | "term_only";
+
 export function normalizeStudyAidExpression(raw: unknown): string {
   let text = String(raw ?? "").trim().toLowerCase();
   if (!text) return "";
@@ -31,5 +55,29 @@ export function normalizeStudyAidExpression(raw: unknown): string {
 
 export function areStudyAidAnswersEquivalent(studentAnswer: unknown, expectedAnswer: unknown): boolean {
   return normalizeStudyAidExpression(studentAnswer) === normalizeStudyAidExpression(expectedAnswer);
+}
+
+function hasSymbolCharacter(raw: unknown): boolean {
+  const text = String(raw ?? "");
+  if (!text) return false;
+  return DISCRETE_SYMBOL_BANK.some((symbol) => text.includes(symbol));
+}
+
+export function evaluateFillBlankAnswerByMode(
+  studentAnswer: unknown,
+  expectedAnswer: unknown,
+  mode?: FillBlankAnswerMode | null
+): boolean {
+  const answerMode = mode ?? "term_only";
+  const equivalent = areStudyAidAnswersEquivalent(studentAnswer, expectedAnswer);
+  if (!equivalent) return false;
+
+  if (answerMode === "symbol_only") {
+    return hasSymbolCharacter(studentAnswer);
+  }
+  if (answerMode === "term_only") {
+    return !hasSymbolCharacter(studentAnswer);
+  }
+  return true;
 }
 

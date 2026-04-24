@@ -1,5 +1,8 @@
 import { createClient } from "../client";
 import { buildQuestionSignature } from "@/lib/questions/signature";
+import { evaluateFillBlankAnswerByMode } from "@/lib/study-aid-symbols";
+
+export type FillBlankAnswerMode = "symbol_only" | "term_only";
 
 export interface Question {
   id: string;
@@ -10,6 +13,7 @@ export interface Question {
   question_signature?: string;
   options?: string[]; // JSON array for multiple choice
   correct_answer: string | number | boolean; // JSON
+  fill_blank_answer_mode?: FillBlankAnswerMode | null;
   source_lesson_id?: string;
   source_type?: "lesson" | "pdf";
   created_at: string;
@@ -189,6 +193,7 @@ export async function createQuestion(questionData: {
   question: string;
   options?: string[];
   correct_answer: string | number | boolean;
+  fill_blank_answer_mode?: FillBlankAnswerMode | null;
   source_lesson_id?: string;
   source_type?: "lesson" | "pdf";
 }): Promise<Question> {
@@ -236,6 +241,7 @@ export async function updateQuestion(
     question?: string;
     options?: string[] | null;
     correct_answer?: string | number | boolean;
+    fill_blank_answer_mode?: FillBlankAnswerMode | null;
     source_lesson_id?: string | null;
     source_type?: "lesson" | "pdf" | null;
   }
@@ -250,6 +256,9 @@ export async function updateQuestion(
   }
   if (Object.prototype.hasOwnProperty.call(updates, "correct_answer")) {
     payload.correct_answer = JSON.stringify(updates.correct_answer);
+  }
+  if (Object.prototype.hasOwnProperty.call(updates, "fill_blank_answer_mode")) {
+    payload.fill_blank_answer_mode = updates.fill_blank_answer_mode ?? null;
   }
   if (Object.prototype.hasOwnProperty.call(updates, "source_lesson_id")) {
     payload.source_lesson_id = updates.source_lesson_id ?? null;
@@ -585,7 +594,14 @@ export async function submitQuizAnswers(
 
     const normalizedStudentAnswer = normalizeComparableAnswer(answer.answer);
     const normalizedCorrectAnswer = normalizeComparableAnswer(correctAnswer);
-    const isCorrect = JSON.stringify(normalizedStudentAnswer) === JSON.stringify(normalizedCorrectAnswer);
+    const isCorrect =
+      question.type === "fill_blank"
+        ? evaluateFillBlankAnswerByMode(
+            normalizedStudentAnswer,
+            normalizedCorrectAnswer,
+            (question as any).fill_blank_answer_mode ?? "term_only"
+          )
+        : JSON.stringify(normalizedStudentAnswer) === JSON.stringify(normalizedCorrectAnswer);
     if (isCorrect) correctCount++;
 
     return {

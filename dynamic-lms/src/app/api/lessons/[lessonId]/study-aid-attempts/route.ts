@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { areStudyAidAnswersEquivalent } from "@/lib/study-aid-symbols";
+import { evaluateFillBlankAnswerByMode } from "@/lib/study-aid-symbols";
 
 export async function POST(
   request: NextRequest,
@@ -17,7 +17,11 @@ export async function POST(
       questionType: "multiple_choice" | "fill_blank";
       score: number;
       maxScore: number;
-      answers?: Array<{ student_answer: string; correct_answer: string }>;
+      answers?: Array<{
+        student_answer: string;
+        correct_answer: string;
+        fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
+      }>;
     };
 
     if (
@@ -76,7 +80,11 @@ export async function POST(
     let verifiedScore = Math.min(score, maxScore);
     if (questionType === "fill_blank" && Array.isArray(answers) && answers.length > 0) {
       const equivalentCount = answers.filter((entry) =>
-        areStudyAidAnswersEquivalent(entry.student_answer, entry.correct_answer)
+        evaluateFillBlankAnswerByMode(
+          entry.student_answer,
+          entry.correct_answer,
+          entry.fill_blank_answer_mode ?? "term_only"
+        )
       ).length;
       verifiedScore = Math.min(equivalentCount, maxScore);
     }

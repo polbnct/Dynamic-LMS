@@ -25,6 +25,13 @@ body {
   font-family: var(--font-sans), Arial, Helvetica, sans-serif;
 }
 
+/* Avoid black hover/flicker artifacts on Windows GPU compositing.
+   Many cards use translucent surfaces + backdrop blur + hover shadow/transform. */
+[class*="backdrop-blur"] {
+  -webkit-backdrop-filter: none !important;
+  backdrop-filter: none !important;
+}
+
 /* Blob animation for login page */
 @keyframes blob {
   0% {

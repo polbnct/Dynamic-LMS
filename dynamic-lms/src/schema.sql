@@ -114,6 +114,7 @@ CREATE TABLE public.questions (
   question_signature TEXT,
   options JSONB, -- For multiple choice: ["A", "B", "C"]
   correct_answer JSONB NOT NULL,
+  fill_blank_answer_mode TEXT CHECK (fill_blank_answer_mode IN ('symbol_only', 'term_only')),
   source_lesson_id UUID REFERENCES public.lessons(id) ON DELETE SET NULL,
   source_type source_origin,
   created_at TIMESTAMPTZ DEFAULT NOW()
@@ -122,6 +123,26 @@ CREATE TABLE public.questions (
 CREATE UNIQUE INDEX IF NOT EXISTS idx_questions_course_type_signature_unique
   ON public.questions (course_id, question_signature)
   WHERE question_signature IS NOT NULL;
+
+ALTER TABLE public.questions
+  ADD COLUMN IF NOT EXISTS fill_blank_answer_mode TEXT;
+
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_constraint
+    WHERE conname = 'questions_fill_blank_answer_mode_check'
+  ) THEN
+    ALTER TABLE public.questions
+      ADD CONSTRAINT questions_fill_blank_answer_mode_check
+      CHECK (fill_blank_answer_mode IN ('symbol_only', 'term_only'));
+  END IF;
+END $$;
+
+UPDATE public.questions
+SET fill_blank_answer_mode = 'term_only'
+WHERE type = 'fill_blank' AND (fill_blank_answer_mode IS NULL OR fill_blank_answer_mode = '');
 
 -- 10. Quizzes table
 CREATE TABLE public.quizzes (

@@ -35,7 +35,7 @@ export async function GET(
     const questionIds = links.map((l: { question_id: string }) => l.question_id);
     const { data: questions, error: qError } = await supabase
       .from("questions")
-      .select("id, type, question, options, correct_answer")
+      .select("id, type, question, options, correct_answer, fill_blank_answer_mode")
       .in("id", questionIds);
 
     if (qError || !questions) {
@@ -56,6 +56,7 @@ export async function GET(
         typeof q.correct_answer === "string"
           ? JSON.parse(q.correct_answer)
           : q.correct_answer,
+      fill_blank_answer_mode: q.fill_blank_answer_mode ?? null,
     }));
 
     return NextResponse.json({ questions: formatted });
@@ -84,6 +85,7 @@ export async function POST(
         type: "multiple_choice" | "true_false" | "fill_blank" | "summary";
         question: string;
         options?: string[];
+        fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
         correct_answer:
           | number
           | boolean
@@ -155,6 +157,10 @@ export async function POST(
         q.type === "multiple_choice" && Array.isArray(q.options)
           ? JSON.stringify(q.options)
           : null;
+      const fillBlankMode =
+        q.type === "fill_blank"
+          ? (q.fill_blank_answer_mode ?? "term_only")
+          : null;
       const correctAnswerJson =
         q.correct_answer !== undefined && q.correct_answer !== null
           ? JSON.stringify(q.correct_answer)
@@ -183,6 +189,7 @@ export async function POST(
           question_signature: questionSignature,
           options: optionsJson,
           correct_answer: correctAnswerJson ?? JSON.stringify(""),
+          fill_blank_answer_mode: fillBlankMode,
           source_lesson_id: lessonId,
           source_type: "lesson",
         })

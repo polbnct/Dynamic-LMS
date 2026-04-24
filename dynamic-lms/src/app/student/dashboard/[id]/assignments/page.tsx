@@ -341,7 +341,7 @@ export default function StudentAssignmentsPage() {
                   {/* Category Header */}
                   <div className="mb-4 flex flex-wrap items-center gap-2 sm:gap-3">
                     <h2 className="text-xl sm:text-2xl font-bold text-gray-800">{categoryLabels[category]}</h2>
-                    <span className="px-3 py-1 bg-red-100 text-red-700 rounded-full text-sm font-semibold">
+                  <span className="inline-flex items-center rounded-full border border-gray-900 bg-white px-3 py-1 text-sm font-semibold text-gray-900">
                       {categoryAssignments.length} assignment{categoryAssignments.length !== 1 ? "s" : ""}
                     </span>
                   </div>

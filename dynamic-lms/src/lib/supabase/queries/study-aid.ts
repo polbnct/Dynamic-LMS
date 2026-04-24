@@ -1,3 +1,5 @@
+export type FillBlankAnswerMode = "symbol_only" | "term_only";
+
 export interface StudyAidQuestion {
   id: string;
   // "summary" is treated as a separate, non-quiz-bank type for per-lesson summaries
@@ -13,6 +15,7 @@ export interface StudyAidQuestion {
         correct_explanation?: string;
         incorrect_explanation?: string;
       };
+  fill_blank_answer_mode?: FillBlankAnswerMode | null;
 }
 
 export interface StudentLessonFlashcard {
@@ -120,6 +123,7 @@ export async function addLessonStudyQuestions(
           correct_explanation?: string;
           incorrect_explanation?: string;
         };
+    fill_blank_answer_mode?: FillBlankAnswerMode | null;
   }>
 ): Promise<{ added: number; skippedDuplicates: number }> {
   const res = await fetch(`/api/lessons/${lessonId}/study-questions`, {
@@ -151,6 +155,7 @@ export async function updateLessonStudyQuestion(
           correct_explanation?: string;
           incorrect_explanation?: string;
         };
+    fill_blank_answer_mode?: FillBlankAnswerMode | null;
   }
 ): Promise<StudyAidQuestion> {
   const res = await fetch(
@@ -188,7 +193,11 @@ export async function submitStudyAidAttempt(
   questionType: "multiple_choice" | "fill_blank",
   score: number,
   maxScore: number,
-  answers?: Array<{ student_answer: string; correct_answer: string }>
+  answers?: Array<{
+    student_answer: string;
+    correct_answer: string;
+    fill_blank_answer_mode?: FillBlankAnswerMode | null;
+  }>
 ): Promise<{ success: boolean }> {
   const res = await fetch(`/api/lessons/${lessonId}/study-aid-attempts`, {
     method: "POST",
