@@ -156,6 +156,20 @@ export default function ManageQuizQuestionsPage() {
         quizId,
         selectedQuestions.map((q) => q.id)
       );
+      if (typeof window !== "undefined" && window.opener) {
+        try {
+          window.opener.postMessage(
+            {
+              type: "quiz-questions-updated",
+              quizId,
+              courseId,
+            },
+            "*"
+          );
+        } catch (syncErr) {
+          console.warn("Quiz question sync event failed:", syncErr);
+        }
+      }
       setSuccess("Quiz questions updated.");
       // This page is opened in a new tab from Quiz Settings; close it after successful save.
       window.close();

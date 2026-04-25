@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
 import ProfessorNavbar from "@/utils/ProfessorNavbar";
@@ -100,6 +100,12 @@ interface GeneratedDraftQuestion {
   source_type?: "lesson" | "pdf" | null;
 }
 
+type QuizQuestionsUpdatedMessage = {
+  type: "quiz-questions-updated";
+  quizId: string;
+  courseId: string;
+};
+
 // Question type definition
 type QuestionType = "multiple_choice" | "true_false" | "fill_blank";
 
@@ -195,9 +201,86 @@ export default function QuizzesPage() {
   const [grantConfirmStudent, setGrantConfirmStudent] = useState<any>(null);
   const [grantingFromConfirm, setGrantingFromConfirm] = useState(false);
   const [creatingQuizForManageQuestions, setCreatingQuizForManageQuestions] = useState(false);
+  const [pendingExternalQuestionSync, setPendingExternalQuestionSync] = useState(false);
   const { handledCourses } = useProfessorCourses();
 
   useSyncMessagesToToast(error, success);
+
+  const mapQuizQuestionToUi = useCallback(
+    (q: any): Question => ({
+      id: q.id,
+      type: q.type,
+      question: q.question,
+      options: q.options,
+      correctAnswer: q.correct_answer,
+      fillBlankAnswerMode: q.fill_blank_answer_mode ?? "term_only",
+      source: q.source_lesson_id,
+      sourceType: q.source_type,
+      createdAt: q.created_at,
+    }),
+    []
+  );
+
+  const refreshQuizQuestionsInModal = useCallback(
+    async (quizId: string) => {
+      const updatedQuizzes = await getQuizzes(courseId);
+      setQuizzes(updatedQuizzes);
+
+      const refreshedQuiz = updatedQuizzes.find((quiz) => quiz.id === quizId);
+      if (!refreshedQuiz) return null;
+
+      setEditingQuiz((prev: any) => (prev?.id === quizId ? refreshedQuiz : prev));
+      setSelectedQuestions((refreshedQuiz.questions ?? []).map(mapQuizQuestionToUi));
+      return refreshedQuiz;
+    },
+    [courseId, mapQuizQuestionToUi]
+  );
+
+  useEffect(() => {
+    const handleManageQuestionsUpdate = async (event: MessageEvent) => {
+      if (typeof window === "undefined") return;
+      if (event.origin !== window.location.origin) return;
+
+      const data = event.data as QuizQuestionsUpdatedMessage | null;
+      if (!data || data.type !== "quiz-questions-updated") return;
+      if (data.courseId !== courseId) return;
+      if (!editingQuiz?.id || data.quizId !== editingQuiz.id) return;
+
+      try {
+        await refreshQuizQuestionsInModal(data.quizId);
+        setPendingExternalQuestionSync(false);
+        setSuccess("Quiz questions synced from manager.");
+        setTimeout(() => setSuccess(""), 2500);
+      } catch (syncErr: any) {
+        setError(syncErr?.message || "Failed to sync updated quiz questions.");
+      }
+    };
+
+    window.addEventListener("message", handleManageQuestionsUpdate);
+    return () => window.removeEventListener("message", handleManageQuestionsUpdate);
+  }, [courseId, editingQuiz?.id, refreshQuizQuestionsInModal]);
+
+  useEffect(() => {
+    if (!createQuizModalOpen || !editingQuiz?.id || !pendingExternalQuestionSync) return;
+
+    let cancelled = false;
+    const handleWindowFocus = async () => {
+      try {
+        await refreshQuizQuestionsInModal(editingQuiz.id);
+        if (!cancelled) setPendingExternalQuestionSync(false);
+      } catch (syncErr: any) {
+        if (!cancelled) {
+          setError(syncErr?.message || "Failed to refresh quiz questions after returning.");
+        }
+      }
+    };
+
+    window.addEventListener("focus", handleWindowFocus);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", handleWindowFocus);
+    };
+  }, [createQuizModalOpen, editingQuiz?.id, pendingExternalQuestionSync, refreshQuizQuestionsInModal]);
 
   useEffect(() => {
     async function fetchCourse() {
@@ -698,12 +781,37 @@ export default function QuizzesPage() {
       return;
     }
 
-    if (selectedQuestions.length === 0) {
+    let questionsForSave = selectedQuestions;
+    if (editingQuiz?.id && pendingExternalQuestionSync) {
+      try {
+        const refreshedQuiz = await refreshQuizQuestionsInModal(editingQuiz.id);
+        const refreshedQuestions = (refreshedQuiz?.questions ?? []).map(mapQuizQuestionToUi);
+        questionsForSave = refreshedQuestions;
+        setSelectedQuestions(refreshedQuestions);
+        setPendingExternalQuestionSync(false);
+      } catch (syncErr: any) {
+        console.error("Failed to sync external quiz question changes before save:", syncErr);
+      }
+    }
+    if (questionsForSave.length === 0 && editingQuiz?.id) {
+      try {
+        const refreshedQuiz = await refreshQuizQuestionsInModal(editingQuiz.id);
+        const refreshedQuestions = (refreshedQuiz?.questions ?? []).map(mapQuizQuestionToUi);
+        if (refreshedQuestions.length > 0) {
+          questionsForSave = refreshedQuestions;
+          setSelectedQuestions(refreshedQuestions);
+        }
+      } catch (syncErr: any) {
+        console.error("Failed to refresh quiz questions before save:", syncErr);
+      }
+    }
+
+    if (questionsForSave.length === 0) {
       setError("Please select at least one question for the quiz.");
       return;
     }
 
-    const questionIds = selectedQuestions.map((q) => q.id).filter((id) => id && id.trim() !== "");
+    const questionIds = questionsForSave.map((q) => q.id).filter((id) => id && id.trim() !== "");
     if (questionIds.length === 0) {
       setError("No valid question IDs found. Please select questions again.");
       return;
@@ -728,6 +836,17 @@ export default function QuizzesPage() {
 
     try {
       if (editingQuiz) {
+        // Always reconcile latest DB question links before final save to avoid stale modal state.
+        const latestQuiz = await refreshQuizQuestionsInModal(editingQuiz.id);
+        const latestQuestionsForSave = (latestQuiz?.questions ?? []).map(mapQuizQuestionToUi);
+        if (latestQuestionsForSave.length > 0) {
+          questionsForSave = latestQuestionsForSave;
+        }
+        const latestQuestionIds = questionsForSave.map((q) => q.id).filter((id) => id && id.trim() !== "");
+        if (latestQuestionIds.length === 0) {
+          setError("Please select at least one question for the quiz.");
+          return;
+        }
         await updateQuiz(editingQuiz.id, {
           name: quizName.trim(),
           type: quizType,
@@ -737,9 +856,8 @@ export default function QuizzesPage() {
           points_per_question: pointsPerQuestionForSave,
           reveal_correct_answers: quizRevealCorrectAnswers,
         });
-        await setQuizQuestions(editingQuiz.id, questionIds);
-        const updatedQuizzes = await getQuizzes(courseId);
-        setQuizzes(updatedQuizzes);
+        await setQuizQuestions(editingQuiz.id, latestQuestionIds);
+        await refreshQuizQuestionsInModal(editingQuiz.id);
         setSuccess("Quiz updated successfully!");
         setEditingQuiz(null);
         setQuizName("");
@@ -824,10 +942,10 @@ export default function QuizzesPage() {
     setSuccess("");
     try {
       if (editingQuiz?.id) {
+        setPendingExternalQuestionSync(true);
         window.open(
           `/prof/courses/${courseId}/quizzes/${editingQuiz.id}/manage-questions`,
-          "_blank",
-          "noopener,noreferrer"
+          "_blank"
         );
         return;
       }
@@ -1469,19 +1587,7 @@ export default function QuizzesPage() {
                             : "10"
                         );
                         setQuizRevealCorrectAnswers(Boolean((quiz as any).reveal_correct_answers));
-                        setSelectedQuestions(
-                          quiz.questions?.map((q: any) => ({
-                            id: q.id,
-                            type: q.type,
-                            question: q.question,
-                            options: q.options,
-                            correctAnswer: q.correct_answer,
-                            fillBlankAnswerMode: q.fill_blank_answer_mode ?? "term_only",
-                            source: q.source_lesson_id,
-                            sourceType: q.source_type,
-                            createdAt: q.created_at,
-                          })) ?? []
-                        );
+                        setSelectedQuestions((quiz.questions ?? []).map(mapQuizQuestionToUi));
                         setEditQuizTab("settings");
                         setCreateQuizModalOpen(true);
 
