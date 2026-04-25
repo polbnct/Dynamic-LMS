@@ -503,9 +503,22 @@ export default function ManageQuizQuestionsPage() {
                         <p className="text-xs uppercase tracking-wide text-gray-900">{q.type.replace("_", " ")}</p>
                         <p className="text-sm text-gray-900 break-words whitespace-normal">{q.question}</p>
                       </div>
-                      <button onClick={() => setSelectedQuestions((prev) => prev.filter((x) => x.id !== q.id))} className="rounded-md border border-red-600 bg-red-600 px-2 sm:px-3 py-1 text-xs font-medium text-white hover:bg-red-700 shrink-0">
-                        Remove
-                      </button>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => openEditQuestion(q)}
+                          className="rounded-md border border-gray-300 bg-white px-2 sm:px-3 py-1 text-xs font-medium text-gray-900 hover:bg-gray-50"
+                        >
+                          Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setSelectedQuestions((prev) => prev.filter((x) => x.id !== q.id))}
+                          className="rounded-md border border-red-600 bg-red-600 px-2 sm:px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                        >
+                          Remove
+                        </button>
+                      </div>
                     </div>
                   </article>
                 ))

@@ -283,7 +283,10 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
 - The blank should represent a key term or concept students should remember
 - Questions should reinforce learning of essential information
 - Answers should be specific terms or phrases that are important for understanding the material
-- Make questions that help students practice recall of important information`;
+- Make questions that help students practice recall of important information
+- Keep fill_blank_answer_mode balanced across the batch: target about 50% symbol_only and 50% term_only when the lesson supports symbols
+- symbol_only answers should be actual symbols/operators/notation tokens (e.g., =, ≠, ≤, ≥, ±, ∩, ∪, ∈, ∉, →, λ)
+- term_only answers should be words/terms/phrases (e.g., derivative, intersection, hypothesis testing)`;
     } else {
       specificGuidelines = `- Create questions with a single blank (______) where a key term, concept, or phrase should be filled in
 - The blank should represent an important term, definition, name, or concept from the PDF
@@ -292,8 +295,10 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
 - Avoid overly vague blanks - be specific about what should fill the blank
 - Questions should test recall and understanding of key terminology and concepts
 - For every fill-in-the-blank question, choose fill_blank_answer_mode:
-  - symbol_only: answer must be a symbol (e.g., ∩, ∪, ∈)
-  - term_only: answer must be a word/term (e.g., intersection, union, belongs to)`;
+  - symbol_only: answer must be a symbol (e.g., =, ≠, ≤, ≥, ±, ∩, ∪, ∈, ∉, →)
+  - term_only: answer must be a word/term (e.g., intersection, union, belongs to)
+- Keep the batch balanced: aim for about half symbol_only and half term_only when the source material contains symbolic content
+- Do not force unnatural symbols if the lesson truly has no symbolic notation`;
     }
   }
 
@@ -308,8 +313,8 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
       : '"correct_answer": true';
   } else {
     jsonExample = forStudyAid
-      ? '"correct_answer": "answer text",\n    "fill_blank_answer_mode": "term_only",\n    "correct_explanation": "Brief explanation of why this fill-in answer is correct.",\n    "incorrect_explanation": "Brief explanation of why an incorrect fill-in response would be wrong."'
-      : '"correct_answer": "answer text",\n    "fill_blank_answer_mode": "term_only"';
+      ? '"correct_answer": "∩",\n    "fill_blank_answer_mode": "symbol_only",\n    "correct_explanation": "Brief explanation of why this fill-in answer is correct.",\n    "incorrect_explanation": "Brief explanation of why an incorrect fill-in response would be wrong."'
+      : '"correct_answer": "intersection",\n    "fill_blank_answer_mode": "term_only"';
   }
 
   const purposeContext = forStudyAid 
@@ -543,11 +548,10 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
             }
           : parsedAnswer;
       } else if (questionType === "fill_blank") {
-        const parsedMode =
-          q.fill_blank_answer_mode === "symbol_only" ||
-          q.fill_blank_answer_mode === "term_only"
+        const providedMode =
+          q.fill_blank_answer_mode === "symbol_only" || q.fill_blank_answer_mode === "term_only"
             ? q.fill_blank_answer_mode
-            : "term_only";
+            : null;
         if (!q.correct_answer || typeof q.correct_answer !== "string") {
           console.warn(`Question ${index} has invalid correct_answer, using default`);
           questionObj.correct_answer = forStudyAid
@@ -557,9 +561,11 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
                 incorrect_explanation: "Not quite. Recheck the key term used in the lesson context.",
               }
             : "answer";
-          questionObj.fill_blank_answer_mode = parsedMode;
+          questionObj.fill_blank_answer_mode = providedMode ?? "term_only";
         } else {
           const answer = q.correct_answer.trim();
+          const inferredMode = inferFillBlankMode(answer);
+          const resolvedMode = providedMode ?? inferredMode;
           questionObj.correct_answer = forStudyAid
             ? {
                 answer: normalizeGeneratedText(answer),
@@ -573,20 +579,69 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
                     : "Not correct. Check the exact term or phrase used in the lesson.",
               }
             : normalizeGeneratedText(answer);
-          questionObj.fill_blank_answer_mode = parsedMode;
+          questionObj.fill_blank_answer_mode = resolvedMode;
         }
       }
 
       return questionObj;
     }).filter((q: any) => q !== null); // Remove any null entries
 
-    return transformed;
+    return questionType === "fill_blank" ? rebalanceFillBlankModes(transformed) : transformed;
   } catch (error: any) {
     console.error("Error parsing Gemini response:", error);
     console.error("Response text that failed to parse:", responseText.substring(0, 500));
     // Fallback: generate basic questions from the response text
     return generateFallbackQuestions(responseText, questionType, lessonId);
   }
+}
+
+function inferFillBlankMode(answer: string): "symbol_only" | "term_only" {
+  const normalized = normalizeGeneratedText(answer);
+  if (!normalized) return "term_only";
+
+  const symbolOnlyPattern = /^[^A-Za-z0-9\s]+$/;
+  const hasLetters = /[A-Za-z]/.test(normalized);
+  const hasDigits = /\d/.test(normalized);
+  const compact = normalized.replace(/\s+/g, "");
+
+  // Single-token notation like ∩, ->, <=, λ, x^2 tends to be symbolic.
+  if (symbolOnlyPattern.test(compact)) return "symbol_only";
+  if (!hasLetters && (hasDigits || /[=<>+\-*/^∩∪∈∉≤≥±→λ]/.test(compact))) return "symbol_only";
+  return "term_only";
+}
+
+function rebalanceFillBlankModes(questions: any[]): any[] {
+  if (questions.length < 2) return questions;
+
+  const symbolTarget = Math.round(questions.length / 2);
+  let symbolCount = questions.filter((q) => q.fill_blank_answer_mode === "symbol_only").length;
+  if (symbolCount === symbolTarget) return questions;
+
+  const toFlip = questions.filter((q) => {
+    const answer =
+      typeof q.correct_answer === "string"
+        ? q.correct_answer
+        : typeof q.correct_answer?.answer === "string"
+          ? q.correct_answer.answer
+          : "";
+    const inferred = inferFillBlankMode(answer);
+    return inferred !== q.fill_blank_answer_mode;
+  });
+
+  for (const q of toFlip) {
+    if (symbolCount === symbolTarget) break;
+    if (symbolCount < symbolTarget && q.fill_blank_answer_mode !== "symbol_only") {
+      q.fill_blank_answer_mode = "symbol_only";
+      symbolCount += 1;
+      continue;
+    }
+    if (symbolCount > symbolTarget && q.fill_blank_answer_mode === "symbol_only") {
+      q.fill_blank_answer_mode = "term_only";
+      symbolCount -= 1;
+    }
+  }
+
+  return questions;
 }
 
 function generateFallbackQuestions(text: string, questionType: string, lessonId: string): any[] {
@@ -618,14 +673,16 @@ function generateFallbackQuestions(text: string, questionType: string, lessonId:
         created_at: new Date().toISOString(),
       };
     } else {
+      const fallbackMode: "symbol_only" | "term_only" = index % 2 === 0 ? "symbol_only" : "term_only";
+      const fallbackAnswer = fallbackMode === "symbol_only" ? "=" : "answer";
       return {
         id: `gen-${Date.now()}-${index}`,
         type: "fill_blank",
         question: cleanQuestionStem(
           cleanSentence.replace(/\w+/g, (match, offset) => (offset === 0 ? "______" : match)) + "?"
         ),
-        correct_answer: "answer",
-        fill_blank_answer_mode: "term_only",
+        correct_answer: fallbackAnswer,
+        fill_blank_answer_mode: fallbackMode,
         source_lesson_id: lessonId,
         source_type: "lesson" as const,
         created_at: new Date().toISOString(),

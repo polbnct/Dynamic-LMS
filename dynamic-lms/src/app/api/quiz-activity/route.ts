@@ -79,12 +79,31 @@ export async function POST(request: NextRequest) {
     let logErrorMessage: string | null = null;
     if (shouldLog) {
       try {
-        await admin.from("quiz_activity_logs").insert({
-          attempt_id: attemptId,
-          event_type: normalizedStatus,
-          tab_count: typeof tabCount === "number" ? tabCount : 1,
-        });
-        logInserted = true;
+        let shouldInsertEvent = true;
+        const { data: latestLog } = await admin
+          .from("quiz_activity_logs")
+          .select("event_type, created_at")
+          .eq("attempt_id", attemptId)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (latestLog?.event_type === normalizedStatus && latestLog.created_at) {
+          const latestMs = new Date(latestLog.created_at).getTime();
+          const nowMs = Date.now();
+          if (!Number.isNaN(latestMs) && nowMs - latestMs <= 1500) {
+            shouldInsertEvent = false;
+          }
+        }
+
+        if (shouldInsertEvent) {
+          await admin.from("quiz_activity_logs").insert({
+            attempt_id: attemptId,
+            event_type: normalizedStatus,
+            tab_count: typeof tabCount === "number" ? tabCount : 1,
+          });
+          logInserted = true;
+        }
       } catch (logErr) {
         logErrorMessage =
           (logErr as any)?.message ||
