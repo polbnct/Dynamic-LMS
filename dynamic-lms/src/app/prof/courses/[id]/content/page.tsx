@@ -1110,7 +1110,7 @@ const getValidatedStudyAidCount = (
               </h2>
               <button
                 onClick={closeEditLessonModal}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -1119,11 +1119,11 @@ const getValidatedStudyAidCount = (
             </div>
 
             <div className="mb-5 border-b border-gray-200">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <button
                   type="button"
                   onClick={() => setEditModalTab("lesson")}
-                  className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                  className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
                     editModalTab === "lesson"
                       ? "text-red-700 border-red-600"
                       : "text-gray-600 border-transparent hover:text-red-600"
@@ -1134,7 +1134,7 @@ const getValidatedStudyAidCount = (
                 <button
                   type="button"
                   onClick={() => setEditModalTab("lesson_settings")}
-                  className={`px-4 py-2 text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
+                  className={`flex-1 px-2 sm:px-4 py-2 text-xs sm:text-sm font-semibold rounded-t-lg border-b-2 transition-colors ${
                     editModalTab === "lesson_settings"
                       ? "text-red-700 border-red-600"
                       : "text-gray-600 border-transparent hover:text-red-600"
@@ -1172,7 +1172,7 @@ const getValidatedStudyAidCount = (
                     onChange={(e) =>
                       setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
                     }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-400 bg-gray-50/50 focus:bg-white cursor-pointer"
                   >
                     <option value="prelim">Prelim</option>
                     <option value="midterm">Midterm</option>
@@ -1209,9 +1209,9 @@ const getValidatedStudyAidCount = (
                         "noopener,noreferrer"
                       )
                     }
-                    className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors ${
+                    className={`w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors cursor-pointer ${
                       editingLesson.pdf_file_path
-                        ? "border-gray-300 bg-white text-gray-900 hover:bg-gray-50"
+                        ? "border-gray-300 bg-white text-gray-900 hover:bg-slate-100"
                         : "cursor-not-allowed border-gray-200 bg-gray-100 text-gray-400"
                     }`}
                   >
@@ -1228,14 +1228,14 @@ const getValidatedStudyAidCount = (
                   <button
                     type="button"
                     onClick={closeEditLessonModal}
-                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl cursor-pointer font-semibold hover:bg-gray-50 transition-colors"
+                    className="flex-1 px-4 py-3 border border-gray-300 text-gray-700 rounded-xl cursor-pointer font-semibold hover:bg-slate-100 transition-colors"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={updatingLesson}
-                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:from-red-700 hover:to-rose-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                   >
                     {updatingLesson ? "Saving..." : "Save changes"}
                   </button>
@@ -1274,7 +1274,7 @@ const getValidatedStudyAidCount = (
                         type="checkbox"
                         checked={shuffleStudyAidQuestions}
                         onChange={(e) => setShuffleStudyAidQuestions(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
                       />
                       <span className="text-sm text-gray-700">Shuffle question order for students</span>
                     </label>
@@ -1288,7 +1288,7 @@ const getValidatedStudyAidCount = (
                         type="checkbox"
                         checked={requireBothForUnlock}
                         onChange={(e) => setRequireBothForUnlock(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
                       />
                       <span className="text-sm text-gray-700">
                         Require both MCQ and Fill in the Blank attempts for unlock
@@ -1298,7 +1298,7 @@ const getValidatedStudyAidCount = (
                       If disabled, whichever completed type contributes to the unlock percentage.
                     </p>
                   </div>
-                  <div className="mt-4">
+                  <div className="mt-4 flex justify-end">
                     <button
                       type="button"
                       disabled={savingUnlockThreshold}
@@ -1329,7 +1329,7 @@ const getValidatedStudyAidCount = (
                           setSavingUnlockThreshold(false);
                         }
                       }}
-                      className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold rounded-xl hover:from-red-700 hover:to-rose-700 disabled:opacity-50"
+                      className="w-full sm:w-auto px-4 py-2.5 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold rounded-xl hover:from-red-700 hover:to-rose-700 disabled:opacity-50 cursor-pointer"
                     >
                       {savingUnlockThreshold ? "Saving..." : "Save settings"}
                     </button>

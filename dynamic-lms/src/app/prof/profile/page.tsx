@@ -372,6 +372,7 @@ export default function ProfProfile() {
                 <input
                   id="profile-name"
                   type="text"
+                  maxLength={64}
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
                   className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 focus:border-red-500"

@@ -451,7 +451,7 @@ export default function ManageQuizQuestionsPage() {
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
         <header className="mb-6 rounded-2xl border border-gray-200 bg-white p-4 sm:p-6">
-          <div className="flex items-center justify-between gap-3">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 sm:gap-4">
             <div>
               <p className="text-sm text-gray-900">{course?.name} ({course?.code})</p>
               <h1 className="text-2xl font-bold text-gray-900">Manage Questions: {quizName}</h1>
@@ -460,7 +460,7 @@ export default function ManageQuizQuestionsPage() {
               type="button"
               onClick={handleSaveSelection}
               disabled={saving}
-              className="rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60"
+              className="w-full sm:w-auto rounded-lg border border-red-600 bg-red-600 px-3 py-2.5 sm:px-4 sm:py-2 text-xs sm:text-sm font-semibold text-white hover:bg-red-700 disabled:opacity-60 transition-colors cursor-pointer"
             >
               {saving ? "Saving..." : "Save Selection"}
             </button>
@@ -468,13 +468,13 @@ export default function ManageQuizQuestionsPage() {
         </header>
 
         <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <section className="rounded-2xl border border-gray-200 bg-white xl:col-span-5">
+          <section className="rounded-2xl border border-gray-200 bg-white xl:col-span-5 overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Selected Questions</h2>
                 <p className="text-xs text-gray-900">{selectedQuestions.length} currently in this quiz</p>
               </div>
-              <button type="button" onClick={() => setSelectedQuestions([])} className="text-sm font-medium text-gray-900 hover:text-black">
+              <button type="button" onClick={() => setSelectedQuestions([])} className="text-sm font-medium text-gray-900 hover:text-black shrink-0">
                 Clear all
               </button>
             </div>
@@ -483,13 +483,13 @@ export default function ManageQuizQuestionsPage() {
                 <p className="text-sm text-gray-900">No selected questions yet.</p>
               ) : (
                 selectedQuestions.map((q) => (
-                  <article key={q.id} className="rounded-lg border border-gray-200 px-3 py-2">
-                    <div className="flex items-start justify-between gap-3">
-                      <div>
+                  <article key={q.id} className="rounded-lg border border-gray-200 p-3">
+                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                      <div className="min-w-0 flex-1">
                         <p className="text-xs uppercase tracking-wide text-gray-900">{q.type.replace("_", " ")}</p>
-                        <p className="text-sm text-gray-900">{q.question}</p>
+                        <p className="text-sm text-gray-900 break-words whitespace-normal">{q.question}</p>
                       </div>
-                      <button onClick={() => setSelectedQuestions((prev) => prev.filter((x) => x.id !== q.id))} className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 hover:bg-gray-50">
+                      <button onClick={() => setSelectedQuestions((prev) => prev.filter((x) => x.id !== q.id))} className="rounded-md border border-red-600 bg-red-600 px-2 sm:px-3 py-1 text-xs font-medium text-white hover:bg-red-700 shrink-0">
                         Remove
                       </button>
                     </div>
@@ -506,9 +506,13 @@ export default function ManageQuizQuestionsPage() {
                   <h2 className="text-lg font-semibold text-gray-900">Question Bank</h2>
                   <p className="text-xs text-gray-900">{displayedBank.length} available based on current filters</p>
                 </div>
-                <div className="flex items-center gap-2">
-                  <button onClick={() => setGenerateModalOpen(true)} className="rounded-md border border-red-600 bg-red-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-red-700">Generate</button>
-                  <button onClick={openCreateQuestion} className="rounded-md border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 hover:bg-gray-50">Create</button>
+                <div className="flex w-full sm:w-auto items-center gap-2">
+                  <button onClick={() => setGenerateModalOpen(true)} className="flex-1 sm:flex-initial rounded-md border border-red-600 bg-red-600 px-10 py-2 sm:px -3 sm:py-1.5 text-xs font-semibold text-white hover:bg-red-700 cursor-pointer">
+                    Generate
+                  </button>
+                  <button onClick={openCreateQuestion} className="flex-1 sm:flex-initial rounded-md border border-gray-300 bg-white px-10 py-2 sm:px -3 sm:py-1.5 text-xs font-semibold text-gray-900 hover:bg-slate-100 cursor-pointer">
+                    Create
+                  </button>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
@@ -609,32 +613,36 @@ export default function ManageQuizQuestionsPage() {
               ) : (
                 <ul className="space-y-2">
                   {displayedBank.map((q) => (
-                    <li key={q.id} className="rounded-lg border border-gray-200 px-3 py-2">
-                      <div className="flex items-start justify-between gap-2">
-                        <div>
-                          <p className="text-xs uppercase tracking-wide text-gray-900">{q.type.replace("_", " ")}</p>
-                          <p className="text-sm text-gray-900">{q.question}</p>
+                    <li key={q.id} className="rounded-lg border border-gray-200 px-3 py-3">
+                      <div className="flex flex-col gap-2">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs uppercase tracking-wide text-gray-900 shrink-0">
+                            {q.type.replace("_", " ")}
+                          </p>
+                          <div className="flex flex-wrap items-center gap-1 sm:gap-2">
+                            <button
+                              onClick={() => openEditQuestion(q)}
+                              className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-2 sm:px-3 py-1 text-xs font-semibold text-gray-900 shadow-sm transition hover:bg-slate-100 cursor-pointer"
+                            >
+                              Edit
+                            </button>
+                            <button
+                              onClick={() => handleDeleteQuestion(q.id)}
+                              className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-2 sm:px-3 py-1 text-xs font-semibold text-gray-900 shadow-sm transition hover:bg-slate-100 cursor-pointer"
+                            >
+                              Delete
+                            </button>
+                            <button
+                              onClick={() => setSelectedQuestions((prev) => [...prev, q])}
+                              className="inline-flex items-center justify-center rounded-lg border border-red-600 bg-red-600 px-2 sm:px-3 py-1 text-xs font-semibold text-white shadow-sm transition hover:bg-red-700 cursor-pointer"
+                            >
+                              Add
+                            </button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-2">
-                          <button
-                            onClick={() => openEditQuestion(q)}
-                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1"
-                          >
-                            Edit
-                          </button>
-                          <button
-                            onClick={() => handleDeleteQuestion(q.id)}
-                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1"
-                          >
-                            Delete
-                          </button>
-                          <button
-                            onClick={() => setSelectedQuestions((prev) => [...prev, q])}
-                            className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-xs font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-400 focus-visible:ring-offset-1"
-                          >
-                            Add
-                          </button>
-                        </div>
+                        <p className="text-sm text-gray-900 break-words whitespace-normal">
+                          {q.question}
+                        </p>
                       </div>
                     </li>
                   ))}

@@ -38,7 +38,7 @@ export default function ClasslistPage() {
   const [profileMissedQuizzes, setProfileMissedQuizzes] = useState<{ id: string; name: string }[]>([]);
   const [profileLoading, setProfileLoading] = useState(false);
   const { handledCourses } = useProfessorCourses();
-  const enrollmentManagedByAdmin = true;
+  const [expandedGrades, setExpandedGrades] = useState<Set<string>>(new Set());
 
   useSyncMessagesToToast(error, "");
 
@@ -165,7 +165,7 @@ export default function ClasslistPage() {
             <h2 className="text-2xl font-bold text-gray-800">Enrolled Students</h2>
 
             {/* Search Bar */}
-            <div className="relative w-full md:w-64">
+            <div className="relative w-full md:w-75">
               <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <svg className="h-5 w-5 text-gray-800" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path
@@ -321,54 +321,89 @@ export default function ClasslistPage() {
             className="bg-white rounded-2xl shadow-2xl w-full max-w-3xl max-h-[92vh] overflow-hidden flex flex-col border border-gray-200"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-5 sm:p-6 border-b border-gray-200 bg-gray-50">
-              <div className="flex items-start sm:items-center justify-between gap-3">
-                <div className="min-w-0 flex items-start gap-3">
-                  <div className="w-12 h-12 shrink-0 rounded-xl bg-white border border-gray-200 shadow-sm flex items-center justify-center">
-                    <span className="text-red-600 font-bold text-lg">
+          <div className="p-5 sm:p-6 border-b border-gray-200 bg-gray-50">
+            <div className="flex items-start justify-between gap-3 mb-2">
+              <div>
+                <h2 className="text-xl font-bold text-gray-900">Student Profile</h2>
+                <div className="flex items-center gap-3 mt-3">
+                  <div className="w-10 h-10 shrink-0 rounded-xl bg-gradient-to-br from-red-100 to-rose-100 flex items-center justify-center">
+                    <span className="text-red-600 font-bold text-md">
                       {selectedStudent.name.charAt(0).toUpperCase()}
                     </span>
                   </div>
                   <div className="min-w-0">
-                    <h2 className="text-xl font-bold text-gray-900">student profile</h2>
-                    <p className="text-gray-800 text-sm mt-1 truncate font-medium">{selectedStudent.name}</p>
+                    <p className="text-gray-800 font-medium">{selectedStudent.name}</p>
                     {selectedStudent.email && (
-                      <p className="text-gray-600 text-sm truncate">{selectedStudent.email}</p>
+                      <p className="text-gray-500 text-xs">{selectedStudent.email}</p>
                     )}
                     {selectedStudent.studentId && (
-                      <p className="text-gray-500 text-xs mt-1">student id: {selectedStudent.studentId}</p>
+                      <p className="text-gray-400 text-xs">ID: {selectedStudent.studentId}</p>
                     )}
                   </div>
                 </div>
-                <button
-                  onClick={() => {
-                    setProfileModalOpen(false);
-                    setSelectedStudent(null);
-                  }}
-                  className="text-gray-500 hover:text-gray-700 hover:bg-white/80 transition-colors rounded-lg p-1.5"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
               </div>
-              <div className="mt-4 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <button
+                onClick={() => {
+                  setProfileModalOpen(false);
+                  setSelectedStudent(null);
+                }}
+                className="text-gray-500 hover:text-gray-700 hover:bg-white/80 transition-colors rounded-lg p-1.5 shrink-0 cursor-pointer"
+              >
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
                   <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">graded items</p>
                   <p className="text-lg font-bold text-gray-900">{profileGrades.length}</p>
                 </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">missed assignments</p>
-                  <p className="text-lg font-bold text-amber-700">{profileMissedAssignments.length}</p>
-                </div>
-                <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
-                  <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">missed quizzes</p>
-                  <p className="text-lg font-bold text-amber-700">{profileMissedQuizzes.length}</p>
+                <div className="grid grid-cols-2 gap-3 sm:col-span-2">
+                  <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">missed assignments</p>
+                    <p className="text-lg font-bold text-amber-700">{profileMissedAssignments.length}</p>
+                  </div>
+                  <div className="rounded-xl border border-gray-200 bg-white px-3 py-2.5">
+                    <p className="text-[11px] uppercase tracking-wide text-gray-500 font-semibold">missed quizzes</p>
+                    <p className="text-lg font-bold text-amber-700">{profileMissedQuizzes.length}</p>
+                  </div>
                 </div>
               </div>
             </div>
             <div className="flex-1 overflow-y-auto p-5 sm:p-6 bg-gray-50/40">
-              {profileLoading ? (
+            {(() => {
+              const groupedGrades = profileGrades.reduce((acc, grade) => {
+                const key = `${grade.title}-${grade.type}`;
+                if (!acc[key]) {
+                  acc[key] = [];
+                }
+                acc[key].push(grade);
+                return acc;
+              }, {} as Record<string, Grade[]>);
+
+              const sortedGroupedGrades = Object.values(groupedGrades)
+                .map(grades => ({
+                  title: grades[0].title,
+                  type: grades[0].type,
+                  grades: grades.sort((a, b) => b.percentage - a.percentage),
+                  latestGrade: grades.sort((a, b) => b.percentage - a.percentage)[0]
+                }))
+                .sort((a, b) => a.title.localeCompare(b.title));
+
+              const toggleGradeExpand = (key: string) => {
+                setExpandedGrades(prev => {
+                  const next = new Set(prev);
+                  if (next.has(key)) {
+                    next.delete(key);
+                  } else {
+                    next.add(key);
+                  }
+                  return next;
+                });
+              };
+
+              return profileLoading ? (
                 <div className="flex justify-center py-12">
                   <div className="animate-spin rounded-full h-10 w-10 border-2 border-red-600 border-t-transparent" />
                 </div>
@@ -379,27 +414,79 @@ export default function ClasslistPage() {
                     <h3 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-3">
                       Grades in this course
                     </h3>
-                    {profileGrades.length === 0 ? (
+                    {sortedGroupedGrades.length === 0 ? (
                       <p className="text-gray-500 text-sm">No graded assignments or quizzes yet.</p>
                     ) : (
-                      <ul className="space-y-2">
-                        {profileGrades.map((g) => (
-                          <li
-                            key={g.id}
-                            className="flex items-center justify-between gap-3 py-2.5 px-3 bg-gray-50 rounded-lg border border-gray-100"
-                          >
-                            <div>
-                              <span className="block truncate font-medium text-gray-800">{g.title}</span>
-                              <span className="text-xs text-gray-500 capitalize">{g.type}</span>
+                      <ul className="space-y-3">
+                        {sortedGroupedGrades.map((group, idx) => {
+                          const key = `${group.title}-${group.type}-${idx}`;
+                          const isExpanded = expandedGrades.has(key);
+                          const hasMultiple = group.grades.length > 1;
+                          
+                          return (
+                           <li key={key} className="border border-gray-200 rounded-lg overflow-hidden">
+                            <div 
+                              className={`flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-3 px-3 bg-gray-50 ${hasMultiple ? 'cursor-pointer hover:bg-gray-100' : ''}`}
+                              onClick={() => hasMultiple && toggleGradeExpand(key)}
+                            >
+                              <div className="min-w-0 flex-1 overflow-hidden">
+                                <div className="flex items-start gap-2">
+                                  <span className="font-medium text-gray-800 break-words text-sm sm:text-base flex-1">
+                                    {group.title}
+                                  </span>
+                                  {hasMultiple && (
+                                    <svg 
+                                      className={`w-4 h-4 text-gray-500 transition-transform shrink-0 mt-0.5 ${isExpanded ? 'rotate-180' : ''}`}
+                                      fill="none" 
+                                      stroke="currentColor" 
+                                      viewBox="0 0 24 24"
+                                    >
+                                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                                    </svg>
+                                  )}
+                                </div>
+                                <span className="text-xs text-gray-500 capitalize">{group.type}</span>
+                              </div>
+                              <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                                <span className="text-xs sm:text-sm text-gray-600 whitespace-nowrap">
+                                  Latest: {group.latestGrade.score}/{group.latestGrade.maxScore}
+                                </span>
+                                <span className="text-xs sm:text-sm font-medium text-red-600 whitespace-nowrap">
+                                  {Math.round(group.latestGrade.percentage)}%
+                                </span>
+                              </div>
                             </div>
-                            <div className="flex items-center gap-3 shrink-0">
-                              <span className="text-sm text-gray-600">
-                                {g.score}/{g.maxScore}
-                              </span>
-                              <span className="text-sm font-medium text-red-600">{Math.round(g.percentage)}%</span>
-                            </div>
-                          </li>
-                        ))}
+                              
+                              {/* Dropdown for previous grades */}
+                              {hasMultiple && isExpanded && (
+                                <div className="border-t border-gray-100 bg-white">
+                                  <ul className="divide-y divide-gray-50">
+                                    {group.grades.slice(1).map((grade, gradeIdx) => (
+                                      <li key={gradeIdx} className="py-3 px-3 sm:px-4">
+                                         <div className="flex flex-wrap items-center gap-1">
+                                          <span className="text-xs sm:text-sm text-gray-600">
+                                            Attempt #{group.grades.length - gradeIdx}
+                                          </span>
+                                          <span className="text-xs text-gray-400">
+                                            {grade.id ? `(${grade.id.slice(-6)})` : ''}
+                                          </span>
+                                        </div>
+                                        <div className="flex items-center justify-between sm:justify-end gap-3">
+                                          <span className="text-xs sm:text-sm text-gray-600">
+                                            {grade.score}/{grade.maxScore}
+                                          </span>
+                                          <span className="text-sm font-medium text-gray-600 whitespace-nowrap">
+                                            {Math.round(grade.percentage)}%
+                                          </span>
+                                        </div>
+                                      </li>
+                                    ))}
+                                  </ul>
+                                </div>
+                              )}
+                            </li>
+                          );
+                        })}
                       </ul>
                     )}
                   </section>
@@ -446,7 +533,6 @@ export default function ClasslistPage() {
                             <svg className="w-4 h-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                             </svg>
-
                             <span className="min-w-0 flex-1 truncate" title={q.name}>
                               {q.name}
                             </span>
@@ -456,7 +542,8 @@ export default function ClasslistPage() {
                     )}
                   </section>
                 </div>
-              )}
+                );
+              })()}
             </div>
             <div className="border-t border-gray-200 p-4 bg-white flex justify-end">
               <button

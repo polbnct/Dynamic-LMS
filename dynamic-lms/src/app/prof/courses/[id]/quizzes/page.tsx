@@ -839,48 +839,42 @@ export default function QuizzesPage() {
         return;
       }
 
-      setCreatingQuizForManageQuestions(true);
-      const pendingTab = window.open("about:blank", "_blank", "noopener,noreferrer");
-      if (!pendingTab) {
-        throw new Error("Popup was blocked. Please allow popups and try again.");
-      }
-      const maxAttemptsNumber =
-        quizMaxAttempts.trim() === ""
-          ? null
-          : Number.isFinite(Number(quizMaxAttempts))
-            ? Math.max(1, Math.round(Number(quizMaxAttempts)))
-            : null;
-      const pointsPerQuestionNumber =
-        quizPointsPerQuestion.trim() === ""
-          ? 10
-          : Number.isFinite(Number(quizPointsPerQuestion))
-            ? Math.min(100, Math.max(1, Math.round(Number(quizPointsPerQuestion))))
-            : 10;
-      const quiz = await createQuiz(
-        courseId,
-        {
-          name: quizName.trim(),
-          type: quizType,
-          category: quizCategory,
-          due_date: quizDueDate ? new Date(quizDueDate).toISOString() : undefined,
-          max_attempts: maxAttemptsNumber,
-          points_per_question: pointsPerQuestionNumber,
-          reveal_correct_answers: quizRevealCorrectAnswers,
-        },
-        []
-      );
+      const maxAttemptsNumber = quizMaxAttempts.trim() === ""
+      ? null
+      : Number.isFinite(Number(quizMaxAttempts))
+        ? Math.max(1, Math.round(Number(quizMaxAttempts)))
+        : null;
+      const pointsPerQuestionNumber = quizPointsPerQuestion.trim() === ""
+      ? 10
+      : Number.isFinite(Number(quizPointsPerQuestion))
+        ? Math.min(100, Math.max(1, Math.round(Number(quizPointsPerQuestion))))
+        : 10;
+        
+    const quiz = await createQuiz(
+      courseId,
+      {
+        name: quizName.trim(),
+        type: quizType,
+        category: quizCategory,
+        due_date: quizDueDate ? new Date(quizDueDate).toISOString() : undefined,
+        max_attempts: maxAttemptsNumber,
+        points_per_question: pointsPerQuestionNumber,
+        reveal_correct_answers: quizRevealCorrectAnswers,
+      },
+      []
+    );
 
-      setQuizzes((prev) => [...prev, { ...quiz, questions: [] }]);
-      setCreateQuizModalOpen(false);
-      setEditingQuiz(null);
-      pendingTab.location.href = `/prof/courses/${courseId}/quizzes/${quiz.id}/manage-questions`;
-    } catch (err: any) {
-      console.error("Error opening manage questions page:", err);
-      setError(err?.message || "Failed to open manage questions.");
-    } finally {
-      setCreatingQuizForManageQuestions(false);
-    }
-  };
+    setQuizzes((prev) => [...prev, { ...quiz, questions: [] }]);
+    setCreateQuizModalOpen(false);
+    setEditingQuiz(null);
+    window.open(`/prof/courses/${courseId}/quizzes/${quiz.id}/manage-questions`, "_blank");
+  } catch (err: any) {
+    console.error("Error opening manage questions page:", err);
+    setError(err?.message || "Failed to open manage questions.");
+  } finally {
+    setCreatingQuizForManageQuestions(false);
+  }
+};
 
   const renderQuizAdvancedOptions = () => (
     <>
@@ -1748,7 +1742,7 @@ export default function QuizzesPage() {
                       type="button"
                       onClick={handleOpenManageQuestionsPage}
                       disabled={creatingQuizForManageQuestions}
-                      className="inline-flex items-center justify-center rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                      className="inline-flex items-center justify-center rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60 cursor-pointer transition-colors"
                     >
                       {creatingQuizForManageQuestions ? "Preparing..." : "Manage Questions"}
                     </button>

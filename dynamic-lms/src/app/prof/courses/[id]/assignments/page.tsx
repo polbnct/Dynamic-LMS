@@ -639,11 +639,11 @@ export default function AssignmentsPage() {
                     <input
                       id="assignmentName"
                       type="text"
-                      maxLength={64}
+                      maxLength={128}
                       value={formData.title}
                       onChange={(e) => setFormData({ ...formData, title: e.target.value })}
                       placeholder="Enter assignment name"
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white"
                       autoFocus
                     />
                   </div>
@@ -657,12 +657,12 @@ export default function AssignmentsPage() {
                   <div className="relative">
                     <textarea
                       id="description"
-                      maxLength={1024}
+                      maxLength={2048}
                       value={formData.description}
                       onChange={(e) => setFormData({ ...formData, description: e.target.value })}
                       placeholder="Write assignment description or instructions..."
                       rows={3}
-                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white resize-none"
+                      className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white resize-none"
                     />
                   </div>
                   <p className="mt-1 text-xs text-gray-500">Provide details, instructions, or requirements for this assignment</p>
@@ -690,7 +690,7 @@ export default function AssignmentsPage() {
                       onChange={(e) =>
                         setFormData({ ...formData, category: e.target.value as "prelim" | "midterm" | "finals" })
                       }
-                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
+                      className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-xl text-gray-900 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 focus:border-transparent transition-all duration-200 bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
                     >
                       <option value="prelim">Prelim</option>
                       <option value="midterm">Midterm</option>
@@ -735,7 +735,7 @@ export default function AssignmentsPage() {
                     id="maxSubmissions"
                     value={formData.maxSubmissions}
                     onChange={(e) => setFormData({ ...formData, maxSubmissions: e.target.value })}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
+                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-700 focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-gray-50/50 focus:bg-white appearance-none cursor-pointer"
                   >
                     <option value="1">1 (single submission)</option>
                     <option value="2">2 submissions</option>
@@ -827,9 +827,10 @@ export default function AssignmentsPage() {
                 <input
                   type="text"
                   value={editForm.title}
+                  maxLength={128}
                   onChange={(e) => setEditForm({ ...editForm, title: e.target.value })}
                   placeholder="Enter assignment name"
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-gray-50/50 focus:bg-white"
                   required
                 />
               </div>
@@ -837,10 +838,11 @@ export default function AssignmentsPage() {
                 <label className="block text-sm font-semibold text-gray-700 mb-2">Description (Optional)</label>
                 <textarea
                   value={editForm.description}
+                  maxLength={2048}
                   onChange={(e) => setEditForm({ ...editForm, description: e.target.value })}
                   placeholder="Assignment description..."
                   rows={4}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 focus:border-transparent bg-gray-50/50 focus:bg-white resize-none"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 focus:border-transparent bg-gray-50/50 focus:bg-white resize-none"
                 />
               </div>
               <div>
@@ -848,7 +850,7 @@ export default function AssignmentsPage() {
                 <select
                   value={editForm.category}
                   onChange={(e) => setEditForm({ ...editForm, category: e.target.value as "prelim" | "midterm" | "finals" })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-red-500 bg-gray-50/50 focus:bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 focus:ring-2 focus:ring-gray-500 bg-gray-50/50 focus:bg-white"
                 >
                   <option value="prelim">Prelim</option>
                   <option value="midterm">Midterm</option>
@@ -863,7 +865,7 @@ export default function AssignmentsPage() {
                   type="datetime-local"
                   value={editForm.dueDate}
                   onChange={(e) => setEditForm({ ...editForm, dueDate: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 bg-gray-50/50 focus:bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 bg-gray-50/50 focus:bg-white"
                 />
               </div>
               <div>
@@ -873,7 +875,7 @@ export default function AssignmentsPage() {
                 <select
                   value={editForm.maxSubmissions}
                   onChange={(e) => setEditForm({ ...editForm, maxSubmissions: e.target.value })}
-                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-red-500 bg-gray-50/50 focus:bg-white"
+                  className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-800 placeholder-text-gray-700 focus:ring-2 focus:ring-gray-500 bg-gray-50/50 focus:bg-white"
                 >
                   <option value="1">1 (single submission)</option>
                   <option value="2">2 submissions</option>
@@ -934,7 +936,7 @@ export default function AssignmentsPage() {
                 <button
                   type="submit"
                   disabled={saving}
-                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:from-red-700 hover:to-rose-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none cursor-pointer"
                 >
                   {saving ? "Saving..." : "Save changes"}
                 </button>
