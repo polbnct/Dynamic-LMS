@@ -350,7 +350,7 @@ export default function ProfProfile() {
                   type="button"
                   onClick={handleRemoveImage}
                   disabled={uploadingImage}
-                  className="flex-1 sm:w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-gray-50 disabled:opacity-50"
+                  className="flex-1 sm:w-full px-3 py-2 rounded-lg border border-gray-300 text-gray-700 text-sm font-semibold hover:bg-slate-100 cursor-pointer"
                 >
                   Remove photo
                 </button>
@@ -390,18 +390,18 @@ export default function ProfProfile() {
                 />
                 <p className="text-xs text-gray-500 mt-1">Email cannot be changed. Please contact an admin for email updates.</p>
               </div>
-              <div className="flex flex-col sm:flex-row gap-3 pt-2">
+              <div className="flex flex-row sm:justify-end gap-3 pt-2">
                 <button
                   type="button"
                   onClick={cancelEditing}
-                  className="px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50"
+                  className="flex-1 sm:flex-none px-4 py-2.5 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-slate-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={saving}
-                  className="px-4 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50"
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 cursor-pointer"
                 >
                   {saving ? "Saving…" : "Save changes"}
                 </button>
@@ -416,7 +416,7 @@ export default function ProfProfile() {
                 <button
                   type="button"
                   onClick={startEditing}
-                  className="inline-flex shrink-0 items-center gap-2 px-3 py-2 sm:px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors"
+                  className="inline-flex shrink-0 items-center gap-2 px-3 py-2 sm:px-4 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors cursor-pointer"
                 >
                   <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
@@ -488,9 +488,9 @@ export default function ProfProfile() {
                 <button
                   type="submit"
                   disabled={passwordSaving}
-                  className="w-full px-4 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-red-600 text-white rounded-xl font-semibold hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed cursor-pointer"
                 >
-                  {passwordSaving ? "Updating..." : "Update password"}
+                  {passwordSaving ? "Updating..." : "Update Password"}
                 </button>
               </form>
             </div>

@@ -57,6 +57,37 @@ export interface QuizAnswer {
   is_correct?: boolean;
 }
 
+function parseQuestionRow(q: any): Question {
+  return {
+    ...q,
+    options: (() => {
+      if (q?.options == null) return undefined;
+      if (Array.isArray(q.options)) return q.options;
+      if (typeof q.options === "string") {
+        try {
+          const parsed = JSON.parse(q.options);
+          return Array.isArray(parsed) ? parsed : [];
+        } catch {
+          return [];
+        }
+      }
+      return [];
+    })(),
+    correct_answer:
+      q?.correct_answer != null
+        ? typeof q.correct_answer === "string"
+          ? (() => {
+              try {
+                return JSON.parse(q.correct_answer);
+              } catch {
+                return q.correct_answer;
+              }
+            })()
+          : q.correct_answer
+        : undefined,
+  };
+}
+
 // Get quizzes for a course
 export async function getQuizzes(courseId: string): Promise<(Quiz & { questions: Question[] })[]> {
   const supabase = createClient();
@@ -86,34 +117,7 @@ export async function getQuizzes(courseId: string): Promise<(Quiz & { questions:
         .order("order", { ascending: true });
 
       const rawQuestions = (quizQuestions || []).map((qq: any) => qq.questions).filter(Boolean);
-      const questions = rawQuestions.map((q: any) => ({
-        ...q,
-        options: (() => {
-          if (q?.options == null) return undefined;
-          if (Array.isArray(q.options)) return q.options;
-          if (typeof q.options === "string") {
-            try {
-              const parsed = JSON.parse(q.options);
-              return Array.isArray(parsed) ? parsed : [];
-            } catch {
-              return [];
-            }
-          }
-          return [];
-        })(),
-        correct_answer:
-          q?.correct_answer != null
-            ? typeof q.correct_answer === "string"
-              ? (() => {
-                  try {
-                    return JSON.parse(q.correct_answer);
-                  } catch {
-                    return q.correct_answer;
-                  }
-                })()
-              : q.correct_answer
-            : undefined,
-      }));
+      const questions = rawQuestions.map((q: any) => parseQuestionRow(q));
 
       return {
         ...quiz,
@@ -125,6 +129,50 @@ export async function getQuizzes(courseId: string): Promise<(Quiz & { questions:
   );
 
   return quizzesWithQuestions;
+}
+
+// Get one quiz for a course with its questions.
+export async function getQuizById(
+  courseId: string,
+  quizId: string
+): Promise<(Quiz & { questions: Question[] }) | null> {
+  const supabase = createClient();
+
+  const { data: quiz, error: quizError } = await supabase
+    .from("quizzes")
+    .select("*")
+    .eq("course_id", courseId)
+    .eq("id", quizId)
+    .maybeSingle();
+
+  if (quizError) {
+    console.error("Error fetching quiz by id:", quizError);
+    throw quizError;
+  }
+
+  if (!quiz) return null;
+
+  const { data: quizQuestions, error: questionsError } = await supabase
+    .from("quiz_questions")
+    .select("order, questions(*)")
+    .eq("quiz_id", quizId)
+    .order("order", { ascending: true });
+
+  if (questionsError) {
+    console.error("Error fetching quiz questions by quiz id:", questionsError);
+    throw questionsError;
+  }
+
+  const questions = (quizQuestions || [])
+    .map((qq: any) => qq.questions)
+    .filter(Boolean)
+    .map((q: any) => parseQuestionRow(q));
+
+  return {
+    ...quiz,
+    type: quiz.type === null ? "mixed" : quiz.type,
+    questions,
+  };
 }
 
 // Get questions for a course or professor.

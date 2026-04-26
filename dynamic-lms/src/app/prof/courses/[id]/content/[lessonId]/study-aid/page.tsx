@@ -118,7 +118,7 @@ function EditStudyQuestionForm({
       <textarea
         value={questionText}
         onChange={(e) => setQuestionText(e.target.value)}
-        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
+        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 min-h-[150px] sm:min-h-[120px]"
         required
       />
       <select
@@ -152,12 +152,12 @@ function EditStudyQuestionForm({
             />
           </div>
         ))}
-        <div className="flex items-center gap-2">
-          <span className="shrink-0 font-semibold text-gray-700">Answer:</span>
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-gray-700">Answer</p>
           <select
             value={correctAnswerMc}
             onChange={(e) => setCorrectAnswerMc(parseInt(e.target.value, 10))}
-            className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
+            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
           >
             {options.map((opt, i) => (
               <option key={i} value={i}>
@@ -168,41 +168,58 @@ function EditStudyQuestionForm({
         </div>
         </>
       )}
-      {type === "true_false" && (
-        <textarea
-          value={correctAnswerFlashcard}
-          onChange={(e) => setCorrectAnswerFlashcard(e.target.value)}
-          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
-        />
-      )}
-      {type === "fill_blank" && (
-        <>
-          <input
-            value={correctAnswerFill}
-            onChange={(e) => setCorrectAnswerFill(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 px-4 py-4 text-sm text-gray-900"
+            {type === "true_false" && (
+        <div>
+          <p className="mb-1.5 text-sm font-medium text-gray-700">Answer</p>
+          <textarea
+            value={correctAnswerFlashcard}
+            onChange={(e) => setCorrectAnswerFlashcard(e.target.value)}
+            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
+            placeholder="Enter the explanation shown on the back of the flashcard"
           />
-          <select
-            value={fillBlankAnswerMode}
-            onChange={(e) => setFillBlankAnswerMode(e.target.value as "symbol_only" | "term_only")}
-            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white"
-          >
-            <option value="term_only">Term only</option>
-            <option value="symbol_only">Symbol only</option>
-          </select>
+        </div>
+      )}
+            {type === "fill_blank" && (
+        <>
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-gray-700">Correct Answer</p>
+            <input
+              value={correctAnswerFill}
+              onChange={(e) => setCorrectAnswerFill(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900"
+            />
+          </div>
+          <div>
+            <p className="mb-1.5 text-sm font-medium text-gray-700">Answer Mode Tag</p>
+            <select
+              value={fillBlankAnswerMode}
+              onChange={(e) => setFillBlankAnswerMode(e.target.value as "symbol_only" | "term_only")}
+              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white"
+            >
+              <option value="term_only">Term only</option>
+              <option value="symbol_only">Symbol only</option>
+            </select>
+          </div>
         </>
       )}
-      <textarea
-        value={correctFeedback}
-        onChange={(e) => setCorrectFeedback(e.target.value)}
-        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
-        placeholder="Brief feedback for correct answer"
-      />
-      <div className="flex gap-2 justify-end">
-        <button type="button" onClick={onCancel} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-slate-100 cursor-pointer">
+      <div>
+          {type !== "summary" && (
+          <>
+            <p className="mb-1.5 text-sm font-medium text-gray-700">Feedback</p>
+            <textarea
+              value={correctFeedback}
+              onChange={(e) => setCorrectFeedback(e.target.value)}
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 min-h-[120px] sm:min-h-[100px]"
+              placeholder="Brief feedback for correct answer"
+            />
+          </>
+        )}
+      </div>
+      <div className="flex flex-row gap-2 sm:justify-end">
+        <button type="button" onClick={onCancel} className="flex-1 sm:flex-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-slate-100 cursor-pointer">
           Cancel
         </button>
-        <button type="submit" disabled={saving} className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-all duration-200 cursor-pointer">
+        <button type="submit" disabled={saving} className="flex-1 sm:flex-none rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-all duration-200 cursor-pointer">
           {saving ? "Saving..." : "Save changes"}
         </button>
       </div>
@@ -371,7 +388,7 @@ export default function ProfessorLessonStudyAidPage() {
           <div className="space-y-6">
             <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
               <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white">
-                <h3 className="font-semibold text-gray-800">Your study aid questions</h3>
+                <h3 className="font-semibold text-gray-800">Study Aid Questions</h3>
               </div>
               <div className="p-4 sm:p-5">
                 {studyAidLoading ? (

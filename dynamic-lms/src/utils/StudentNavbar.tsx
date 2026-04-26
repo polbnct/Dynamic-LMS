@@ -221,7 +221,7 @@ export default function StudentNavbar({ currentPage = "dashboard", onJoinCourse 
               Profile
             </Link>
 
-            <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50">
+            <button onClick={handleLogout} className="flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-red-600 transition-colors hover:bg-red-50 cursor-pointer">
               <svg
                   className="w-5 h-5"
                   fill="none"

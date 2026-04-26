@@ -741,17 +741,17 @@ export default function StudentProfile() {
 
             {/* Action Buttons */}
             {isEditing && (
-              <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
+              <div className="flex flex-row gap-3 pt-4 border-t border-gray-200 sm:gap-4">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 hover:from-red-500 hover:to-rose-500 cursor-pointer"
+                  className="w-1/2 rounded-xl bg-red-600 py-3 font-semibold text-white shadow-lg transition-all duration-75 hover:bg-red-700 cursor-pointer"
                 >
                   Save Changes
                 </button>
                 <button
                   type="button"
                   onClick={handleCancel}
-                  className="flex-1 px-4 py-3 border border-gray-300 text-gray-800 rounded-xl font-semibold hover:bg-gray-100 transition-colors cursor-pointer"
+                  className="w-1/2 rounded-xl border border-gray-300 px-4 py-3 font-semibold text-gray-800 transition-colors hover:bg-gray-100 cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -964,7 +964,7 @@ export default function StudentProfile() {
               <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-4 border-t border-gray-200">
                 <button
                   type="submit"
-                  className="flex-1 bg-gradient-to-r from-red-600 to-rose-600 text-white py-3 rounded-xl font-semibold shadow-lg transition-all duration-75 cursor-pointer hover:from-red-500 hover:to-rose-500"
+                  className="flex-1 rounded-xl bg-red-600 py-3 font-semibold text-white shadow-lg transition-all duration-75 hover:bg-red-700 cursor-pointer"
                 >
                   Update Password
                 </button>

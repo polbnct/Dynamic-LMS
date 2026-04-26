@@ -8,8 +8,8 @@ import { getLessons, type Lesson } from "@/lib/supabase/queries/lessons";
 import {
   createQuestion,
   deleteQuestion,
+  getQuizById,
   getQuestions,
-  getQuizzes,
   setQuizQuestions,
   type Question as DBQuestion,
   updateQuestion,
@@ -86,19 +86,18 @@ export default function ManageQuizQuestionsPage() {
   useEffect(() => {
     async function load() {
       try {
-        const [courseData, quizzesData, questionsData, lessonsData] = await Promise.all([
+        const [courseData, quizData, questionsData, lessonsData] = await Promise.all([
           getCourseById(courseId),
-          getQuizzes(courseId),
+          getQuizById(courseId, quizId),
           getQuestions(courseId, undefined, { includeStudyAid: false }),
           getLessons(courseId),
         ]);
         setCourse(courseData);
         setLessons(lessonsData);
-        const quiz = quizzesData.find((q) => q.id === quizId);
-        if (!quiz) {
+        if (!quizData) {
           throw new Error("Quiz not found.");
         }
-        setQuizName(quiz.name);
+        setQuizName(quizData.name);
 
         const bank = questionsData.map((q) => ({
           id: q.id,
@@ -112,7 +111,7 @@ export default function ManageQuizQuestionsPage() {
         }));
         setQuizBank(bank);
 
-        const selected = (quiz.questions ?? []).map((q: DBQuestion) => ({
+        const selected = (quizData.questions ?? []).map((q: DBQuestion) => ({
           id: q.id,
           type: q.type as QuestionType,
           question: q.question,
@@ -459,7 +458,20 @@ export default function ManageQuizQuestionsPage() {
     }
   };
 
-  if (loading) return <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50" />;
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
+        <main className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
+          <div className="flex min-h-[60vh] items-center justify-center">
+            <div className="text-center">
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600 mx-auto mb-4"></div>
+              <p className="text-lg text-gray-700">Loading quiz questions...</p>
+            </div>
+          </div>
+        </main>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
@@ -481,14 +493,14 @@ export default function ManageQuizQuestionsPage() {
           </div>
         </header>
 
-        <div className="grid grid-cols-1 gap-6 xl:grid-cols-12">
-          <section className="rounded-2xl border border-gray-200 bg-white xl:col-span-5 overflow-hidden">
+        <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-12">
+          <section className="self-start rounded-2xl border border-gray-200 bg-white xl:col-span-5 overflow-hidden">
             <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3">
               <div>
                 <h2 className="text-lg font-semibold text-gray-900">Selected Questions</h2>
                 <p className="text-xs text-gray-900">{selectedQuestions.length} currently in this quiz</p>
               </div>
-              <button type="button" onClick={() => setSelectedQuestions([])} className="text-sm font-medium text-gray-900 hover:text-black shrink-0">
+              <button type="button" onClick={() => setSelectedQuestions([])} className="text-sm font-medium text-gray-900 hover:text-black shrink-0 cursor-pointer">
                 Clear all
               </button>
             </div>
@@ -498,23 +510,23 @@ export default function ManageQuizQuestionsPage() {
               ) : (
                 selectedQuestions.map((q) => (
                   <article key={q.id} className="rounded-lg border border-gray-200 p-3">
-                    <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-2">
+                    <div className="flex flex-row items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
                         <p className="text-xs uppercase tracking-wide text-gray-900">{q.type.replace("_", " ")}</p>
                         <p className="text-sm text-gray-900 break-words whitespace-normal">{q.question}</p>
                       </div>
-                      <div className="flex shrink-0 items-center gap-2">
+                      <div className="flex flex-row gap-1 sm:gap-2 shrink-0">
                         <button
                           type="button"
                           onClick={() => openEditQuestion(q)}
-                          className="rounded-md border border-gray-300 bg-white px-2 sm:px-3 py-1 text-xs font-medium text-gray-900 hover:bg-gray-50"
+                          className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-medium text-gray-900 hover:bg-slate-100 whitespace-nowrap cursor-pointer"
                         >
                           Edit
                         </button>
                         <button
                           type="button"
                           onClick={() => setSelectedQuestions((prev) => prev.filter((x) => x.id !== q.id))}
-                          className="rounded-md border border-red-600 bg-red-600 px-2 sm:px-3 py-1 text-xs font-medium text-white hover:bg-red-700"
+                          className="rounded-md border border-red-600 bg-red-600 px-2 py-1 text-xs font-medium text-white hover:bg-red-700 whitespace-nowrap cursor-pointer"
                         >
                           Remove
                         </button>
@@ -534,10 +546,10 @@ export default function ManageQuizQuestionsPage() {
                   <p className="text-xs text-gray-900">{displayedBank.length} available based on current filters</p>
                 </div>
                 <div className="flex w-full sm:w-auto items-center gap-2">
-                  <button onClick={() => setGenerateModalOpen(true)} className="flex-1 sm:flex-initial rounded-md border border-red-600 bg-red-600 px-10 py-2 sm:px -3 sm:py-1.5 text-xs font-semibold text-white hover:bg-red-700 cursor-pointer">
+                  <button onClick={() => setGenerateModalOpen(true)} className="flex-1 sm:flex-initial rounded-md border border-red-600 bg-red-600 px-10 py-2 text-xs font-semibold text-white hover:bg-red-700 cursor-pointer">
                     Generate
                   </button>
-                  <button onClick={openCreateQuestion} className="flex-1 sm:flex-initial rounded-md border border-gray-300 bg-white px-10 py-2 sm:px -3 sm:py-1.5 text-xs font-semibold text-gray-900 hover:bg-slate-100 cursor-pointer">
+                  <button onClick={openCreateQuestion} className="flex-1 sm:flex-initial rounded-md border border-gray-300 bg-white px-10 py-2 text-xs font-semibold text-gray-900 hover:bg-slate-100 cursor-pointer">
                     Create
                   </button>
                 </div>
@@ -560,9 +572,10 @@ export default function ManageQuizQuestionsPage() {
                 </select>
               </div>
             </div>
-
-            <div className="max-h-[70vh] space-y-3 overflow-y-auto p-4">
-              {generatedDraftQuestions.length > 0 && (
+            
+            {/* Generated Drafts Section */}
+            {generatedDraftQuestions.length > 0 && (
+              <div className="border-b border-gray-100 bg-slate-50/60 p-4">
                 <div className="rounded-lg border border-gray-200 bg-white p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">
                     <p className="text-sm font-semibold text-gray-900">Generated Drafts</p>
@@ -570,55 +583,60 @@ export default function ManageQuizQuestionsPage() {
                       {generatedDraftQuestions.length} drafts
                     </span>
                   </div>
-                  <ul className="mt-2 space-y-2">
+                  <ul className="mt-2 max-h-80 space-y-2 overflow-y-auto pr-1">
                     {generatedDraftQuestions.map((q) => (
                       <li key={q.draftId} className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm text-gray-900 shadow-sm">
-                        <div className="flex items-start justify-between gap-2">
-                          <label className="flex min-w-0 items-start gap-2">
-                            <input
-                              type="checkbox"
-                              checked={selectedGeneratedDraftIds.includes(q.draftId)}
-                              onChange={() =>
-                                setSelectedGeneratedDraftIds((prev) =>
-                                  prev.includes(q.draftId) ? prev.filter((id) => id !== q.draftId) : [...prev, q.draftId]
-                                )
-                              }
-                            />
-                            <span className="min-w-0">
-                              <span className="block text-xs font-semibold uppercase tracking-wide text-gray-700">
-                                {q.type.replace("_", " ")}
+                        <div className="flex flex-col gap-2">
+                          <div className="flex items-start justify-between gap-2">
+                            <label className="flex min-w-0 items-start gap-2 flex-1">
+                              <input
+                                type="checkbox"
+                                checked={selectedGeneratedDraftIds.includes(q.draftId)}
+                                onChange={() =>
+                                  setSelectedGeneratedDraftIds((prev) =>
+                                    prev.includes(q.draftId) ? prev.filter((id) => id !== q.draftId) : [...prev, q.draftId]
+                                  )
+                                }
+                                className="cursor-pointer mt-0.5 shrink-0"
+                              />
+                              <span className="min-w-0 flex-1">
+                                <span className="block text-xs font-semibold uppercase tracking-wide text-gray-700">
+                                  {q.type.replace("_", " ")}
+                                </span>
                               </span>
-                              <span className="block break-words text-sm text-gray-900">{q.question}</span>
-                            </span>
-                          </label>
-                          <div className="flex shrink-0 items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => openEditDraft(q)}
-                              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50"
-                            >
-                              Edit
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setGeneratedDraftQuestions((prev) => prev.filter((draft) => draft.draftId !== q.draftId));
-                                setSelectedGeneratedDraftIds((prev) => prev.filter((id) => id !== q.draftId));
-                              }}
-                              className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-gray-50"
-                            >
-                              Delete
-                            </button>
+                            </label>
+                            <div className="flex shrink-0 items-center gap-1">
+                              <button
+                                type="button"
+                                onClick={() => openEditDraft(q)}
+                                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-slate-100 cursor-pointer"
+                              >
+                                Edit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setGeneratedDraftQuestions((prev) => prev.filter((draft) => draft.draftId !== q.draftId));
+                                  setSelectedGeneratedDraftIds((prev) => prev.filter((id) => id !== q.draftId));
+                                }}
+                                className="rounded-md border border-gray-300 bg-white px-2 py-1 text-xs font-semibold text-gray-900 hover:bg-slate-100 cursor-pointer"
+                              >
+                                Delete
+                              </button>
+                            </div>
+                          </div>
+                          <div className="pl-6">
+                            <span className="block break-words text-sm text-gray-900">{q.question}</span>
                           </div>
                         </div>
                       </li>
                     ))}
                   </ul>
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-2 flex flex-row gap-2 sm:justify-end">
                     <button
                       onClick={handleApproveDrafts}
                       disabled={approvingGeneratedDrafts}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-900 bg-gray-900 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-black disabled:cursor-not-allowed disabled:opacity-60"
+                      className="flex-1 sm:w-auto inline-flex h-9 items-center justify-center rounded-lg border border-red-600 bg-red-600 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 cursor-pointer"
                     >
                       {approvingGeneratedDrafts ? "Approving..." : "Approve Selected"}
                     </button>
@@ -627,14 +645,16 @@ export default function ManageQuizQuestionsPage() {
                         setGeneratedDraftQuestions([]);
                         setSelectedGeneratedDraftIds([]);
                       }}
-                      className="inline-flex h-9 items-center justify-center rounded-lg border border-gray-300 bg-white px-4 text-sm font-semibold text-gray-900 shadow-sm transition hover:bg-gray-50"
+                      className="flex-1 sm:w-auto inline-flex h-9 items-center justify-center rounded-lg border border-slate-300 bg-white px-4 text-sm font-semibold text-slate-700 shadow-sm transition hover:bg-slate-100 cursor-pointer"
                     >
                       Discard All
                     </button>
                   </div>
                 </div>
-              )}
+              </div>
+            )}
 
+            <div className="max-h-[70vh] space-y-3 overflow-y-auto p-4">
               {displayedBank.length === 0 ? (
                 <p className="text-sm text-gray-900">No questions available for the selected filters.</p>
               ) : (
@@ -826,9 +846,9 @@ export default function ManageQuizQuestionsPage() {
                 </select>
               </div>
             </div>
-            <div className="flex justify-end gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3">
-              <button onClick={() => setCreateQuestionModalOpen(false)} className="rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50">Cancel</button>
-              <button onClick={handleCreateOrUpdateQuestion} className="rounded-lg border border-red-600 bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700">Save</button>
+            <div className="flex flex-row gap-2 border-t border-gray-100 bg-gray-50 px-5 py-3 sm:justify-end">
+              <button onClick={() => setCreateQuestionModalOpen(false)} className="flex-1 sm:flex-none rounded-lg border border-gray-300 bg-white px-4 py-2 text-sm font-semibold text-gray-900 hover:bg-gray-50 cursor-pointer">Cancel</button>
+              <button onClick={handleCreateOrUpdateQuestion} className="flex-1 sm:flex-none rounded-lg border border-red-600 bg-red-600 px-6 py-2 text-sm font-semibold text-white hover:bg-red-700 cursor-pointer">Save</button>
             </div>
           </div>
         </div>
