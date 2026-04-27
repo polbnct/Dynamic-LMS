@@ -20,6 +20,53 @@ function LoginPageInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const supabase = createClient();
+  
+  const resolveRoleAndRedirect = async (userId: string, allowRedirectParam: boolean) => {
+    const role = await getServerRole();
+    if (role === "admin") {
+      router.push("/admin");
+      return true;
+    }
+
+    const redirectUrl = allowRedirectParam ? searchParams.get("redirect") : null;
+
+    const { data: profData } = await supabase
+      .from("professors")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (profData) {
+      router.push(redirectUrl && redirectUrl.startsWith("/prof") ? redirectUrl : "/prof");
+      return true;
+    }
+
+    const { data: studentData } = await supabase
+      .from("students")
+      .select("id")
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    if (studentData) {
+      router.push(
+        redirectUrl && redirectUrl.startsWith("/student") ? redirectUrl : "/student/dashboard"
+      );
+      return true;
+    }
+
+    if (role) {
+      if (role === "professor" || role === "prof") {
+        router.push(redirectUrl && redirectUrl.startsWith("/prof") ? redirectUrl : "/prof");
+      } else {
+        router.push(
+          redirectUrl && redirectUrl.startsWith("/student") ? redirectUrl : "/student/dashboard"
+        );
+      }
+      return true;
+    }
+
+    return false;
+  };
 
   // Check if user is already logged in
   useEffect(() => {
@@ -29,35 +76,7 @@ function LoginPageInner() {
       } = await supabase.auth.getUser();
 
       if (user) {
-        // Prefer admin role first
-        const role = await getServerRole();
-        if (role === "admin") {
-          router.push("/admin");
-          return;
-        }
-
-        // Check user role by profile tables
-        const { data: profData } = await supabase
-          .from("professors")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (profData) {
-          router.push("/prof");
-          return;
-        }
-
-        const { data: studentData } = await supabase
-          .from("students")
-          .select("id")
-          .eq("user_id", user.id)
-          .maybeSingle();
-
-        if (studentData) {
-          router.push("/student/dashboard");
-          return;
-        }
+        await resolveRoleAndRedirect(user.id, false);
       }
     }
 
@@ -95,50 +114,11 @@ function LoginPageInner() {
         return;
       }
 
-      // Prefer admin role first
-      const role = await getServerRole();
-      if (role === "admin") {
-        router.push("/admin");
-        return;
+      const redirected = await resolveRoleAndRedirect(authData.user.id, true);
+      if (!redirected) {
+        setError("User role not found. Please contact support.");
+        setLoading(false);
       }
-
-      // Check user role by looking in professors/students tables
-      const { data: profData } = await supabase
-        .from("professors")
-        .select("id")
-        .eq("user_id", authData.user.id)
-        .maybeSingle();
-
-      // Get redirect URL from query params if available
-      const redirectUrl = searchParams.get("redirect");
-
-      if (profData) {
-        router.push(redirectUrl && redirectUrl.startsWith("/prof") ? redirectUrl : "/prof");
-        return;
-      }
-
-      const { data: studentData } = await supabase
-        .from("students")
-        .select("id")
-        .eq("user_id", authData.user.id)
-        .maybeSingle();
-
-      if (studentData) {
-        router.push(redirectUrl && redirectUrl.startsWith("/student") ? redirectUrl : "/student/dashboard");
-        return;
-      }
-
-      if (role) {
-        if (role === "professor" || role === "prof") {
-          router.push(redirectUrl && redirectUrl.startsWith("/prof") ? redirectUrl : "/prof");
-        } else {
-          router.push(redirectUrl && redirectUrl.startsWith("/student") ? redirectUrl : "/student/dashboard");
-        }
-        return;
-      }
-
-      setError("User role not found. Please contact support.");
-      setLoading(false);
     } catch (err) {
       console.error("Login error:", err);
       setError("An unexpected error occurred. Please try again.");

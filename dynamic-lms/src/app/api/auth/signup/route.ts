@@ -9,19 +9,19 @@ export async function POST(request: NextRequest) {
   try {
     console.log("Signup API called");
     const body = await request.json();
-    console.log("Request body received:", { email: body.email, name: body.name, role: body.role, hasPassword: !!body.password });
-    const { email, password, name, role } = body;
+    console.log("Request body received:", { email: body.email, name: body.name, hasPassword: !!body.password });
+    const { email, password, name } = body;
 
-    if (!email || !password || !name || !role) {
-      console.error("Missing required fields:", { email: !!email, password: !!password, name: !!name, role: !!role });
+    if (!email || !password || !name) {
+      console.error("Missing required fields:", { email: !!email, password: !!password, name: !!name });
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
       );
     }
 
-    const userRole = role === "prof" ? "professor" : "student";
-    if (userRole === "student" && !isAllowedStudentSignupEmail(String(email))) {
+    const userRole: "student" = "student";
+    if (!isAllowedStudentSignupEmail(String(email))) {
       return NextResponse.json(
         { error: "This email address is not allowed for registration." },
         { status: 400 }
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
           id: authData.user.id,
           email: email,
           name: name,
-          role: userRole as "professor" | "student",
+          role: userRole,
         });
       
       if (userError && userError.code !== "23505") {
@@ -194,90 +194,52 @@ export async function POST(request: NextRequest) {
         }
       );
 
-      if (userRole === "professor") {
-        console.log("Creating professor record for:", authData.user.id);
-        const { data: profData, error: profError } = await adminClient
-          .from("professors")
-          .insert({
-            user_id: authData.user.id,
-          })
-          .select();
+      const year = new Date().getFullYear();
+      const random = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, "0");
+      const studentId = `STU${year}${random}`;
 
-        if (profError) {
-          console.error("Error creating professor record:", profError);
-          return NextResponse.json(
-            {
-              error: profError.message || "Failed to create professor profile",
-              details: profError.details,
-              code: profError.code,
-            },
-            { status: 500 }
-          );
-        }
-        console.log("Professor record created successfully");
-      } else {
-        const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 10000)
-          .toString()
-          .padStart(4, "0");
-        const studentId = `STU${year}${random}`;
-
-        console.log("Creating student record for:", authData.user.id, "with student_id:", studentId);
-        const { data: studentData, error: studentError } = await adminClient
-          .from("students")
-          .insert({
-            user_id: authData.user.id,
-            student_id: studentId,
-          })
-          .select();
-
-        if (studentError) {
-          console.error("Error creating student record:", studentError);
-          return NextResponse.json(
-            {
-              error: studentError.message || "Failed to create student profile",
-              details: studentError.details,
-              code: studentError.code,
-            },
-            { status: 500 }
-          );
-        }
-        console.log("Student record created successfully");
-      }
-    } else {
-      // Fallback: use regular client
-      if (userRole === "professor") {
-        const { error: profError } = await supabase.from("professors").insert({
-          user_id: authData.user.id,
-        });
-        if (profError) {
-          return NextResponse.json(
-            {
-              error: profError.message || "Failed to create professor profile",
-              code: profError.code,
-            },
-            { status: 500 }
-          );
-        }
-      } else {
-        const year = new Date().getFullYear();
-        const random = Math.floor(Math.random() * 10000)
-          .toString()
-          .padStart(4, "0");
-        const studentId = `STU${year}${random}`;
-        const { error: studentError } = await supabase.from("students").insert({
+      console.log("Creating student record for:", authData.user.id, "with student_id:", studentId);
+      const { data: studentData, error: studentError } = await adminClient
+        .from("students")
+        .insert({
           user_id: authData.user.id,
           student_id: studentId,
-        });
-        if (studentError) {
-          return NextResponse.json(
-            {
-              error: studentError.message || "Failed to create student profile",
-              code: studentError.code,
-            },
-            { status: 500 }
-          );
-        }
+        })
+        .select();
+
+      if (studentError) {
+        console.error("Error creating student record:", studentError);
+        return NextResponse.json(
+          {
+            error: studentError.message || "Failed to create student profile",
+            details: studentError.details,
+            code: studentError.code,
+          },
+          { status: 500 }
+        );
+      }
+      console.log("Student record created successfully");
+    } else {
+      // Fallback: use regular client
+      const year = new Date().getFullYear();
+      const random = Math.floor(Math.random() * 10000)
+        .toString()
+        .padStart(4, "0");
+      const studentId = `STU${year}${random}`;
+      const { error: studentError } = await supabase.from("students").insert({
+        user_id: authData.user.id,
+        student_id: studentId,
+      });
+      if (studentError) {
+        return NextResponse.json(
+          {
+            error: studentError.message || "Failed to create student profile",
+            code: studentError.code,
+          },
+          { status: 500 }
+        );
       }
     }
 
