@@ -232,7 +232,9 @@ CRITICAL: Return ONLY the JSON object. No markdown, no code blocks, no explanati
 function generatePrompt(lessonMetadata: string, questionType: string, count: number, forStudyAid?: boolean): string {
   const typeInstructions = {
     multiple_choice: "multiple choice questions with 4 options each",
-    true_false: "true/false questions",
+    true_false: forStudyAid
+      ? "flashcard items with front/back text (not boolean true/false answers)"
+      : "true/false questions",
     fill_blank: "fill-in-the-blank questions",
   };
 
@@ -258,15 +260,16 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
 - Questions should vary in difficulty and cover different sections of the document`;
     }
   } else if (questionType === "true_false") {
-    requirements = "- Each question should be a clear statement that can be definitively true or false\n- Mark the correct answer as true or false";
+    requirements = forStudyAid
+      ? '- Create flashcards where "question" is the front side prompt and "correct_answer" is the back side explanation text\n- The "correct_answer" must be a short, plain-language STRING explanation (not boolean)\n- Do not output true/false as the answer for flashcards'
+      : "- Each question should be a clear statement that can be definitively true or false\n- Mark the correct answer as true or false";
     if (forStudyAid) {
-      specificGuidelines = `- Create flashcard-style statements that help students review important facts from the PDF
+      specificGuidelines = `- Create flashcards for active recall, where front side is a term/concept/question and back side explains it clearly
 - Focus on key concepts, definitions, and essential information students should remember
-- Each statement should reinforce learning of important material
-- Mix both true and false statements to help students think critically
-- False statements should be educational - they should highlight common misconceptions or important distinctions
-- Statements should help students understand and remember the core content
-- Make flashcards that promote active recall and learning`;
+- Each flashcard should reinforce one important learning point
+- Back-side answers should be concise explanatory text suitable for memorization/review
+- Avoid yes/no or true/false style answers; this mode is for explanatory flashcards
+- Make flashcards that help students understand and remember the core content`;
     } else {
       specificGuidelines = `- Create statements that are definitively true or false based on the PDF content
 - Focus on factual claims, definitions, relationships, or principles from the document
@@ -309,7 +312,7 @@ function generatePrompt(lessonMetadata: string, questionType: string, count: num
       : '"options": ["Option A", "Option B", "Option C", "Option D"],\n    "correct_answer": 0';
   } else if (questionType === "true_false") {
     jsonExample = forStudyAid
-      ? '"correct_answer": true,\n    "correct_explanation": "Brief explanation of why this statement is true based on the lesson.",\n    "incorrect_explanation": "Brief explanation of why the opposite answer would be incorrect."'
+      ? '"correct_answer": "Back-side explanation text that helps the student memorize the concept.",\n    "correct_explanation": "Brief reinforcement shown after study interaction.",\n    "incorrect_explanation": "Brief correction to clarify common misunderstanding."'
       : '"correct_answer": true';
   } else {
     jsonExample = forStudyAid
@@ -339,7 +342,7 @@ ${lessonMetadata}
 
 The PDF document is attached to this request. You must analyze its content carefully and generate questions based on the actual material, facts, concepts, and information presented in the PDF.
 
-Question Type: ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? "True or False" : "Fill in the Blank"}
+Question Type: ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? (forStudyAid ? "Flashcard (front/back explanation)" : "True or False") : "Fill in the Blank"}
 
 Specific Guidelines for ${questionType === "multiple_choice" ? "Multiple Choice" : questionType === "true_false" ? "True/False" : "Fill-in-the-Blank"} ${forStudyAid ? "Study Aid" : ""} Questions:
 ${specificGuidelines}
@@ -532,21 +535,36 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
             : parsedAnswer;
         }
       } else if (questionType === "true_false") {
-        const parsedAnswer =
-          typeof q.correct_answer === "boolean" ? q.correct_answer : q.correct_answer === "true" || q.correct_answer === true;
-        questionObj.correct_answer = forStudyAid
-          ? {
-              answer: parsedAnswer,
-              correct_explanation:
-                typeof q.correct_explanation === "string" && q.correct_explanation.trim()
-                  ? normalizeGeneratedText(q.correct_explanation.trim())
-                  : "Correct. This statement is supported by the lesson content.",
-              incorrect_explanation:
-                typeof q.incorrect_explanation === "string" && q.incorrect_explanation.trim()
-                  ? normalizeGeneratedText(q.incorrect_explanation.trim())
-                  : "Not correct. The opposite answer aligns better with the lesson content.",
-            }
-          : parsedAnswer;
+        if (forStudyAid) {
+          const rawAnswer = q.correct_answer;
+          const parsedFlashcardAnswer =
+            typeof rawAnswer === "string"
+              ? normalizeGeneratedText(rawAnswer).trim()
+              : typeof rawAnswer === "boolean"
+                ? rawAnswer
+                  ? "This concept is affirmed by the lesson content."
+                  : "This concept is corrected by the lesson content."
+                : normalizeGeneratedText(String(rawAnswer ?? "")).trim();
+          questionObj.correct_answer = {
+            answer:
+              parsedFlashcardAnswer ||
+              "Review the key lesson concept and explain it in your own words.",
+            correct_explanation:
+              typeof q.correct_explanation === "string" && q.correct_explanation.trim()
+                ? normalizeGeneratedText(q.correct_explanation.trim())
+                : "Correct. This back-side explanation captures the key lesson idea.",
+            incorrect_explanation:
+              typeof q.incorrect_explanation === "string" && q.incorrect_explanation.trim()
+                ? normalizeGeneratedText(q.incorrect_explanation.trim())
+                : "Not quite. Revisit the concept and compare it with the lesson explanation.",
+          };
+        } else {
+          const parsedAnswer =
+            typeof q.correct_answer === "boolean"
+              ? q.correct_answer
+              : q.correct_answer === "true" || q.correct_answer === true;
+          questionObj.correct_answer = parsedAnswer;
+        }
       } else if (questionType === "fill_blank") {
         const providedMode =
           q.fill_blank_answer_mode === "symbol_only" || q.fill_blank_answer_mode === "term_only"
@@ -591,7 +609,7 @@ function parseGeminiResponse(responseText: string, questionType: string, lessonI
     console.error("Error parsing Gemini response:", error);
     console.error("Response text that failed to parse:", responseText.substring(0, 500));
     // Fallback: generate basic questions from the response text
-    return generateFallbackQuestions(responseText, questionType, lessonId);
+    return generateFallbackQuestions(responseText, questionType, lessonId, forStudyAid);
   }
 }
 
@@ -644,7 +662,7 @@ function rebalanceFillBlankModes(questions: any[]): any[] {
   return questions;
 }
 
-function generateFallbackQuestions(text: string, questionType: string, lessonId: string): any[] {
+function generateFallbackQuestions(text: string, questionType: string, lessonId: string, forStudyAid?: boolean): any[] {
   // Simple fallback if JSON parsing fails
   const sentences = text.split(/[.!?]+/).filter(s => s.trim().length > 20);
   
@@ -667,7 +685,9 @@ function generateFallbackQuestions(text: string, questionType: string, lessonId:
         id: `gen-${Date.now()}-${index}`,
         type: "true_false",
         question: cleanQuestionStem(cleanSentence + "?"),
-        correct_answer: true,
+        correct_answer: forStudyAid
+          ? "Review this concept from the lesson and recall its key explanation."
+          : true,
         source_lesson_id: lessonId,
         source_type: "lesson" as const,
         created_at: new Date().toISOString(),

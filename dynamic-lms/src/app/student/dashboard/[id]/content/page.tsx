@@ -115,7 +115,6 @@ export default function StudentContentPage() {
   const [lessonSummaryById, setLessonSummaryById] = useState<
     Record<string, { loading: boolean; summary: string | null; error?: string }>
   >({});
-  const [questionsShuffleNonce, setQuestionsShuffleNonce] = useState(0);
   const [assessmentLockedByOtherTab, setAssessmentLockedByOtherTab] = useState(false);
 
   useEffect(() => {
@@ -171,6 +170,7 @@ export default function StudentContentPage() {
       ? true
       : Boolean(course.shuffle_study_aid_questions);
 
+      // get the study aid (flashcard and questions xd)
   const handleStudyAid = async (lesson: LessonWithUI) => {
     setSelectedLesson(lesson);
     setStudyAidModalOpen(true);
@@ -188,7 +188,6 @@ export default function StudentContentPage() {
     setStudyAidReveal(false);
     setNewFlashcardQuestion("");
     setNewFlashcardAnswer("");
-    setQuestionsShuffleNonce((prev) => prev + 1);
     setStudyAidLoading(true);
     try {
       const [questions, privateFlashcards] = await Promise.all([
@@ -213,13 +212,16 @@ export default function StudentContentPage() {
       return next;
     });
 
+    // dont do the same summary loading twice
     if (lessonSummaryById[lesson.id]?.summary !== undefined || lessonSummaryById[lesson.id]?.loading) return;
 
+    // main function would be that its updating it controls one lesson at a time without making the other lesson summary load
     setLessonSummaryById((prev) => ({
       ...prev,
       [lesson.id]: { loading: true, summary: null },
     }));
 
+    // get the summary lesson for the questions
     try {
       const questions = await getLessonStudyQuestions(lesson.id);
       const summaryQuestion = questions.find((q) => isSummaryQuestion(q));
@@ -241,7 +243,7 @@ export default function StudentContentPage() {
       }));
     }
   };
-
+  // UI MERGING FLASHCARDS AND NOT THE FLASHCARD MERGING!!!!!!!
   const professorFlashcards: MergedFlashcard[] = studyAidQuestions
     .filter((q) => q.type === "true_false")
     .map((q) => {
@@ -253,7 +255,7 @@ export default function StudentContentPage() {
         source: "professor" as const,
       };
     });
-
+    // same concept as the merging of professor flashcard with re-rendering
   const privateFlashcards: MergedFlashcard[] = studentFlashcards.map((card) => ({
     id: `student-${card.id}`,
     question: card.question,
@@ -262,6 +264,7 @@ export default function StudentContentPage() {
     flashcardId: card.id,
   }));
 
+  // card sorting ONLY in the session of the modal and revers back to natural order after closing the modal
   const applyFlashcardOrder = (cards: MergedFlashcard[], order: string[] | null) => {
     if (!order || order.length === 0) return cards;
     const rank = new Map(order.map((id, idx) => [id, idx]));
@@ -275,6 +278,7 @@ export default function StudentContentPage() {
     });
   };
 
+  // assure that the flascards shuffle only affects one list (student or professor)
   const displayedProfessorFlashcards = applyFlashcardOrder(
     professorFlashcards,
     professorFlashcardOrder
@@ -286,18 +290,18 @@ export default function StudentContentPage() {
 
   const activeFlashcards =
     flashcardSource === "professor" ? displayedProfessorFlashcards : displayedPrivateFlashcards;
+  
+  // fetch the choice of the professor and shuffle them if it should be shuffled
   const multipleChoiceQuestions = useMemo(() => {
-    void questionsShuffleNonce;
     const list = studyAidQuestions.filter((q) => q.type === "multiple_choice");
     return shouldShuffleStudyAidQuestions ? shuffleArray(list) : list;
-  }, [studyAidQuestions, shouldShuffleStudyAidQuestions, questionsShuffleNonce]);
+  }, [studyAidQuestions, shouldShuffleStudyAidQuestions]);
 
   const fillBlankQuestions = useMemo(() => {
-    void questionsShuffleNonce;
     const list = studyAidQuestions.filter((q) => q.type === "fill_blank" && !isSummaryQuestion(q));
     return shouldShuffleStudyAidQuestions ? shuffleArray(list) : list;
-  }, [studyAidQuestions, shouldShuffleStudyAidQuestions, questionsShuffleNonce]);
-
+  }, [studyAidQuestions, shouldShuffleStudyAidQuestions]);
+  // pointer to current study aids questions and
   const currentList = activeFlashcards;
   const currentQuestion = currentList[studyAidIndex];
   const hasAnyQuestions = studyAidQuestions.length > 0 || studentFlashcards.length > 0;
