@@ -313,7 +313,6 @@ export default function ContentPage() {
   const [editModalTab, setEditModalTab] = useState<"lesson" | "lesson_settings">("lesson");
   const [unlockThresholdPercent, setUnlockThresholdPercent] = useState(70);
   const [shuffleStudyAidQuestions, setShuffleStudyAidQuestions] = useState(true);
-  const [requireBothForUnlock, setRequireBothForUnlock] = useState(true);
   const [savingUnlockThreshold, setSavingUnlockThreshold] = useState(false);
   const { handledCourses } = useProfessorCourses();
   const [creatingLesson, setCreatingLesson] = useState(false);
@@ -431,12 +430,6 @@ const getValidatedStudyAidCount = (
           courseData?.shuffle_study_aid_questions === null
             ? true
             : Boolean(courseData.shuffle_study_aid_questions)
-        );
-        setRequireBothForUnlock(
-          courseData?.require_both_for_unlock === undefined ||
-          courseData?.require_both_for_unlock === null
-            ? true
-            : Boolean(courseData.require_both_for_unlock)
         );
         const lessonsData = await getLessons(courseId);
         setLessons(
@@ -1279,25 +1272,6 @@ const getValidatedStudyAidCount = (
                       <span className="text-sm text-gray-700">Shuffle question order for students</span>
                     </label>
                   </div>
-                  <div className="mt-4 pt-4 border-t border-gray-200">
-                    <label className="block text-sm font-semibold text-gray-700 mb-2">
-                      Unlock rule requirement
-                    </label>
-                    <label className="inline-flex items-center gap-3">
-                      <input
-                        type="checkbox"
-                        checked={requireBothForUnlock}
-                        onChange={(e) => setRequireBothForUnlock(e.target.checked)}
-                        className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-                      />
-                      <span className="text-sm text-gray-700">
-                        Require both MCQ and Fill in the Blank attempts for unlock
-                      </span>
-                    </label>
-                    <p className="text-xs text-gray-500 mt-2">
-                      If disabled, whichever completed type contributes to the unlock percentage.
-                    </p>
-                  </div>
                   <div className="mt-4 flex justify-end">
                     <button
                       type="button"
@@ -1309,7 +1283,6 @@ const getValidatedStudyAidCount = (
                           await updateCourseLessonSettings(courseId, {
                             unlock_threshold_percent: unlockThresholdPercent,
                             shuffle_study_aid_questions: shuffleStudyAidQuestions,
-                            require_both_for_unlock: requireBothForUnlock,
                           });
                           setCourse((prev: any) =>
                             prev
@@ -1317,7 +1290,6 @@ const getValidatedStudyAidCount = (
                                   ...prev,
                                   unlock_threshold_percent: unlockThresholdPercent,
                                   shuffle_study_aid_questions: shuffleStudyAidQuestions,
-                                  require_both_for_unlock: requireBothForUnlock,
                                 }
                               : prev
                           );

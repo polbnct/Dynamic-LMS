@@ -679,6 +679,14 @@ export interface QuizResultWithAnswers {
   answers: QuizResultAnswer[];
 }
 
+export interface OverrideAttemptAnswerResult {
+  attemptId: string;
+  questionId: string;
+  isCorrect: boolean;
+  score: number;
+  maxScore: number;
+}
+
 // Get attempt with answers and question details for showing results
 export async function getQuizAttemptWithAnswers(
   attemptId: string,
@@ -792,6 +800,33 @@ export async function getQuizAttemptWithAnswers(
       max_score: attempt.max_score != null ? Number(attempt.max_score) : 0,
     },
     answers,
+  };
+}
+
+export async function overrideAttemptAnswerCorrectness(input: {
+  attemptId: string;
+  quizId: string;
+  courseId: string;
+  questionId: string;
+  isCorrect: boolean;
+}): Promise<OverrideAttemptAnswerResult> {
+  const res = await fetch("/api/quizzes/attempts/override", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(input),
+  });
+
+  const json = (await res.json().catch(() => null)) as any;
+  if (!res.ok) {
+    throw new Error(json?.error || "Failed to update answer correctness");
+  }
+
+  return {
+    attemptId: String(json?.attemptId ?? input.attemptId),
+    questionId: String(json?.questionId ?? input.questionId),
+    isCorrect: Boolean(json?.isCorrect),
+    score: Number(json?.score ?? 0),
+    maxScore: Number(json?.maxScore ?? 0),
   };
 }
 

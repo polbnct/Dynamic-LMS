@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
+import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById, getCurrentStudentId } from "@/lib/supabase/queries/courses.client";
 import { getStudentGrades } from "@/lib/supabase/queries/grades";
 import type { Grade } from "@/lib/supabase/queries/grades";
@@ -103,6 +104,7 @@ export default function StudentGradesPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
+        <StudentCourseNavbar courseId={courseId} currentPage="grades" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
@@ -118,6 +120,12 @@ export default function StudentGradesPage() {
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Main Student Navbar */}
       <StudentNavbar currentPage="courses" />
+      <StudentCourseNavbar
+        courseId={courseId}
+        currentPage="grades"
+        courseName={course?.name}
+        courseCode={course?.code}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">

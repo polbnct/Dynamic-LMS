@@ -2422,6 +2422,7 @@ export default function QuizzesPage() {
       {/* Quiz attempts & activity logs modal */}
       {monitoringQuizId && (
         <QuizMonitoringModal  
+          courseId={courseId}
           quizId={monitoringQuizId}
           quizName={monitoringQuizName}
           isOpen={!!monitoringQuizId}

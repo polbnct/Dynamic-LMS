@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import Link from "next/link";
 import { useToast } from "@/components/feedback/ToastProvider";
 import StudentNavbar from "@/utils/StudentNavbar";
+import StudentCourseNavbar from "@/utils/StudentCourseNavbar";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import { getLessons, getLessonPDFUrl } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
@@ -39,7 +40,6 @@ interface CourseStudyAidSettings {
   code?: string;
   shuffle_study_aid_questions?: boolean | null;
   unlock_threshold_percent?: number | null;
-  require_both_for_unlock?: boolean | null;
 }
 
 interface LessonWithUI extends Lesson {
@@ -423,10 +423,6 @@ export default function StudentContentPage() {
     100,
     Math.max(1, Math.round(Number(course?.unlock_threshold_percent ?? 70)))
   );
-  const REQUIRE_BOTH_FOR_UNLOCK =
-    course?.require_both_for_unlock === undefined || course?.require_both_for_unlock === null
-      ? true
-      : Boolean(course.require_both_for_unlock);
 
   // Unlocking is sequential across categories: Prelim -> Midterm -> Finals
   const orderedLessons = [
@@ -441,9 +437,8 @@ export default function StudentContentPage() {
     return a.order - b.order;
   });
 
-  // Combined mastery: based on MC + Fill-in-the-Blank together.
-  // We take best attempt per type (by pct), then compute:
-  // ((overall correct answers) / (overall number of questions)) * 100
+  // Combined mastery: best attempt per question type (by pct), then weighted
+  // across types that have attempts: (total correct / total questions) * 100
   const bestByLessonAndType: Record<string, { score: number; max: number; pct: number }> = {};
   for (const a of studyAidAttempts) {
     const type = a.question_type;
@@ -460,10 +455,6 @@ export default function StudentContentPage() {
   for (const lesson of orderedLessons) {
     const mc = bestByLessonAndType[`${lesson.id}:multiple_choice`];
     const fib = bestByLessonAndType[`${lesson.id}:fill_blank`];
-    if (REQUIRE_BOTH_FOR_UNLOCK && (!mc || !fib)) {
-      combinedPctByLesson[lesson.id] = 0;
-      continue;
-    }
     const totalQuestions = (mc?.max || 0) + (fib?.max || 0);
     const overallCorrectAnswers = (mc?.score || 0) + (fib?.score || 0);
     combinedPctByLesson[lesson.id] = totalQuestions > 0 ? (overallCorrectAnswers / totalQuestions) * 100 : 0;
@@ -492,6 +483,7 @@ export default function StudentContentPage() {
     return (
       <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
         <StudentNavbar currentPage="courses" />
+        <StudentCourseNavbar courseId={courseId} currentPage="content" />
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
           <div className="flex items-center justify-center py-16">
             <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-red-600"></div>
@@ -507,6 +499,12 @@ export default function StudentContentPage() {
     <div className="min-h-screen bg-gradient-to-br from-red-50 via-white to-rose-50">
       {/* Main Student Navbar */}
       <StudentNavbar currentPage="courses" />
+      <StudentCourseNavbar
+        courseId={courseId}
+        currentPage="content"
+        courseName={course?.name}
+        courseCode={course?.code}
+      />
 
       {/* Main Content */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 lg:py-12">
@@ -585,9 +583,8 @@ export default function StudentContentPage() {
                             >{lesson.title}</h3>
                             {!isUnlocked && (
                               <p className="text-amber-800 text-sm font-medium mb-1">
-                                {REQUIRE_BOTH_FOR_UNLOCK
-                                  ? `Complete both MCQ and Fill in the Blank in the previous lesson and reach at least ${PASSING_PERCENT}% to unlock.`
-                                  : `Complete study aid in the previous lesson and reach at least ${PASSING_PERCENT}% to unlock.`}
+                                Complete study aid in the previous lesson and reach at least {PASSING_PERCENT}% to
+                                unlock.
                               </p>
                             )}
                             {lesson.description && (

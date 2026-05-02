@@ -10,7 +10,6 @@ export interface Course {
   created_at: string;
   unlock_threshold_percent?: number | null;
   shuffle_study_aid_questions?: boolean | null;
-  require_both_for_unlock?: boolean | null;
   studentsCount?: number;
 }
 
@@ -213,7 +212,6 @@ export async function updateCourseLessonSettings(
   settings: {
     unlock_threshold_percent: number;
     shuffle_study_aid_questions: boolean;
-    require_both_for_unlock: boolean;
   }
 ): Promise<void> {
   const supabase = createClient();
@@ -224,7 +222,6 @@ export async function updateCourseLessonSettings(
     .update({
       unlock_threshold_percent: safePercent,
       shuffle_study_aid_questions: settings.shuffle_study_aid_questions,
-      require_both_for_unlock: settings.require_both_for_unlock,
     })
     .eq("id", courseId);
 
