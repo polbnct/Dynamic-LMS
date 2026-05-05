@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useToast } from "@/components/feedback/ToastProvider";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import {
@@ -58,6 +58,7 @@ interface CourseStudyAidSettings {
 
 export default function StudentLessonQuestionsPage() {
   const params = useParams();
+  const router = useRouter();
   const courseId = params.id as string;
   const lessonId = params.lessonId as string;
   const { error: toastError, success: toastSuccess } = useToast();
@@ -70,6 +71,13 @@ export default function StudentLessonQuestionsPage() {
   const [studyAidSubmitting, setStudyAidSubmitting] = useState(false);
   const [studyAidSubmitError, setStudyAidSubmitError] = useState<string | null>(null);
   const [isLockedByOtherTab, setIsLockedByOtherTab] = useState(false);
+  const [showGoBack, setShowGoBack] = useState(false);
+  const handleGoBack = () => {
+  console.log("Go back clicked");
+  setTimeout(() => {
+    window.location.href = `/student/dashboard/${courseId}/content`;
+  }, 100);
+};
   const lockTabIdRef = useRef(
     typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
       ? crypto.randomUUID()
@@ -260,6 +268,7 @@ export default function StudentLessonQuestionsPage() {
       );
 
       setStudyAidScoreSubmitted(true);
+      setShowGoBack(true);
       clearModuleAssessmentLock(lockTabIdRef.current);
       hasOwnershipRef.current = false;
       toastSuccess("Score saved. You can take again to improve.");
@@ -445,9 +454,17 @@ export default function StudentLessonQuestionsPage() {
                 type="button"
                 onClick={handleSubmitAnswers}
                 disabled={!allAnswered || studyAidSubmitting}
-                className="order-1 w-full shrink-0 bg-gradient-to-r from-red-600 to-rose-600 py-3 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none sm:order-2 sm:w-auto sm:min-w-[220px]"
+                className="order-1 w-full shrink-0 bg-red-600 py-3 text-white rounded-xl font-semibold shadow-lg hover:shadow-xl hover:bg-red-700 transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed sm:order-2 sm:w-auto sm:min-w-[220px] cursor-pointer"
               >
                 {studyAidSubmitting ? "Submitting..." : "Submit all answers"}
+              </button>
+            ) : showGoBack ? (
+              <button
+                type="button"
+                onClick={handleGoBack}
+                className="order-1 w-full shrink-0 border border-slate-300 bg-white py-3 text-slate-700 rounded-xl font-semibold shadow-lg hover:shadow-xl hover:bg-slate-50 transition-all duration-200 sm:order-2 sm:w-auto sm:min-w-[220px] cursor-pointer"
+              >
+                Go Back to Lesson
               </button>
             ) : (
               <span className="order-1 inline-flex w-full items-center justify-center rounded-xl border border-green-200 bg-green-50 py-3 text-sm font-semibold text-green-700 sm:order-2 sm:w-auto sm:min-w-[220px]">

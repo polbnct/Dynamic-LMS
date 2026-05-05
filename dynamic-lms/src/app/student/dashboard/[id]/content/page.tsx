@@ -600,7 +600,7 @@ export default function StudentContentPage() {
                                   <svg className={`h-4 w-4 shrink-0 transition-transform ${expandedLessonIds.has(lesson.id) ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                                   </svg>
-                                  <span className="min-w-0 whitespace-normal">
+                                  <span className="min-w-0 whitespace-normal cursor-pointer">
                                     {expandedLessonIds.has(lesson.id) ? "Hide lesson summary" : "Show lesson summary"}
                                   </span>
                                 </button>
@@ -659,7 +659,7 @@ export default function StudentContentPage() {
                               <button
                                 type="button"
                                 onClick={() => handleStudyAid(lesson)}
-                                className="inline-flex py-2 sm:h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:shadow-md sm:w-56 sm:flex-none"
+                                className="inline-flex py-2 sm:h-11 w-full min-w-0 flex-1 items-center justify-center gap-2 rounded-lg bg-red-600 px-5 text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 sm:w-56 sm:flex-none cursor-pointer"
                               >
                                 <svg className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />

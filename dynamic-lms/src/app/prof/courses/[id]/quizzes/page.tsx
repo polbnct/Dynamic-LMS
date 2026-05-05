@@ -8,7 +8,7 @@ import CourseNavbar from "@/utils/CourseNavbar";
 import { getCourseById, getCurrentProfessorId } from "@/lib/supabase/queries/courses.client";
 import { useProfessorCourses } from "@/contexts/ProfessorCoursesContext";
 import { useSyncMessagesToToast } from "@/components/feedback/ToastProvider";
-import { getQuizzes, getQuestions, createQuestion, updateQuestion, deleteQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
+import { getQuizzes, getQuizById, getQuestions, createQuestion, updateQuestion, deleteQuestion, createQuiz, updateQuiz, setQuizQuestions, deleteQuiz } from "@/lib/supabase/queries/quizzes";
 import { getLessons } from "@/lib/supabase/queries/lessons";
 import type { Lesson } from "@/lib/supabase/queries/lessons";
 import QuizMonitoringModal from "@/components/quiz/QuizMonitoringModal";
@@ -223,12 +223,10 @@ export default function QuizzesPage() {
 
   const refreshQuizQuestionsInModal = useCallback(
     async (quizId: string) => {
-      const updatedQuizzes = await getQuizzes(courseId);
-      setQuizzes(updatedQuizzes);
-
-      const refreshedQuiz = updatedQuizzes.find((quiz) => quiz.id === quizId);
+      const refreshedQuiz = await getQuizById(courseId, quizId);
       if (!refreshedQuiz) return null;
 
+      setQuizzes((prev) => prev.map((quiz) => (quiz.id === quizId ? refreshedQuiz : quiz)));
       setEditingQuiz((prev: any) => (prev?.id === quizId ? refreshedQuiz : prev));
       setSelectedQuestions((refreshedQuiz.questions ?? []).map(mapQuizQuestionToUi));
       return refreshedQuiz;
@@ -782,6 +780,7 @@ export default function QuizzesPage() {
     }
 
     let questionsForSave = selectedQuestions;
+    let refreshedBeforeFinalSave = false;
     if (editingQuiz?.id && pendingExternalQuestionSync) {
       try {
         const refreshedQuiz = await refreshQuizQuestionsInModal(editingQuiz.id);
@@ -789,6 +788,7 @@ export default function QuizzesPage() {
         questionsForSave = refreshedQuestions;
         setSelectedQuestions(refreshedQuestions);
         setPendingExternalQuestionSync(false);
+        refreshedBeforeFinalSave = Boolean(refreshedQuiz);
       } catch (syncErr: any) {
         console.error("Failed to sync external quiz question changes before save:", syncErr);
       }
@@ -800,6 +800,7 @@ export default function QuizzesPage() {
         if (refreshedQuestions.length > 0) {
           questionsForSave = refreshedQuestions;
           setSelectedQuestions(refreshedQuestions);
+          refreshedBeforeFinalSave = true;
         }
       } catch (syncErr: any) {
         console.error("Failed to refresh quiz questions before save:", syncErr);
@@ -837,10 +838,12 @@ export default function QuizzesPage() {
     try {
       if (editingQuiz) {
         // Always reconcile latest DB question links before final save to avoid stale modal state.
-        const latestQuiz = await refreshQuizQuestionsInModal(editingQuiz.id);
-        const latestQuestionsForSave = (latestQuiz?.questions ?? []).map(mapQuizQuestionToUi);
-        if (latestQuestionsForSave.length > 0) {
-          questionsForSave = latestQuestionsForSave;
+        if (!refreshedBeforeFinalSave) {
+          const latestQuiz = await refreshQuizQuestionsInModal(editingQuiz.id);
+          const latestQuestionsForSave = (latestQuiz?.questions ?? []).map(mapQuizQuestionToUi);
+          if (latestQuestionsForSave.length > 0) {
+            questionsForSave = latestQuestionsForSave;
+          }
         }
         const latestQuestionIds = questionsForSave.map((q) => q.id).filter((id) => id && id.trim() !== "");
         if (latestQuestionIds.length === 0) {

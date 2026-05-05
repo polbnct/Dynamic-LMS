@@ -444,7 +444,7 @@ export default function StudentAssignmentsPage() {
                                 setAssignmentForDetails(assignment);
                                 setDetailsModalOpen(true);
                               }}
-                              className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                              className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 cursor-pointer"
                             >
                               Details
                             </button>
@@ -518,10 +518,10 @@ export default function StudentAssignmentsPage() {
                                   setSubmitError("Failed to check submission limit. Please try again.");
                                 }
                               }}
-                              className={`inline-flex h-11 w-full items-center justify-center rounded-lg px-3 text-center text-sm font-semibold shadow-sm transition ${
+                              className={`inline-flex h-11 w-full items-center justify-center rounded-lg px-3 text-center text-sm font-semibold shadow-sm transition cursor-pointer ${
                                 pastDue || !canSubmitMore
                                   ? "cursor-not-allowed border border-slate-200 bg-slate-50 text-slate-500"
-                                  : "bg-gradient-to-r from-red-600 to-rose-600 text-white hover:shadow-md"
+                                  : "bg-red-600 text-white hover:bg-red-700 hover:shadow-md"
                               }`}
                             >
                               {pastDue
@@ -550,7 +550,7 @@ export default function StudentAssignmentsPage() {
               <h2 className="text-xl font-bold text-gray-800">Assignment details</h2>
               <button
                 onClick={() => { setDetailsModalOpen(false); setAssignmentForDetails(null); }}
-                className="text-gray-400 hover:text-gray-600 transition-colors"
+                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -640,7 +640,7 @@ export default function StudentAssignmentsPage() {
             <div className="mt-6 pt-4 border-t border-gray-200">
               <button
                 onClick={() => { setDetailsModalOpen(false); setAssignmentForDetails(null); }}
-                className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-gray-50 transition-colors"
+                className="w-full px-4 py-3 border border-gray-300 text-gray-700 rounded-xl font-semibold hover:bg-slate-100 transition-colors cursor-pointer"
               >
                 Close
               </button>
@@ -684,7 +684,7 @@ export default function StudentAssignmentsPage() {
               </div>
 
               <div>
-                <label htmlFor="submissionFile" className="mb-2 block text-sm font-semibold text-gray-700">
+                <label htmlFor="submissionFile" className="mb-1 block text-sm font-semibold text-gray-700">
                   Upload File
                 </label>
                 <input
@@ -692,14 +692,14 @@ export default function StudentAssignmentsPage() {
                   type="file"
                   accept=".pdf,.doc,.docx"
                   onChange={handleFileChange}
-                  className="w-full rounded-xl border border-gray-300 bg-gray-50/50 px-3 py-3 text-sm text-gray-800 transition-all duration-200 file:mr-3 file:mb-2 file:rounded-lg file:border-0 file:bg-red-50 file:px-3 file:py-2 file:text-sm file:font-semibold file:text-red-700 hover:file:bg-red-100 focus:border-transparent focus:bg-white focus:ring-2 focus:ring-red-500 sm:px-4"
+                  className="w-full rounded-lg border border-gray-300 bg-gray-50/50 px-3 py-3 text-sm text-gray-800 transition-all duration-200 file:mr-2 file:rounded-md file:border-0 file:bg-red-50 file:px-2 file:py-1 file:text-xs file:font-semibold file:text-red-700 hover:file:bg-red-100 focus:border-transparent focus:bg-white focus:ring-2 focus:ring-red-500 cursor-pointer"
                 />
                 {submissionFile && (
                   <p className="mt-2 break-all text-sm text-gray-600">{submissionFile.name}</p>
                 )}
               </div>
 
-              <div className="flex flex-col gap-3 pt-2 sm:flex-row sm:pt-4">
+              <div className="flex flex-row gap-3 pt-2 sm:pt-4">
                 <button
                   type="button"
                   onClick={() => {
@@ -709,14 +709,14 @@ export default function StudentAssignmentsPage() {
                     setSubmitError("");
                     setSubmitSuccess("");
                   }}
-                  className="w-full rounded-xl border border-gray-400 px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-100 cursor-pointer sm:flex-1"
+                  className="flex-1 rounded-xl border border-gray-400 px-4 py-3 font-semibold text-gray-700 transition-colors hover:bg-gray-100 cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleSubmitAssignment}
                   disabled={submitting || !submissionFile}
-                  className="w-full rounded-xl bg-gradient-to-r from-red-600 to-rose-600 py-3 font-semibold text-white shadow-lg transition-all hover:from-red-500 hover:to-rose-500 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 sm:flex-1"
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-3 font-semibold text-white shadow-lg transition-all hover:bg-red-700 hover:shadow-xl disabled:cursor-not-allowed disabled:opacity-50 cursor-pointer"
                 >
                   {submitting ? "Submitting..." : "Submit"}
                 </button>

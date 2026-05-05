@@ -387,13 +387,13 @@ export default function StudentQuizzesPage() {
                                     setResultModalLoading(false);
                                   }
                                 }}
-                                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-50"
+                                className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-white px-3 text-sm font-medium text-slate-700 shadow-sm transition hover:border-slate-300 hover:bg-slate-100 cursor-pointer"
                               >
                                 View Results
                               </button>
                             )}
                             {inProgress ? null : isLocked ? (
-                              <span className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-center text-sm font-medium text-slate-500">
+                              <span className="inline-flex h-11 w-full items-center justify-center rounded-lg border border-slate-200 bg-slate-50 px-3 text-center text-sm font-medium text-slate-500 cursor-not-allowed">
                                 Quiz locked
                               </span>
                             ) : hasRemainingAttempts ? (
@@ -402,7 +402,7 @@ export default function StudentQuizzesPage() {
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 title="Quiz opens in a new tab"
-                                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-gradient-to-r from-red-600 to-rose-600 px-3 text-center text-sm font-semibold text-white shadow-sm transition hover:shadow-md"
+                                className="inline-flex h-11 w-full items-center justify-center rounded-lg bg-red-600 px-3 text-center text-sm font-semibold text-white shadow-sm transition hover:bg-red-700 hover:shadow-md"
                               >
                                 {quiz.taken ? "Retake Quiz" : "Take Quiz"}
                               </Link>
@@ -440,7 +440,7 @@ export default function StudentQuizzesPage() {
               </h2>
               <button
                 onClick={() => setResultModalOpen(false)}
-                className="text-gray-400 hover:text-gray-600 p-1 shrink-0"
+                className="text-gray-400 hover:text-gray-600 p-1 shrink-0 cursor-pointer"
               >
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
@@ -538,7 +538,7 @@ export default function StudentQuizzesPage() {
             <div className="p-4 border-t border-gray-200">
               <button
                 onClick={() => setResultModalOpen(false)}
-                className="w-full py-2.5 bg-gray-100 text-gray-800 rounded-xl font-semibold hover:bg-gray-200"
+                className="w-full rounded-xl bg-slate-100 py-2.5 font-semibold text-slate-700 transition-colors hover:bg-slate-200 cursor-pointer"
               >
                 Close
               </button>
