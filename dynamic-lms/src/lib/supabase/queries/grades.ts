@@ -15,6 +15,14 @@ export interface Grade {
   feedback?: string;
 }
 
+const GRADE_CATEGORIES = ["prelim", "midterm", "finals"] as const;
+
+function normalizeQuizGradeCategory(raw: unknown): Grade["category"] {
+  return raw && GRADE_CATEGORIES.includes(raw as Grade["category"])
+    ? (raw as Grade["category"])
+    : "prelim";
+}
+
 // Get grades for a student in a course
 export async function getStudentGrades(courseId: string, studentId: string): Promise<Grade[]> {
   const supabase = createClient();
@@ -86,7 +94,7 @@ export async function getStudentGrades(courseId: string, studentId: string): Pro
           type: "quiz",
           title: quiz.name,
           itemId: quiz.id,
-          category: "prelim", // Quizzes don't have category in schema, defaulting
+          category: normalizeQuizGradeCategory((quiz as { category?: unknown }).category),
           score: attempt.score || 0,
           maxScore: attempt.max_score || 100,
           percentage: attempt.max_score > 0 ? ((attempt.score || 0) / attempt.max_score) * 100 : 0,

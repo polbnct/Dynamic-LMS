@@ -149,6 +149,7 @@ CREATE TABLE public.quizzes (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   course_id UUID REFERENCES public.courses(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
+  category content_category NOT NULL DEFAULT 'prelim',
   type question_type, -- or 'mixed' if you add that to the enum
   time_limit INTEGER, -- in minutes
   due_date TIMESTAMPTZ,

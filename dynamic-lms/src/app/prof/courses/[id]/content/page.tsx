@@ -526,19 +526,9 @@ const getValidatedStudyAidCount = (
     setError("");
     setSuccess("");
     try {
-      const originalCategory = editingLesson.category;
-      const nextCategory = editLessonForm.category;
-
       const updates: Partial<Lesson> = {
         title: editLessonForm.title.trim(),
-        category: nextCategory,
       };
-
-      if (originalCategory !== nextCategory) {
-        const nextOrder =
-          lessons.filter((l) => l.id !== editingLesson.id && l.category === nextCategory).length + 1;
-        updates.order = nextOrder;
-      }
 
       let pdfPath: string | undefined;
       if (editLessonForm.pdfFile) {
@@ -1159,18 +1149,14 @@ const getValidatedStudyAidCount = (
                   <label htmlFor="editLessonCategory" className="block text-sm font-semibold text-gray-700 mb-2">
                     Category
                   </label>
-                  <select
+                  <input
                     id="editLessonCategory"
-                    value={editLessonForm.category}
-                    onChange={(e) =>
-                      setEditLessonForm((p) => ({ ...p, category: e.target.value as "prelim" | "midterm" | "finals" }))
-                    }
-                    className="w-full px-4 py-3 border border-gray-300 rounded-xl text-gray-900 focus:ring-2 focus:ring-gray-400 bg-gray-50/50 focus:bg-white cursor-pointer"
-                  >
-                    <option value="prelim">Prelim</option>
-                    <option value="midterm">Midterm</option>
-                    <option value="finals">Finals</option>
-                  </select>
+                    type="text"
+                    value={editingLesson.category.charAt(0).toUpperCase() + editingLesson.category.slice(1)}
+                    readOnly
+                    disabled
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl text-gray-600 bg-gray-100 cursor-not-allowed"
+                  />
                 </div>
 
                 <div>
