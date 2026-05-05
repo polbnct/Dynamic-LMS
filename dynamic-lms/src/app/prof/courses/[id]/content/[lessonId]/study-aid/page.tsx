@@ -673,10 +673,7 @@ export default function ProfessorLessonStudyAidPage() {
                         setStudyAidGenerating(false);
                       }
                     }}
-                    className={`w-full sm:w-auto rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:from-rose-700 hover:to-red-700 cursor-pointer${
-                      studyAidGenerateType === "summary" ? "sm:col-span-2 sm:justify-self-center" : ""
-                    }`}
-                  >
+                    className="rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:from-rose-700 hover:to-red-700 cursor-pointer sm:col-start-2">
                     {studyAidGenerating ? "Generating..." : "Generate"}
                   </button>
                   {studyAidGenerateType === "summary" && hasExistingSummary && (
