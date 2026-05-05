@@ -223,7 +223,7 @@ Return your response as a valid JSON object in this exact format:
 {
   "question": "Comprehensive summary text here covering all key points from the PDF...",
   "correct_answer": "This is a summary study aid",
-  "type": "fill_blank"
+  "type": "summary"
 }
 
 CRITICAL: Return ONLY the JSON object. No markdown, no code blocks, no explanations, no additional text. Just the raw JSON object starting with { and ending with }.`;
@@ -426,28 +426,30 @@ function parseStudyAidSummaryResponse(responseText: string, lessonId: string): a
       throw new Error("Summary has no content");
     }
 
-    return [{
+    const summaryQuestion = {
       id: `gen-summary-${Date.now()}`,
-      type: "fill_blank",
+      type: "summary",
       question: normalizeGeneratedText(parsed.question.trim()),
       correct_answer: parsed.correct_answer || "This is a summary study aid",
       source_lesson_id: lessonId,
       source_type: "lesson" as const,
       created_at: new Date().toISOString(),
-    }];
+    };
+    return [summaryQuestion];
   } catch (error: any) {
     console.error("Error parsing summary response:", error);
     console.error("Response text:", responseText.substring(0, 500));
     // Fallback: return a basic summary structure
-    return [{
+    const fallbackSummary = {
       id: `gen-summary-${Date.now()}`,
-      type: "fill_blank",
+      type: "summary",
       question: responseText.substring(0, 1000).trim() || "Summary content could not be parsed.",
       correct_answer: "This is a summary study aid",
       source_lesson_id: lessonId,
       source_type: "lesson" as const,
       created_at: new Date().toISOString(),
-    }];
+    };
+    return [fallbackSummary];
   }
 }
 

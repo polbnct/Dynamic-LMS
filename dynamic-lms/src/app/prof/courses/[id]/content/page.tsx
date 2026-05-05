@@ -110,11 +110,18 @@ function EditStudyQuestionForm({
         type,
         correct_answer: withExistingExplanation(correctAnswerFlashcard.trim() || "Review the lesson key idea for this card."),
       });
+    } else if (type === "summary") {
+      await onSave({
+        question: questionText.trim(),
+        type,
+        fill_blank_answer_mode: null,
+        correct_answer: " ",
+      });
     } else {
       await onSave({
         question: questionText.trim(),
         type,
-        fill_blank_answer_mode: type === "fill_blank" ? fillBlankAnswerMode : null,
+        fill_blank_answer_mode: fillBlankAnswerMode,
         correct_answer: withExistingExplanation(correctAnswerFill.trim() || " "),
       });
     }
@@ -127,13 +134,23 @@ function EditStudyQuestionForm({
           <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
-          {type === "true_false" ? "Front of flashcard (term/concept)" : "Question text"}
+          {type === "true_false"
+            ? "Front of flashcard (term/concept)"
+            : type === "summary"
+              ? "Summary"
+              : "Question text"}
         </label>
         <textarea
           value={questionText}
           onChange={(e) => setQuestionText(e.target.value)}
           className="w-full px-4 py-3 border border-gray-300 text-gray-900 rounded-xl text-sm min-h-[88px] focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-shadow"
-          placeholder={type === "true_false" ? "Enter the front term or concept..." : "Enter the question..."}
+          placeholder={
+            type === "true_false"
+              ? "Enter the front term or concept..."
+              : type === "summary"
+                ? "Enter the lesson summary..."
+                : "Enter the question..."
+          }
           required
         />
       </div>
@@ -230,17 +247,19 @@ function EditStudyQuestionForm({
           </select>
         </div>
       )}
-      <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
-          Brief feedback for correct answer
-        </label>
-        <textarea
-          value={correctFeedback}
-          onChange={(e) => setCorrectFeedback(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 min-h-[84px] focus:ring-2 focus:ring-red-500 focus:border-red-500"
-          placeholder="Explain briefly why this is the correct answer..."
-        />
-      </div>
+      {type !== "summary" && (
+        <div>
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
+            Brief feedback for correct answer
+          </label>
+          <textarea
+            value={correctFeedback}
+            onChange={(e) => setCorrectFeedback(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 min-h-[84px] focus:ring-2 focus:ring-red-500 focus:border-red-500"
+            placeholder="Explain briefly why this is the correct answer..."
+          />
+        </div>
+      )}
       <div className="flex flex-col sm:flex-row gap-3 pt-2">
         <button
           type="submit"
@@ -1668,8 +1687,10 @@ const getValidatedStudyAidCount = (
                               body: JSON.stringify({
                                 lessonId: studyAidLesson.id,
                                 questionType:
-                                  studyAidGenerateType === "summary" || studyAidGenerateType === "fill_blank"
-                                    ? "fill_blank"
+                                  studyAidGenerateType === "summary"
+                                    ? "summary"
+                                    : studyAidGenerateType === "fill_blank"
+                                      ? "fill_blank"
                                     : studyAidGenerateType === "flashcard"
                                       ? "true_false"
                                       : "multiple_choice",
@@ -1759,7 +1780,14 @@ const getValidatedStudyAidCount = (
                               setStudyAidAdding(true);
                               try {
                                 const payload = toAdd.map((q: any) => ({
-                                  type: studyAidGenerateType === "summary" ? "summary" : q.type,
+                                  type:
+                                    studyAidGenerateType === "summary"
+                                      ? "summary"
+                                      : studyAidGenerateType === "flashcard"
+                                        ? "true_false"
+                                        : studyAidGenerateType === "fill_blank"
+                                          ? "fill_blank"
+                                          : "multiple_choice",
                                   question: q.question,
                                   options: q.options,
                                   fill_blank_answer_mode: q.fill_blank_answer_mode ?? "term_only",

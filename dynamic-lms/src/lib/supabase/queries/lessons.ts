@@ -82,6 +82,29 @@ export async function updateLesson(lessonId: string, updates: Partial<Lesson>): 
 export async function deleteLesson(lessonId: string): Promise<void> {
   const supabase = createClient();
 
+  const { data: lesson, error: fetchError } = await supabase
+    .from("lessons")
+    .select("pdf_file_path")
+    .eq("id", lessonId)
+    .maybeSingle();
+
+  if (fetchError) {
+    console.error("Error fetching lesson before delete:", fetchError);
+    throw fetchError;
+  }
+
+  if (lesson?.pdf_file_path) {
+    const { error: storageError } = await supabase
+      .storage
+      .from("lesson-pdfs")
+      .remove([lesson.pdf_file_path]);
+
+    if (storageError) {
+      console.error("Error deleting lesson PDF from storage:", storageError);
+      throw storageError;
+    }
+  }
+
   const { error } = await supabase.from("lessons").delete().eq("id", lessonId);
 
   if (error) {

@@ -103,11 +103,18 @@ function EditStudyQuestionForm({
         type,
         correct_answer: withExistingExplanation(correctAnswerFlashcard.trim() || "Review the lesson key idea for this card."),
       });
+    } else if (type === "summary") {
+      await onSave({
+        question: questionText.trim(),
+        type,
+        fill_blank_answer_mode: null,
+        correct_answer: " ",
+      });
     } else {
       await onSave({
         question: questionText.trim(),
         type,
-        fill_blank_answer_mode: type === "fill_blank" ? fillBlankAnswerMode : null,
+        fill_blank_answer_mode: fillBlankAnswerMode,
         correct_answer: withExistingExplanation(correctAnswerFill.trim() || " "),
       });
     }
@@ -192,12 +199,14 @@ function EditStudyQuestionForm({
           </select>
         </>
       )}
-      <textarea
-        value={correctFeedback}
-        onChange={(e) => setCorrectFeedback(e.target.value)}
-        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
-        placeholder="Brief feedback for correct answer"
-      />
+      {type !== "summary" && (
+        <textarea
+          value={correctFeedback}
+          onChange={(e) => setCorrectFeedback(e.target.value)}
+          className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
+          placeholder="Brief feedback for correct answer"
+        />
+      )}
       <div className="flex gap-2 justify-end">
         <button type="button" onClick={onCancel} className="rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-slate-100 cursor-pointer">
           Cancel
@@ -563,7 +572,11 @@ export default function ProfessorLessonStudyAidPage() {
                 <h3 className="font-semibold text-gray-800">Generate with AI (Gemini)</h3>
               </div>
               <div className="p-4 sm:p-5 space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                <div
+                  className={`grid grid-cols-1 sm:grid-cols-2 gap-3 items-end${
+                    studyAidGenerateType === "summary" ? " sm:items-center" : ""
+                  }`}
+                >
                   <div className="sm:col-span-2">
                     <label className="mb-1.5 block text-xs font-medium text-gray-500">Question type</label>
                     <select
@@ -619,8 +632,10 @@ export default function ProfessorLessonStudyAidPage() {
                           body: JSON.stringify({
                             lessonId: lesson.id,
                             questionType:
-                              studyAidGenerateType === "summary" || studyAidGenerateType === "fill_blank"
-                                ? "fill_blank"
+                              studyAidGenerateType === "summary"
+                                ? "summary"
+                                : studyAidGenerateType === "fill_blank"
+                                  ? "fill_blank"
                                 : studyAidGenerateType === "flashcard"
                                   ? "true_false"
                                   : "multiple_choice",
@@ -656,8 +671,10 @@ export default function ProfessorLessonStudyAidPage() {
                         setStudyAidGenerating(false);
                       }
                     }}
-                    className={`w-full sm:w-auto rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:from-rose-700 hover:to-red-700 cursor-pointer${
-                      studyAidGenerateType === "summary" ? "sm:col-span-2 sm:justify-self-center" : ""
+                    className={`rounded-xl bg-gradient-to-r from-rose-600 to-red-600 px-5 py-2.5 text-sm font-semibold text-white hover:from-rose-700 hover:to-red-700 cursor-pointer${
+                      studyAidGenerateType === "summary"
+                        ? " sm:col-span-2 sm:justify-self-center sm:w-auto w-full"
+                        : " w-full sm:w-auto"
                     }`}
                   >
                     {studyAidGenerating ? "Generating..." : "Generate"}
@@ -760,7 +777,14 @@ export default function ProfessorLessonStudyAidPage() {
                             setStudyAidAdding(true);
                             try {
                               const payload = toAdd.map((q) => ({
-                                type: studyAidGenerateType === "summary" ? "summary" : q.type,
+                                type:
+                                  studyAidGenerateType === "summary"
+                                    ? "summary"
+                                    : studyAidGenerateType === "flashcard"
+                                      ? "true_false"
+                                      : studyAidGenerateType === "fill_blank"
+                                        ? "fill_blank"
+                                        : "multiple_choice",
                                 question: q.question,
                                 options: q.options,
                                 fill_blank_answer_mode: q.fill_blank_answer_mode ?? "term_only",
