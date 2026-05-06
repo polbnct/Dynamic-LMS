@@ -117,6 +117,7 @@ CREATE TABLE public.questions (
   fill_blank_answer_mode TEXT CHECK (fill_blank_answer_mode IN ('symbol_only', 'term_only')),
   source_lesson_id UUID REFERENCES public.lessons(id) ON DELETE SET NULL,
   source_type source_origin,
+  is_study_aid BOOLEAN NOT NULL DEFAULT FALSE,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
@@ -143,6 +144,21 @@ END $$;
 UPDATE public.questions
 SET fill_blank_answer_mode = 'term_only'
 WHERE type = 'fill_blank' AND (fill_blank_answer_mode IS NULL OR fill_blank_answer_mode = '');
+
+-- Denormalized flag so the question-bank fetch can filter directly in SQL
+-- instead of pre-loading the full lesson_study_questions table.
+ALTER TABLE public.questions
+  ADD COLUMN IF NOT EXISTS is_study_aid BOOLEAN NOT NULL DEFAULT FALSE;
+
+-- Backfill existing rows linked as lesson study aids.
+UPDATE public.questions
+SET is_study_aid = TRUE
+WHERE id IN (SELECT question_id FROM public.lesson_study_questions);
+
+-- Hot path: course-scoped bank fetch excludes study-aid rows.
+CREATE INDEX IF NOT EXISTS idx_questions_course_bank
+  ON public.questions (course_id)
+  WHERE is_study_aid = FALSE;
 
 -- 10. Quizzes table
 CREATE TABLE public.quizzes (

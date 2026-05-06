@@ -192,6 +192,7 @@ export async function POST(
           fill_blank_answer_mode: fillBlankMode,
           source_lesson_id: lessonId,
           source_type: "lesson",
+          is_study_aid: true,
         })
         .select("id")
         .single();

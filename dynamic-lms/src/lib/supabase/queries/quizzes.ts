@@ -16,6 +16,7 @@ export interface Question {
   fill_blank_answer_mode?: FillBlankAnswerMode | null;
   source_lesson_id?: string;
   source_type?: "lesson" | "pdf";
+  is_study_aid?: boolean;
   created_at: string;
 }
 
@@ -175,8 +176,15 @@ export async function getQuizById(
   };
 }
 
+function isMissingIsStudyAidColumnError(error: unknown): boolean {
+  const code = (error as { code?: string })?.code;
+  const msg = String((error as { message?: string })?.message ?? "").toLowerCase();
+  // Postgres undefined_column; PostgREST often surfaces column name in message.
+  return code === "42703" || msg.includes("is_study_aid") || msg.includes("schema cache");
+}
+
 // Get questions for a course or professor.
-// By default, excludes questions that are only used for lesson study aids (linked via lesson_study_questions),
+// By default, excludes study-aid questions (questions.is_study_aid = TRUE)
 // so study-aid content does not pollute the quiz/assessment question bank.
 export async function getQuestions(
   courseId?: string,
@@ -187,17 +195,13 @@ export async function getQuestions(
 
   const includeStudyAid = options?.includeStudyAid ?? false;
 
-  // When excluding study-aid questions, we fetch the IDs that are linked in lesson_study_questions
-  // and filter them out client-side. This avoids schema changes while keeping separation of concerns.
-  let studyAidQuestionIds: Set<string> | null = null;
-  if (!includeStudyAid) {
-    const { data: links, error: linksError } = await supabase
-      .from("lesson_study_questions")
-      .select("question_id");
-    if (!linksError && links) {
-      studyAidQuestionIds = new Set(links.map((l: any) => l.question_id));
-    }
-  }
+  const mapRows = (rows: any[]) =>
+    (rows || []).map((q) => ({
+      ...q,
+      options: q.options ? (typeof q.options === "string" ? JSON.parse(q.options) : q.options) : undefined,
+      correct_answer:
+        typeof q.correct_answer === "string" ? JSON.parse(q.correct_answer) : q.correct_answer,
+    }));
 
   let query = supabase.from("questions").select("*");
 
@@ -209,28 +213,43 @@ export async function getQuestions(
     query = query.eq("professor_id", professorId);
   }
 
+  if (!includeStudyAid) {
+    query = query.eq("is_study_aid", false);
+  }
+
   query = query.order("created_at", { ascending: false });
 
   const { data: questions, error } = await query;
 
   if (error) {
+    // DB not migrated yet: fall back to junction-table filter (pre–is_study_aid behavior).
+    if (!includeStudyAid && isMissingIsStudyAidColumnError(error)) {
+      console.warn("getQuestions: is_study_aid unavailable, using lesson_study_questions filter fallback.");
+      let fallback = supabase.from("questions").select("*");
+      if (courseId) fallback = fallback.eq("course_id", courseId);
+      if (professorId) fallback = fallback.eq("professor_id", professorId);
+      fallback = fallback.order("created_at", { ascending: false });
+      const { data: allQuestions, error: fbError } = await fallback;
+      if (fbError) {
+        console.error("Error fetching questions (fallback):", fbError);
+        throw fbError;
+      }
+      const { data: links, error: linksError } = await supabase
+        .from("lesson_study_questions")
+        .select("question_id");
+      const studyAidIds =
+        !linksError && links ? new Set(links.map((l: { question_id: string }) => l.question_id)) : null;
+      const parsed = mapRows(allQuestions || []);
+      if (studyAidIds) {
+        return parsed.filter((q) => !studyAidIds.has(q.id));
+      }
+      return parsed;
+    }
     console.error("Error fetching questions:", error);
     throw error;
   }
 
-  // Parse JSON fields and optionally filter out study-aid-only questions
-  const parsed = (questions || []).map((q) => ({
-    ...q,
-    options: q.options ? (typeof q.options === "string" ? JSON.parse(q.options) : q.options) : undefined,
-    correct_answer:
-      typeof q.correct_answer === "string" ? JSON.parse(q.correct_answer) : q.correct_answer,
-  }));
-
-  if (!includeStudyAid && studyAidQuestionIds) {
-    return parsed.filter((q) => !studyAidQuestionIds!.has(q.id));
-  }
-
-  return parsed;
+  return mapRows(questions || []);
 }
 
 // Create a question
