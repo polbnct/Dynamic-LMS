@@ -43,6 +43,10 @@ type AdminEnrollment = {
   } | null;
 };
 
+const LOGROCKET_APP_ID =
+  (typeof process !== "undefined" && process.env.NEXT_PUBLIC_LOGROCKET_APP_ID?.trim()) || "i7dzok/lms";
+const LOGROCKET_DASHBOARD_URL = `https://app.logrocket.com/${LOGROCKET_APP_ID}`;
+
 async function fetchJson<T>(url: string, init?: RequestInit): Promise<T> {
   const res = await fetch(url, {
     ...init,
@@ -606,13 +610,52 @@ export default function AdminDashboardPage() {
                 </p>
               </div>
             </div>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="shrink-0 inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-100 hover:border-slate-300 cursor-pointer"
-            >
-              Sign out
-            </button>
+            <div className="flex shrink-0 items-center gap-2">
+              <a
+                href={LOGROCKET_DASHBOARD_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-1.5 rounded-lg border border-slate-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-100 hover:border-slate-300"
+              >
+                <svg
+                  className="h-4 w-4 shrink-0 text-slate-500"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                  />
+                </svg>
+                <span className="sm:hidden">Logs</span>
+                <span className="hidden sm:inline">Session logs</span>
+                <svg
+                  className="h-3.5 w-3.5 shrink-0 text-slate-400"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                  aria-hidden
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+                  />
+                </svg>
+              </a>
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center rounded-lg border border-slate-200 bg-white px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-slate-700 shadow-sm transition hover:bg-slate-100 hover:border-slate-300 cursor-pointer"
+              >
+                Sign out
+              </button>
+            </div>
           </div>
         </div>
       </header>
