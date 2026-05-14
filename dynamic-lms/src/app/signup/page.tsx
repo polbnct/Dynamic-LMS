@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { isAllowedStudentSignupEmail, STUDENT_SIGNUP_EMAIL_DOMAIN } from "@/lib/auth/student-email";
 import { validateSignupPassword, SIGNUP_PASSWORD_RULES_SUMMARY } from "@/lib/auth/password-policy";
+import { logUserAction } from "@/services/errorLogger";
 
 export default function SignupPage() {
   const [formData, setFormData] = useState({
@@ -142,6 +143,7 @@ export default function SignupPage() {
       // User should be automatically logged in after signup
       // If we have a session from the API, use it
       if (data.session) {
+        logUserAction("AUTH_SIGN_UP", { summary: "Account created (session from API)" });
         router.push("/student/dashboard");
         return;
       }
@@ -164,6 +166,10 @@ export default function SignupPage() {
       }
 
       if (signInData.user && signInData.session) {
+        logUserAction("AUTH_SIGN_UP", {
+          summary: "Account created and signed in",
+          userId: signInData.user.id,
+        });
         router.push("/student/dashboard");
         return;
       }

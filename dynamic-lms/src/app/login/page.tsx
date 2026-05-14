@@ -4,6 +4,7 @@ import React, { Suspense, useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
+import { logUserAction } from "@/services/errorLogger";
 
 async function getServerRole(): Promise<string | null> {
   const res = await fetch("/api/auth/role", { method: "GET" });
@@ -103,6 +104,10 @@ function LoginPageInner() {
       });
 
       if (authError) {
+        logUserAction("AUTH_SIGN_IN_FAILED", {
+          summary: "Sign-in failed",
+          code: authError.code ?? "unknown",
+        });
         setError(authError.message || "Failed to sign in. Please check your credentials.");
         setLoading(false);
         return;
@@ -113,6 +118,11 @@ function LoginPageInner() {
         setLoading(false);
         return;
       }
+
+      logUserAction("AUTH_SIGN_IN", {
+        summary: "User signed in",
+        userId: authData.user.id,
+      });
 
       const redirected = await resolveRoleAndRedirect(authData.user.id, true);
       if (!redirected) {
