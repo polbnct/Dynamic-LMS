@@ -9,6 +9,7 @@ import React, {
   useRef,
   useState,
 } from "react";
+import { logUserAction } from "@/services/errorLogger";
 
 type ToastKind = "success" | "error" | "info";
 
@@ -37,8 +38,14 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
   const timeoutsRef = useRef<Record<number, number>>({});
 
   const show = useCallback((kind: ToastKind, message: string) => {
-  const trimmed = message?.trim();
+    const trimmed = message?.trim();
     if (!trimmed) return;
+
+    logUserAction("TOAST", {
+      summary: `${kind}: ${trimmed.slice(0, 120)}${trimmed.length > 120 ? "…" : ""}`,
+      kind,
+      message: trimmed.slice(0, 500),
+    });
 
     const duration = kind === "error" ? 4000 : 4500;
 
@@ -63,6 +70,7 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
         className="pointer-events-none fixed inset-0 z-[300] flex items-center justify-center px-4"
         aria-live="polite"
         aria-relevant="additions text"
+        data-no-action-log
       >
         {toasts.length > 0 && (
           <div className="absolute inset-0 bg-black/30" />

@@ -343,6 +343,32 @@ ALTER TABLE public.course_announcements DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.announcement_comments DISABLE ROW LEVEL SECURITY;
 ALTER TABLE public.announcement_attachments DISABLE ROW LEVEL SECURITY;
 
+-- Client + user-action logs (ingested via POST /api/error-logs)
+CREATE TABLE public.logs (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  category TEXT NOT NULL CHECK (category IN ('error', 'action')),
+  type TEXT NOT NULL,
+  message TEXT NOT NULL,
+  technical_message TEXT,
+  occurred_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  date_display TEXT,
+  time_display TEXT,
+  page TEXT,
+  url TEXT,
+  user_agent TEXT,
+  user_id UUID REFERENCES public.users (id) ON DELETE SET NULL,
+  session_id TEXT,
+  app_version TEXT,
+  metadata JSONB
+);
+
+CREATE INDEX idx_logs_created_at ON public.logs (created_at DESC);
+CREATE INDEX idx_logs_user_created ON public.logs (user_id, created_at DESC);
+CREATE INDEX idx_logs_category_created ON public.logs (category, created_at DESC);
+
+ALTER TABLE public.logs ENABLE ROW LEVEL SECURITY;
+
 -- Storage: create bucket "announcement-files" (public read), same pattern as assignment-pdfs.
 -- If StorageApiError still appears, add permissive storage policies for this bucket
 -- (or temporarily disable RLS on storage.objects if acceptable for your environment).
