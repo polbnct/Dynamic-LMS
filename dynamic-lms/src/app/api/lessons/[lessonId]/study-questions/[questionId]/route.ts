@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  validateStudyAidQuestionPatch,
+  type StudyAidQuestionInput,
+} from "@/lib/study-aid/validate";
 
 async function ensureProfessorCanEditLesson(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -97,7 +101,58 @@ export async function PATCH(
       );
     }
 
-    if (type === "summary") {
+    const hasPatchFields =
+      type !== undefined ||
+      questionText !== undefined ||
+      options !== undefined ||
+      correctAnswer !== undefined ||
+      Object.prototype.hasOwnProperty.call(body, "fill_blank_answer_mode");
+
+    if (!hasPatchFields) {
+      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
+    }
+
+    const { data: existingRow, error: existingErr } = await supabase
+      .from("questions")
+      .select("id, type, question, options, correct_answer, fill_blank_answer_mode")
+      .eq("id", questionId)
+      .single();
+
+    if (existingErr || !existingRow) {
+      return NextResponse.json({ error: "Question not found" }, { status: 404 });
+    }
+
+    const existing: StudyAidQuestionInput = {
+      type: existingRow.type,
+      question: existingRow.question,
+      options:
+        typeof existingRow.options === "string"
+          ? JSON.parse(existingRow.options || "[]")
+          : existingRow.options || [],
+      correct_answer:
+        typeof existingRow.correct_answer === "string"
+          ? JSON.parse(existingRow.correct_answer)
+          : existingRow.correct_answer,
+      fill_blank_answer_mode: existingRow.fill_blank_answer_mode ?? null,
+    };
+
+    const patchResult = validateStudyAidQuestionPatch(existing, {
+      ...(type !== undefined ? { type } : {}),
+      ...(questionText !== undefined ? { question: questionText } : {}),
+      ...(options !== undefined ? { options } : {}),
+      ...(correctAnswer !== undefined ? { correct_answer: correctAnswer } : {}),
+      ...(Object.prototype.hasOwnProperty.call(body, "fill_blank_answer_mode")
+        ? { fill_blank_answer_mode: fillBlankAnswerMode ?? null }
+        : {}),
+    });
+
+    if (!patchResult.ok) {
+      return NextResponse.json({ error: patchResult.error }, { status: 400 });
+    }
+
+    const normalized = patchResult.normalized;
+
+    if (normalized.type === "summary") {
       const { data: summaryConflict } = await supabase
         .from("lesson_study_questions")
         .select("question_id, questions!inner(type)")
@@ -108,28 +163,28 @@ export async function PATCH(
 
       if (summaryConflict && summaryConflict.length > 0) {
         return NextResponse.json(
-          { error: "A summary already exists for this lesson. Remove it first before converting another item to summary." },
+          {
+            error:
+              "A summary already exists for this lesson. Remove it first before converting another item to summary.",
+          },
           { status: 409 }
         );
       }
     }
 
-    const updates: Record<string, unknown> = {};
-    if (type !== undefined) updates.type = type;
-    if (questionText !== undefined) updates.question = questionText.trim();
-    if (options !== undefined) {
-      updates.options = Array.isArray(options) ? JSON.stringify(options) : null;
-    }
-    if (correctAnswer !== undefined && correctAnswer !== null) {
-      updates.correct_answer = JSON.stringify(correctAnswer);
-    }
-    if (Object.prototype.hasOwnProperty.call(body, "fill_blank_answer_mode")) {
-      updates.fill_blank_answer_mode = fillBlankAnswerMode ?? null;
-    }
-
-    if (Object.keys(updates).length === 0) {
-      return NextResponse.json({ error: "No fields to update" }, { status: 400 });
-    }
+    const updates: Record<string, unknown> = {
+      type: normalized.type,
+      question: normalized.question,
+      options:
+        normalized.type === "multiple_choice" && normalized.options
+          ? JSON.stringify(normalized.options)
+          : null,
+      correct_answer: JSON.stringify(normalized.correct_answer),
+      fill_blank_answer_mode:
+        normalized.type === "fill_blank"
+          ? (normalized.fill_blank_answer_mode ?? "term_only")
+          : null,
+    };
 
     const { data: updated, error: updateErr } = await supabase
       .from("questions")

@@ -13,6 +13,8 @@ import {
   type StudyAidQuestion,
 } from "@/lib/supabase/queries/study-aid";
 import { buildQuestionSignature } from "@/lib/questions/signature";
+import { StudyAidQuestionForm } from "@/components/study-aid/StudyAidQuestionForm";
+import { CreateManualStudyAidSection } from "@/components/study-aid/CreateManualStudyAidSection";
 
 function getValidatedStudyAidCount(
   type: "summary" | "flashcard" | "multiple_choice" | "fill_blank",
@@ -24,215 +26,6 @@ function getValidatedStudyAidCount(
   return Math.min(10, Math.max(1, safeCount));
 }
 
-function EditStudyQuestionForm({
-  question,
-  onSave,
-  onCancel,
-  saving,
-}: {
-  question: StudyAidQuestion;
-  onSave: (updates: {
-    type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
-    question?: string;
-    options?: string[];
-    fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
-    correct_answer?:
-      | number
-      | boolean
-      | string
-      | {
-          answer: number | boolean | string;
-          correct_explanation?: string;
-          incorrect_explanation?: string;
-        };
-  }) => Promise<void>;
-  onCancel: () => void;
-  saving: boolean;
-}) {
-  const normalizedCorrectAnswer =
-    question.correct_answer && typeof question.correct_answer === "object" && "answer" in question.correct_answer
-      ? question.correct_answer.answer
-      : question.correct_answer;
-  const [questionText, setQuestionText] = useState(question.question);
-  const [type, setType] = useState<"multiple_choice" | "true_false" | "fill_blank" | "summary">(question.type);
-  const [options, setOptions] = useState<string[]>(
-    question.type === "multiple_choice" && question.options?.length ? question.options : ["", "", "", ""]
-  );
-  const [correctAnswerMc, setCorrectAnswerMc] = useState(
-    question.type === "multiple_choice" ? Number(normalizedCorrectAnswer) : 0
-  );
-  const [correctAnswerFlashcard, setCorrectAnswerFlashcard] = useState(
-    question.type === "true_false" ? String(normalizedCorrectAnswer ?? "") : ""
-  );
-  const [correctAnswerFill, setCorrectAnswerFill] = useState(
-    question.type === "fill_blank" || question.type === "summary" ? String(normalizedCorrectAnswer ?? "") : ""
-  );
-  const [fillBlankAnswerMode, setFillBlankAnswerMode] = useState<"symbol_only" | "term_only">(
-    question.type === "fill_blank" ? (question.fill_blank_answer_mode ?? "term_only") : "term_only"
-  );
-  const [correctFeedback, setCorrectFeedback] = useState(
-    question.correct_answer &&
-      typeof question.correct_answer === "object" &&
-      "correct_explanation" in question.correct_answer
-      ? String(question.correct_answer.correct_explanation || "")
-      : ""
-  );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const existingAnswerMeta =
-      question.correct_answer && typeof question.correct_answer === "object" && "answer" in question.correct_answer
-        ? question.correct_answer
-        : null;
-    const withExistingExplanation = (answer: number | boolean | string) => ({
-      answer,
-      correct_explanation: correctFeedback.trim(),
-      incorrect_explanation: existingAnswerMeta?.incorrect_explanation,
-    });
-    if (type === "multiple_choice") {
-      const opts = options.map((o) => o.trim() || "");
-      await onSave({
-        question: questionText.trim(),
-        type,
-        options: opts.some((o) => o) ? opts : ["Option A", "Option B", "Option C", "Option D"],
-        correct_answer: withExistingExplanation(correctAnswerMc),
-      });
-    } else if (type === "true_false") {
-      await onSave({
-        question: questionText.trim(),
-        type,
-        correct_answer: withExistingExplanation(correctAnswerFlashcard.trim() || "Review the lesson key idea for this card."),
-      });
-    } else if (type === "summary") {
-      await onSave({
-        question: questionText.trim(),
-        type,
-        fill_blank_answer_mode: null,
-        correct_answer: " ",
-      });
-    } else {
-      await onSave({
-        question: questionText.trim(),
-        type,
-        fill_blank_answer_mode: fillBlankAnswerMode,
-        correct_answer: withExistingExplanation(correctAnswerFill.trim() || " "),
-      });
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <textarea
-        value={questionText}
-        onChange={(e) => setQuestionText(e.target.value)}
-        className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 min-h-[150px] sm:min-h-[120px]"
-        required
-      />
-      <select
-        value={type}
-        onChange={(e) => setType(e.target.value as any)}
-        className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white"
-      >
-        <option value="multiple_choice">Multiple choice</option>
-        <option value="true_false">Flashcard</option>
-        <option value="fill_blank">Fill in the blank</option>
-        <option value="summary">Summary</option>
-      </select>
-      {type === "multiple_choice" && (
-      <>
-        {options.map((opt, i) => (
-          <div key={i} className="flex items-center gap-1">
-            <span className="w-6 shrink-0 font-semibold text-gray-700">
-              {String.fromCharCode(65 + i)}.
-            </span>
-            <input
-              value={opt}
-              onChange={(e) =>
-                setOptions((prev) => {
-                  const next = [...prev];
-                  next[i] = e.target.value;
-                  return next;
-                })
-              }
-              className="flex-1 rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 focus:ring-2 focus:ring-gray-400 focus:border-gray-500 focus:outline-none"
-              placeholder={`Option ${String.fromCharCode(65 + i)}`}
-            />
-          </div>
-        ))}
-        <div>
-          <p className="mb-1.5 text-sm font-medium text-gray-700">Answer</p>
-          <select
-            value={correctAnswerMc}
-            onChange={(e) => setCorrectAnswerMc(parseInt(e.target.value, 10))}
-            className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white focus:ring-2 focus:ring-gray-400 focus:border-gray-400 focus:outline-none"
-          >
-            {options.map((opt, i) => (
-              <option key={i} value={i}>
-                {String.fromCharCode(65 + i)}. {opt || "(empty)"}
-              </option>
-            ))}
-          </select>
-        </div>
-        </>
-      )}
-            {type === "true_false" && (
-        <div>
-          <p className="mb-1.5 text-sm font-medium text-gray-700">Answer</p>
-          <textarea
-            value={correctAnswerFlashcard}
-            onChange={(e) => setCorrectAnswerFlashcard(e.target.value)}
-            className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900"
-            placeholder="Enter the explanation shown on the back of the flashcard"
-          />
-        </div>
-      )}
-            {type === "fill_blank" && (
-        <>
-          <div>
-            <p className="mb-1.5 text-sm font-medium text-gray-700">Correct Answer</p>
-            <input
-              value={correctAnswerFill}
-              onChange={(e) => setCorrectAnswerFill(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900"
-            />
-          </div>
-          <div>
-            <p className="mb-1.5 text-sm font-medium text-gray-700">Answer Mode Tag</p>
-            <select
-              value={fillBlankAnswerMode}
-              onChange={(e) => setFillBlankAnswerMode(e.target.value as "symbol_only" | "term_only")}
-              className="w-full rounded-xl border border-gray-300 px-4 py-2.5 text-sm text-gray-900 bg-white"
-            >
-              <option value="term_only">Term only</option>
-              <option value="symbol_only">Symbol only</option>
-            </select>
-          </div>
-        </>
-      )}
-      <div>
-          {type !== "summary" && (
-          <>
-            <p className="mb-1.5 text-sm font-medium text-gray-700">Feedback</p>
-            <textarea
-              value={correctFeedback}
-              onChange={(e) => setCorrectFeedback(e.target.value)}
-              className="w-full rounded-xl border border-gray-300 px-4 py-3 text-sm text-gray-900 min-h-[120px] sm:min-h-[100px]"
-              placeholder="Brief feedback for correct answer"
-            />
-          </>
-        )}
-      </div>
-      <div className="flex flex-row gap-2 sm:justify-end">
-        <button type="button" onClick={onCancel} className="flex-1 sm:flex-none rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-slate-100 cursor-pointer">
-          Cancel
-        </button>
-        <button type="submit" disabled={saving} className="flex-1 sm:flex-none rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-red-700 transition-all duration-200 cursor-pointer">
-          {saving ? "Saving..." : "Save changes"}
-        </button>
-      </div>
-    </form>
-  );
-}
 
 export default function ProfessorLessonStudyAidPage() {
   const params = useParams();
@@ -554,8 +347,9 @@ export default function ProfessorLessonStudyAidPage() {
                     {editingStudyQuestion && lesson && (
                       <div className="mt-5 rounded-2xl border-2 border-gray-200 bg-white p-4 sm:p-5 shadow-sm">
                         <h4 className="mb-4 font-semibold text-gray-800">Edit question</h4>
-                        <EditStudyQuestionForm
+                        <StudyAidQuestionForm
                           key={editingStudyQuestion.id}
+                          mode="edit"
                           question={editingStudyQuestion}
                           onSave={async (updates) => {
                             setStudyAidSaving(true);
@@ -581,6 +375,18 @@ export default function ProfessorLessonStudyAidPage() {
                 )}
               </div>
             </section>
+
+            {lesson && (
+              <CreateManualStudyAidSection
+                lessonId={lesson.id}
+                onQuestionsChange={setStudyAidQuestions}
+                onSuccess={(msg) => {
+                  setSuccess(msg);
+                  setTimeout(() => setSuccess(""), 3000);
+                }}
+                onError={setError}
+              />
+            )}
 
             <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
               <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white">
@@ -841,7 +647,8 @@ export default function ProfessorLessonStudyAidPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
           <div className="w-full max-w-2xl rounded-2xl border border-gray-200 bg-white p-4 shadow-2xl sm:p-5">
             <h3 className="mb-4 text-lg font-bold text-gray-900">Edit Generated Draft</h3>
-            <EditStudyQuestionForm
+            <StudyAidQuestionForm
+              mode="edit"
               question={editingDraftQuestion}
               onSave={async (updates) => {
                 if (editingDraftIndex === null) return;

@@ -1,6 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildQuestionSignature } from "@/lib/questions/signature";
+import {
+  validateStudyAidQuestionInput,
+  type NormalizedStudyAidQuestion,
+  type StudyAidQuestionInput,
+} from "@/lib/study-aid/validate";
 
 export async function GET(
   request: NextRequest,
@@ -144,6 +149,39 @@ export async function POST(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const normalizedQuestions: NormalizedStudyAidQuestion[] = [];
+
+    for (let i = 0; i < questionsToAdd.length; i++) {
+      const result = validateStudyAidQuestionInput(
+        questionsToAdd[i] as StudyAidQuestionInput,
+        { isStudyAid: true }
+      );
+      if (!result.ok) {
+        return NextResponse.json({ error: result.error }, { status: 400 });
+      }
+      normalizedQuestions.push(result.normalized);
+    }
+
+    const addingSummary = normalizedQuestions.some((q) => q.type === "summary");
+    if (addingSummary) {
+      const { data: existingSummary } = await supabase
+        .from("lesson_study_questions")
+        .select("question_id, questions!inner(type)")
+        .eq("lesson_id", lessonId)
+        .eq("questions.type", "summary")
+        .limit(1);
+
+      if (existingSummary && existingSummary.length > 0) {
+        return NextResponse.json(
+          {
+            error:
+              "A summary already exists for this lesson. Remove it first before adding another.",
+          },
+          { status: 409 }
+        );
+      }
+    }
+
     const professorId = course.professor_id;
     const courseId = lesson.course_id;
     const createdIds: string[] = [];
@@ -151,26 +189,21 @@ export async function POST(
     let firstError: string | null = null;
     const batchSignatures = new Set<string>();
 
-    for (let i = 0; i < questionsToAdd.length; i++) {
-      const q = questionsToAdd[i];
+    for (let i = 0; i < normalizedQuestions.length; i++) {
+      const q = normalizedQuestions[i];
       const optionsJson =
         q.type === "multiple_choice" && Array.isArray(q.options)
           ? JSON.stringify(q.options)
           : null;
       const fillBlankMode =
-        q.type === "fill_blank"
-          ? (q.fill_blank_answer_mode ?? "term_only")
-          : null;
-      const correctAnswerJson =
-        q.correct_answer !== undefined && q.correct_answer !== null
-          ? JSON.stringify(q.correct_answer)
-          : null;
-      const questionText = String(q.question || "").trim() || "Question";
+        q.type === "fill_blank" ? (q.fill_blank_answer_mode ?? "term_only") : null;
+      const correctAnswerJson = JSON.stringify(q.correct_answer);
+      const questionText = q.question;
       const questionSignature = buildQuestionSignature({
         type: q.type,
         question: questionText,
         options: q.type === "multiple_choice" && Array.isArray(q.options) ? q.options : [],
-        correctAnswer: q.correct_answer ?? "",
+        correctAnswer: q.correct_answer,
       });
 
       if (batchSignatures.has(questionSignature)) {

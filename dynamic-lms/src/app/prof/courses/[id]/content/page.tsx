@@ -18,277 +18,14 @@ import {
   type StudyAidQuestion,
 } from "@/lib/supabase/queries/study-aid";
 import { buildQuestionSignature } from "@/lib/questions/signature";
+import { StudyAidQuestionForm } from "@/components/study-aid/StudyAidQuestionForm";
+import { CreateManualStudyAidSection } from "@/components/study-aid/CreateManualStudyAidSection";
 
 type LessonWithUI = Lesson & {
   pdfUrl?: string;
   pdfFileName?: string;
   createdAt?: string;
 };
-
-function EditStudyQuestionForm({
-  question,
-  onSave,
-  onCancel,
-  saving,
-}: {
-  question: StudyAidQuestion;
-  onSave: (updates: {
-    type?: "multiple_choice" | "true_false" | "fill_blank" | "summary";
-    question?: string;
-    options?: string[];
-    fill_blank_answer_mode?: "symbol_only" | "term_only" | null;
-    correct_answer?:
-      | number
-      | boolean
-      | string
-      | {
-          answer: number | boolean | string;
-          correct_explanation?: string;
-          incorrect_explanation?: string;
-        };
-  }) => Promise<void>;
-  onCancel: () => void;
-  saving: boolean;
-}) {
-  const normalizedCorrectAnswer =
-    question.correct_answer && typeof question.correct_answer === "object" && "answer" in question.correct_answer
-      ? question.correct_answer.answer
-      : question.correct_answer;
-  const [questionText, setQuestionText] = useState(question.question);
-  const [type, setType] = useState<"multiple_choice" | "true_false" | "fill_blank" | "summary">(question.type);
-  const [options, setOptions] = useState<string[]>(
-    question.type === "multiple_choice" && question.options?.length
-      ? question.options
-      : ["", "", "", ""]
-  );
-  const [correctAnswerMc, setCorrectAnswerMc] = useState(
-    question.type === "multiple_choice" ? Number(normalizedCorrectAnswer) : 0
-  );
-  const [correctAnswerFlashcard, setCorrectAnswerFlashcard] = useState(
-    question.type === "true_false" ? String(normalizedCorrectAnswer ?? "") : ""
-  );
-  const [correctAnswerFill, setCorrectAnswerFill] = useState(
-    question.type === "fill_blank" || question.type === "summary" ? String(normalizedCorrectAnswer ?? "") : ""
-  );
-  const [fillBlankAnswerMode, setFillBlankAnswerMode] = useState<"symbol_only" | "term_only">(
-    question.type === "fill_blank" ? (question.fill_blank_answer_mode ?? "term_only") : "term_only"
-  );
-  const [correctFeedback, setCorrectFeedback] = useState(
-    question.correct_answer &&
-      typeof question.correct_answer === "object" &&
-      "correct_explanation" in question.correct_answer
-      ? String(question.correct_answer.correct_explanation || "")
-      : ""
-  );
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const existingAnswerMeta =
-      question.correct_answer &&
-      typeof question.correct_answer === "object" &&
-      "answer" in question.correct_answer
-        ? question.correct_answer
-        : null;
-
-    const withExistingExplanation = (answer: number | boolean | string) => ({
-      answer,
-      correct_explanation: correctFeedback.trim(),
-      incorrect_explanation: existingAnswerMeta?.incorrect_explanation,
-    });
-
-    if (type === "multiple_choice") {
-      const opts = options.map((o) => o.trim() || "");
-      await onSave({
-        question: questionText.trim(),
-        type,
-        options: opts.some((o) => o) ? opts : ["Option A", "Option B", "Option C", "Option D"],
-        correct_answer: withExistingExplanation(correctAnswerMc),
-      });
-    } else if (type === "true_false") {
-      await onSave({
-        question: questionText.trim(),
-        type,
-        correct_answer: withExistingExplanation(correctAnswerFlashcard.trim() || "Review the lesson key idea for this card."),
-      });
-    } else if (type === "summary") {
-      await onSave({
-        question: questionText.trim(),
-        type,
-        fill_blank_answer_mode: null,
-        correct_answer: " ",
-      });
-    } else {
-      await onSave({
-        question: questionText.trim(),
-        type,
-        fill_blank_answer_mode: fillBlankAnswerMode,
-        correct_answer: withExistingExplanation(correctAnswerFill.trim() || " "),
-      });
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="space-y-4">
-      <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
-          <svg className="w-4 h-4 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-          {type === "true_false"
-            ? "Front of flashcard (term/concept)"
-            : type === "summary"
-              ? "Summary"
-              : "Question text"}
-        </label>
-        <textarea
-          value={questionText}
-          onChange={(e) => setQuestionText(e.target.value)}
-          className="w-full px-4 py-3 border border-gray-300 text-gray-900 rounded-xl text-sm min-h-[88px] focus:ring-2 focus:ring-red-500 focus:border-red-500 transition-shadow"
-          placeholder={
-            type === "true_false"
-              ? "Enter the front term or concept..."
-              : type === "summary"
-                ? "Enter the lesson summary..."
-                : "Enter the question..."
-          }
-          required
-        />
-      </div>
-      <div>
-        <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Question type</label>
-          <select
-            value={type}
-            onChange={(e) =>
-              setType(e.target.value as "multiple_choice" | "true_false" | "fill_blank" | "summary")
-            }
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
-          >
-            <option value="multiple_choice">Multiple choice</option>
-            <option value="true_false">Flashcard</option>
-            <option value="fill_blank">Fill in the blank</option>
-            <option value="summary">Summary</option>
-          </select>
-      </div>
-      {type === "multiple_choice" && (
-        <>
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Answer options</label>
-            <div className="space-y-2">
-              {[0, 1, 2, 3].map((i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <span className="flex-shrink-0 w-7 h-7 flex items-center justify-center rounded-lg bg-red-100 text-red-700 text-xs font-bold">
-                    {String.fromCharCode(65 + i)}
-                  </span>
-                  <input
-                    value={options[i] ?? ""}
-                    onChange={(e) =>
-                      setOptions((prev) => {
-                        const next = [...prev];
-                        next[i] = e.target.value;
-                        return next;
-                      })
-                    }
-                    className="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder-text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-                    placeholder={`Option ${String.fromCharCode(65 + i)}`}
-                  />
-                </div>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
-            <select
-              value={correctAnswerMc}
-              onChange={(e) => setCorrectAnswerMc(parseInt(e.target.value, 10))}
-              className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
-            >
-              {options.map((opt, i) => (
-                <option key={i} value={i}>
-                  {String.fromCharCode(65 + i)}. {opt || "(empty)"}
-                </option>
-              ))}
-            </select>
-          </div>
-        </>
-      )}
-      {type === "true_false" && (
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Back of flashcard (explanation)</label>
-          <textarea
-            value={correctAnswerFlashcard}
-            onChange={(e) => setCorrectAnswerFlashcard(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 min-h-[88px] focus:ring-2 focus:ring-red-500 focus:border-red-500"
-            placeholder="Enter the explanation/definition shown on the back..."
-          />
-        </div>
-      )}
-      {type === "fill_blank" && (
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">Correct answer</label>
-          <input
-            type="text"
-            value={correctAnswerFill}
-            onChange={(e) => setCorrectAnswerFill(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 placeholder:text-gray-600 focus:ring-2 focus:ring-red-500 focus:border-red-500"
-            placeholder="Answer that fills the blank"
-          />
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5 mt-3">
-            Answer mode tag
-          </label>
-          <select
-            value={fillBlankAnswerMode}
-            onChange={(e) =>
-              setFillBlankAnswerMode(e.target.value as "symbol_only" | "term_only")
-            }
-            className="w-full px-4 py-2.5 border border-gray-300 rounded-xl text-sm text-gray-900 focus:ring-2 focus:ring-red-500 focus:border-red-500 bg-white"
-          >
-            <option value="term_only">Term only</option>
-            <option value="symbol_only">Symbol only</option>
-          </select>
-        </div>
-      )}
-      {type !== "summary" && (
-        <div>
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-700 mb-1.5">
-            Brief feedback for correct answer
-          </label>
-          <textarea
-            value={correctFeedback}
-            onChange={(e) => setCorrectFeedback(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-xl text-sm text-gray-900 min-h-[84px] focus:ring-2 focus:ring-red-500 focus:border-red-500"
-            placeholder="Explain briefly why this is the correct answer..."
-          />
-        </div>
-      )}
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
-        <button
-          type="submit"
-          disabled={saving}
-          className="flex-1 inline-flex items-center justify-center gap-2 px-4 py-3 bg-gradient-to-r from-red-600 to-rose-600 text-white text-sm font-semibold rounded-xl hover:shadow-lg hover:from-red-700 hover:to-rose-700 disabled:opacity-50 transition-all"
-        >
-          {saving ? (
-            <>
-              <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
-              Saving…
-            </>
-          ) : (
-            "Save changes"
-          )}
-        </button>
-        <button
-          type="button"
-          onClick={onCancel}
-          className="w-full sm:w-auto px-4 py-3 bg-white border-2 border-gray-200 text-gray-700 text-sm font-semibold rounded-xl hover:bg-gray-50 hover:border-gray-300 transition-colors"
-        >
-          Cancel
-        </button>
-      </div>
-    </form>
-  );
-}
 
 export default function ContentPage() {
   const params = useParams();
@@ -1588,8 +1325,9 @@ const getValidatedStudyAidCount = (
                     {editingStudyQuestion && studyAidLesson && (
                       <div className="mt-5 rounded-2xl border-2 border-red-200 bg-white p-4 sm:p-5 shadow-sm">
                         <h4 className="font-semibold text-gray-800 mb-4">Edit question</h4>
-                        <EditStudyQuestionForm
+                        <StudyAidQuestionForm
                           key={editingStudyQuestion.id}
+                          mode="edit"
                           question={editingStudyQuestion}
                           onSave={async (updates) => {
                             setStudyAidSaving(true);
@@ -1617,6 +1355,18 @@ const getValidatedStudyAidCount = (
                     )}
                   </div>
                 </section>
+
+                {studyAidLesson && (
+                  <CreateManualStudyAidSection
+                    lessonId={studyAidLesson.id}
+                    onQuestionsChange={setStudyAidQuestions}
+                    onSuccess={(msg) => {
+                      setSuccess(msg);
+                      setTimeout(() => setSuccess(""), 2500);
+                    }}
+                    onError={setError}
+                  />
+                )}
 
                 <section className="rounded-2xl border border-gray-200 bg-gray-50/50 overflow-hidden">
                   <div className="px-4 sm:px-5 py-4 border-b border-gray-200 bg-white">
