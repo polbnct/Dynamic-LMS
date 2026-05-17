@@ -342,7 +342,7 @@ export function StudyAidQuestionForm({
         </>
       )}
 
-      {type !== "summary" && (
+      {type !== "summary" && type !== "true_false" && (
         <div>
           <p className="mb-1.5 text-sm font-medium text-gray-700">Feedback (optional)</p>
           <textarea
@@ -360,11 +360,11 @@ export function StudyAidQuestionForm({
         </p>
       )}
 
-      <div className="flex flex-col gap-2 sm:flex-row sm:justify-end">
+      <div className="flex flex-row gap-2 justify-end">
         <button
           type="button"
           onClick={onCancel}
-          className="flex-1 cursor-pointer rounded-xl border border-gray-300 px-4 py-2.5 text-sm font-semibold text-gray-700 hover:bg-slate-100 sm:flex-none"
+          className="flex-1 cursor-pointer rounded-xl border border-gray-300 px-5 py-1.5 text-sm font-semibold text-gray-700 hover:bg-slate-100 sm:flex-none"
         >
           {mode === "create" ? "Clear" : "Cancel"}
         </button>
