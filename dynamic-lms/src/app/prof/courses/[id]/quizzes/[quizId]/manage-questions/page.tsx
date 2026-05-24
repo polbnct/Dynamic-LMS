@@ -40,12 +40,6 @@ interface DraftQuestion {
   source_type?: "lesson" | "pdf" | null;
 }
 
-function getValidatedGenerateCount(count: number) {
-  const n = Number(count);
-  if (!Number.isFinite(n)) return 5;
-  return Math.min(10, Math.max(1, n));
-}
-
 export default function ManageQuizQuestionsPage() {
   const params = useParams();
   const courseId = params.id as string;
@@ -81,7 +75,6 @@ export default function ManageQuizQuestionsPage() {
 
   const [generateModalOpen, setGenerateModalOpen] = useState(false);
   const [generateQuestionType, setGenerateQuestionType] = useState<QuestionType>("multiple_choice");
-  const [generateQuestionCount, setGenerateQuestionCount] = useState(5);
   const [generatingQuestions, setGeneratingQuestions] = useState(false);
   const [generatingForSourceId, setGeneratingForSourceId] = useState<string | null>(null);
   const [generatedDraftQuestions, setGeneratedDraftQuestions] = useState<DraftQuestion[]>([]);
@@ -369,11 +362,7 @@ export default function ManageQuizQuestionsPage() {
       const response = await fetch("/api/gemini/generate-questions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          lessonId,
-          questionType: generateQuestionType,
-          count: getValidatedGenerateCount(generateQuestionCount),
-        }),
+        body: JSON.stringify({ lessonId, questionType: generateQuestionType, count: 5 }),
       });
       if (!response.ok) throw new Error("Failed to generate questions");
       const { questions } = await response.json();
@@ -869,43 +858,12 @@ export default function ManageQuizQuestionsPage() {
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
           <div className="w-full max-w-2xl rounded-xl bg-white p-4">
             <h3 className="text-lg font-semibold text-gray-900">Generate Questions</h3>
-            <label className="mt-3 block text-xs font-medium text-gray-500">Question type</label>
-            <select
-              value={generateQuestionType}
-              onChange={(e) => setGenerateQuestionType(e.target.value as QuestionType)}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
-            >
+            <select value={generateQuestionType} onChange={(e) => setGenerateQuestionType(e.target.value as QuestionType)} className="mt-3 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900">
               <option value="multiple_choice">Multiple Choice</option>
               <option value="true_false">True or False</option>
               <option value="fill_blank">Fill in the Blank</option>
             </select>
-            <label className="mt-3 block text-xs font-medium text-gray-500">Number of questions</label>
-            <input
-              type="number"
-              min={1}
-              max={10}
-              value={generateQuestionCount === 0 ? "" : generateQuestionCount}
-              onChange={(e) => {
-                const value = e.target.value;
-                if (value === "") {
-                  setGenerateQuestionCount(0);
-                  return;
-                }
-                const raw = Number(value);
-                if (Number.isFinite(raw) && raw > 0) {
-                  setGenerateQuestionCount(Math.min(10, raw));
-                }
-              }}
-              onBlur={() => {
-                if (generateQuestionCount === 0 || generateQuestionCount < 1) {
-                  setGenerateQuestionCount(1);
-                }
-              }}
-              className="mt-1 w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900"
-            />
-            <p className="mt-1 text-xs text-gray-500">Maximum 10 questions per generation.</p>
-            <p className="mt-3 text-xs font-medium text-gray-500">Select a lesson</p>
-            <ul className="mt-1 max-h-64 space-y-2 overflow-y-auto">
+            <ul className="mt-3 max-h-64 space-y-2 overflow-y-auto">
               {[...lessons]
                 .sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true, sensitivity: "base" }))
                 .map((lesson) => {

@@ -6,7 +6,9 @@ import { useToast } from "@/components/feedback/ToastProvider";
 import { getCourseById } from "@/lib/supabase/queries/courses.client";
 import {
   getLessonStudyQuestions,
+  getStudyAidAttemptsForCourse,
   submitStudyAidAttempt,
+  type StudyAidAttempt,
   type StudyAidQuestion,
 } from "@/lib/supabase/queries/study-aid";
 import { evaluateFillBlankAnswerByMode } from "@/lib/study-aid-symbols";
@@ -54,6 +56,45 @@ interface CourseStudyAidSettings {
   name?: string;
   code?: string;
   shuffle_study_aid_questions?: boolean | null;
+  unlock_threshold_percent?: number | null;
+}
+
+function computeLessonCombinedPct(
+  attempts: Pick<StudyAidAttempt, "lesson_id" | "question_type" | "score" | "max_score">[],
+  targetLessonId: string,
+  newSubmissions: Array<{
+    questionType: "multiple_choice" | "fill_blank";
+    score: number;
+    maxScore: number;
+  }>
+): number {
+  const bestByType: Record<string, { score: number; max: number; pct: number }> = {};
+
+  for (const attempt of attempts) {
+    if (attempt.lesson_id !== targetLessonId) continue;
+    const type = attempt.question_type;
+    if (type !== "multiple_choice" && type !== "fill_blank") continue;
+    const pct = attempt.max_score > 0 ? (attempt.score / attempt.max_score) * 100 : 0;
+    const existing = bestByType[type];
+    if (!existing || pct > existing.pct) {
+      bestByType[type] = { score: attempt.score, max: attempt.max_score, pct };
+    }
+  }
+
+  for (const submission of newSubmissions) {
+    const type = submission.questionType;
+    const pct = submission.maxScore > 0 ? (submission.score / submission.maxScore) * 100 : 0;
+    const existing = bestByType[type];
+    if (!existing || pct > existing.pct) {
+      bestByType[type] = { score: submission.score, max: submission.maxScore, pct };
+    }
+  }
+
+  const mc = bestByType.multiple_choice;
+  const fib = bestByType.fill_blank;
+  const totalQuestions = (mc?.max || 0) + (fib?.max || 0);
+  const overallCorrectAnswers = (mc?.score || 0) + (fib?.score || 0);
+  return totalQuestions > 0 ? (overallCorrectAnswers / totalQuestions) * 100 : 0;
 }
 
 export default function StudentLessonQuestionsPage() {
@@ -64,6 +105,7 @@ export default function StudentLessonQuestionsPage() {
   const { error: toastError, success: toastSuccess } = useToast();
 
   const [course, setCourse] = useState<CourseStudyAidSettings | null>(null);
+  const [studyAidAttempts, setStudyAidAttempts] = useState<StudyAidAttempt[]>([]);
   const [studyAidQuestions, setStudyAidQuestions] = useState<StudyAidQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [studyAidAnswers, setStudyAidAnswers] = useState<Record<string, number | string>>({});
@@ -89,12 +131,14 @@ export default function StudentLessonQuestionsPage() {
     async function loadPageData() {
       setLoading(true);
       try {
-        const [courseData, questions] = await Promise.all([
+        const [courseData, questions, attempts] = await Promise.all([
           getCourseById(courseId),
           getLessonStudyQuestions(lessonId),
+          getStudyAidAttemptsForCourse(courseId),
         ]);
         setCourse(courseData);
         setStudyAidQuestions(questions);
+        setStudyAidAttempts(attempts);
       } catch (err) {
         console.error("Failed to load lesson questions:", err);
         toastError(err instanceof Error ? err.message : "Failed to load lesson questions.");
@@ -267,11 +311,23 @@ export default function StudentLessonQuestionsPage() {
         )
       );
 
+      const passingPercent = Math.min(
+        100,
+        Math.max(1, Math.round(Number(course?.unlock_threshold_percent ?? 70)))
+      );
+      const combinedPct = computeLessonCombinedPct(studyAidAttempts, lessonId, submissions);
+      const masteryMet = combinedPct >= passingPercent;
+
       setStudyAidScoreSubmitted(true);
       setShowGoBack(true);
       clearModuleAssessmentLock(lockTabIdRef.current);
       hasOwnershipRef.current = false;
-      toastSuccess("Score saved. You can take again to improve.");
+
+      if (masteryMet) {
+        toastSuccess("Mastery Achieved! You can now access the next lesson.");
+      } else {
+        toastError("Master not met. Please review again the current lesson and try again.");
+      }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Failed to save attempt";
       setStudyAidSubmitError(message);
